@@ -1,0 +1,237 @@
+<div class="profile-page">
+
+    <div class="addresses-header">
+
+        <div class="header-content">
+
+            <h1>My Addresses</h1>
+
+            <p>Manage your saved delivery addresses</p>
+
+        </div>
+
+        <a href="/addresses/add" class="add-address-btn">
+
+            <i class="bi bi-plus-lg"></i>
+
+            Add New Address
+
+        </a>
+
+    </div>
+
+    <% if (errorMessage) { %>
+
+        <div class="auth-error">
+
+            <%= errorMessage %>
+
+        </div>
+
+    <% } %>
+
+    <% if (successMessage) { %>
+
+        <div class="auth-success">
+
+            <%= successMessage %>
+
+        </div>
+
+    <% } %>
+
+    <% if(addresses.length){ %>
+
+        <div class="address-grid">
+
+            <% addresses.forEach(address=>{ %>
+
+                <div class="address-card">
+
+                    <div class="address-top">
+
+                        <% if(address.addressType==="HOME"){ %>
+
+                            <span class="address-type home">
+
+                                <i class="bi bi-house-door-fill"></i>
+
+                                Home
+
+                            </span>
+
+                        <% } %>
+
+                        <% if(address.addressType==="OFFICE"){ %>
+
+                            <span class="address-type office">
+
+                                <i class="bi bi-building"></i>
+
+                                Office
+
+                            </span>
+
+                        <% } %>
+
+                        <% if(address.addressType==="OTHER"){ %>
+
+                            <span class="address-type other">
+
+                                <i class="bi bi-geo-alt-fill"></i>
+
+                                Other
+
+                            </span>
+
+                        <% } %>
+
+                        <% if(address.isDefault){ %>
+
+                            <span class="default-badge">
+
+                                <i class="bi bi-star-fill"></i>
+
+                                Default
+
+                            </span>
+
+                        <% } %>
+
+                    </div>
+
+                    <div class="address-body">
+
+                        <h3>
+
+                            <%= address.fullName %>
+
+                        </h3>
+
+                        <span class="phone">
+
+                            +91 <%= address.phone %>
+
+                        </span>
+
+                        <div class="address-location">
+
+                            <p><%= address.addressLine1 %></p>
+
+                            <% if(address.addressLine2){ %>
+
+                                <p><%= address.addressLine2 %></p>
+
+                            <% } %>
+
+                            <% if(address.landmark){ %>
+
+                                <p><%= address.landmark %></p>
+
+                            <% } %>
+
+                            <p>
+
+                                <%= address.city %>, <%= address.state %>
+
+                            </p>
+
+                            <p>
+
+                                <%= address.pinCode %>
+
+                            </p>
+
+                            <p>
+
+                                <%= address.country %>
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <div class="address-footer">
+
+                        <a
+
+                            href="/addresses/<%= address._id %>/edit"
+
+                            class="edit-btn"
+
+                        >
+
+                            <i class="bi bi-pencil-square"></i>
+
+                            Edit
+
+                        </a>
+
+                        <form
+
+                            action="/addresses/<%= address._id %>/delete?_method=DELETE"
+
+                            method="POST"
+
+                            class="delete-form"
+
+                        >
+
+                            <button
+
+                                type="submit"
+
+                                class="delete-btn"
+
+                            >
+
+                                <i class="bi bi-trash3"></i>
+
+                                Delete
+
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            <% }) %>
+
+        </div>
+
+    <% } else { %>
+
+        <div class="empty-address">
+
+            <i class="bi bi-geo-alt"></i>
+
+            <h3>No Saved Addresses</h3>
+
+            <p>
+
+                You haven't added any delivery address yet.
+
+            </p>
+
+            <a
+
+                href="/addresses/add"
+
+                class="add-address-btn"
+
+            >
+
+                Add Your First Address
+
+            </a>
+
+        </div>
+
+    <% } %>
+
+</div>
+
+<script src="/js/address.js"></script>

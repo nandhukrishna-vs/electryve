@@ -1,0 +1,54 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>ELECTRYVE</h1>
+    <h2>OTP Verification</h2>
+    <p>Enter the OTP sent to your email</p>
+
+    <div
+      class="auth-error"
+      style="<%= errorMessage ? '' : 'display:none;' %>"
+    >
+      <%= errorMessage || '' %>
+    </div>
+
+    <div
+      class="auth-success"
+      style="<%= successMessage ? '' : 'display:none;' %>"
+    >
+      <%= successMessage || '' %>
+    </div>
+
+    <form id="otpForm">
+      <div class="input-group">
+        <input
+          type="text"
+          name="otp"
+          placeholder="Enter OTP"
+          maxlength="6"
+          required
+        >
+      </div>
+
+      <button type="submit" class="auth-btn">
+        VERIFY OTP
+      </button>
+    </form>
+
+    <p class="otp-timer">
+      Resend OTP in
+      <span id="timer">60</span>s
+    </p>
+
+    <form id="resendOtpForm">
+      <button
+        id="resendBtn"
+        class="google-btn"
+        disabled
+      >
+        Resend OTP
+      </button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/otp.js"></script>

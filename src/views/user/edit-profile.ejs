@@ -1,0 +1,191 @@
+<div class="profile-page">
+
+  <div class="profile-header">
+    <h1>Edit Profile</h1>
+    <p>Update your personal information</p>
+  </div>
+
+  <% if (errorMessage) { %>
+    <div class="auth-error">
+      <%= errorMessage %>
+    </div>
+  <% } %>
+
+  <% if (successMessage) { %>
+    <div class="auth-success">
+      <%= successMessage %>
+    </div>
+  <% } %>
+
+  <div class="profile-grid">
+
+    <!-- Left Side -->
+    <div class="profile-sidebar">
+
+      <div class="profile-avatar-card">
+
+        <form
+          action="/profile/avatar"
+          method="POST"
+          enctype="multipart/form-data"
+          id="avatarForm"
+        >
+
+          <label
+            for="avatarInput"
+            class="avatar-label"
+          >
+
+            <% if(profileUser.avatar){ %>
+
+              <img
+                src="<%= profileUser.avatar %>"
+                alt="Profile"
+                class="avatar-image"
+              >
+
+            <% } else { %>
+
+              <div class="avatar-placeholder">
+                <i class="bi bi-person-circle"></i>
+              </div>
+
+            <% } %>
+
+            <div class="avatar-overlay">
+              <i class="bi bi-camera-fill"></i>
+              Change Photo
+            </div>
+
+          </label>
+
+          <input
+            id="avatarInput"
+            type="file"
+            name="avatar"
+            accept="image/*"
+            hidden
+          >
+
+        </form>
+
+        <h2><%= profileUser.fullName %></h2>
+
+        <p><%= profileUser.email %></p>
+
+      </div>
+
+      <div class="profile-section account-card">
+
+        <div class="section-title">
+          <i class="bi bi-person-badge"></i>
+          <h3>Account Information</h3>
+        </div>
+
+        <div class="info-card">
+          <span>Referral Code</span>
+          <h4><%= profileUser.referralCode %></h4>
+        </div>
+
+        <div class="info-card">
+          <span>Member Since</span>
+          <h4>
+            <%= new Date(profileUser.createdAt).toLocaleDateString("en-IN",{
+              day:"2-digit",
+              month:"long",
+              year:"numeric"
+            }) %>
+          </h4>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Right Side -->
+
+    <div class="profile-content">
+
+      <div class="profile-section">
+
+        <div class="section-title">
+          <i class="bi bi-pencil-square"></i>
+          <h3>Personal Information</h3>
+        </div>
+
+        <form
+  id="profileForm"
+  action="/profile/edit"
+  method="POST"
+>
+
+          <div class="input-group">
+            <label>
+              <i class="bi bi-person"></i>
+              Full Name
+            </label>
+
+            <input
+              type="text"
+              name="fullName"
+              value="<%= profileUser.fullName %>"
+              required
+            >
+          </div>
+
+          <div class="input-group">
+            <label>
+              <i class="bi bi-envelope"></i>
+              Email Address
+            </label>
+
+            <input
+              type="email"
+              value="<%= profileUser.email %>"
+              readonly
+              class="readonly-input"
+            >
+          </div>
+
+          <div class="input-group">
+            <label>
+              <i class="bi bi-telephone"></i>
+              Phone Number
+            </label>
+
+            <input
+              type="text"
+              name="phone"
+              value="<%= profileUser.phone || '' %>"
+            >
+          </div>
+
+          <div class="edit-actions">
+
+            <a
+              href="/profile"
+              class="cancel-btn"
+            >
+              Cancel
+            </a>
+
+            <button
+              type="submit"
+              class="auth-btn"
+            >
+              Save Changes
+            </button>
+
+          </div>
+
+        </form>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script src="/js/account.js"></script>

@@ -1,0 +1,47 @@
+<div class="admin-login-page">
+  <div class="admin-login-card">
+    <h2>ADMIN LOGIN</h2>
+    <p>Enter admin credentials to continue</p>
+
+    <% if (errorMessage) { %>
+      <div class="error-box">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <form action="/admin/login" method="POST">
+      <div class="form-group">
+        <input
+          type="email"
+          name="email"
+          placeholder="E-mail"
+          required
+        >
+      </div>
+
+      <div class="form-group password-group">
+        <input
+          type="password"
+          id="adminPassword"
+          name="password"
+          placeholder="Password"
+          required
+        >
+
+        <button
+          type="button"
+          class="toggle-password"
+          data-target="adminPassword"
+        >
+          <i class="bi bi-eye"></i>
+        </button>
+      </div>
+
+      <button type="submit" class="login-btn">
+        LOGIN
+      </button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/passwordToggle.js"></script>

@@ -1,0 +1,288 @@
+<div class="profile-page">
+
+  <div class="profile-header">
+    <h1>Edit Address</h1>
+    <p>Update your saved delivery address</p>
+  </div>
+
+  <% if (errorMessage) { %>
+    <div class="auth-error">
+      <%= errorMessage %>
+    </div>
+  <% } %>
+
+  <div class="profile-grid">
+
+    <!-- LEFT SIDE -->
+
+    <div class="profile-sidebar">
+
+      <div class="profile-avatar-card">
+
+        <div class="address-icon">
+          <i class="bi bi-pencil-square"></i>
+        </div>
+
+        <h2>Edit Address</h2>
+
+        <p>
+          Keep your delivery information up to date
+          for faster and accurate deliveries.
+        </p>
+
+      </div>
+
+    </div>
+
+    <!-- RIGHT SIDE -->
+
+    <div class="profile-content">
+
+      <div class="profile-section">
+
+        <div class="section-title">
+          <i class="bi bi-house-door"></i>
+          <h3>Address Details</h3>
+        </div>
+
+        <form
+          action="/addresses/<%= address._id %>/edit?_method=PATCH"
+          method="POST"
+        >
+
+          <div class="form-grid">
+
+            <div class="input-group">
+              <label>
+                <i class="bi bi-person"></i>
+                Full Name
+              </label>
+
+              <input
+                type="text"
+                name="fullName"
+                value="<%= address.fullName %>"
+                required
+              >
+            </div>
+
+            <div class="input-group">
+              <label>
+                <i class="bi bi-telephone"></i>
+                Phone
+              </label>
+
+              <input
+                type="text"
+                name="phone"
+                value="<%= address.phone %>"
+                required
+              >
+            </div>
+
+          </div>
+
+          <div class="input-group">
+            <label>
+              <i class="bi bi-geo"></i>
+              Address Line 1
+            </label>
+
+            <input
+              type="text"
+              name="addressLine1"
+              value="<%= address.addressLine1 %>"
+              required
+            >
+          </div>
+
+          <div class="input-group">
+            <label>
+              <i class="bi bi-geo"></i>
+              Address Line 2
+            </label>
+
+            <input
+              type="text"
+              name="addressLine2"
+              value="<%= address.addressLine2 %>"
+            >
+          </div>
+
+          <div class="input-group">
+            <label>
+              <i class="bi bi-signpost"></i>
+              Landmark
+            </label>
+
+            <input
+              type="text"
+              name="landmark"
+              value="<%= address.landmark %>"
+            >
+          </div>
+
+          <div class="form-grid">
+
+            <div class="input-group">
+              <label>
+                <i class="bi bi-buildings"></i>
+                City
+              </label>
+
+              <input
+                type="text"
+                name="city"
+                value="<%= address.city %>"
+                required
+              >
+            </div>
+
+            <div class="input-group">
+              <label>
+                <i class="bi bi-map"></i>
+                State
+              </label>
+
+              <input
+                type="text"
+                name="state"
+                value="<%= address.state %>"
+                required
+              >
+            </div>
+
+          </div>
+
+          <div class="form-grid">
+
+            <div class="input-group">
+              <label>
+                <i class="bi bi-mailbox"></i>
+                PIN Code
+              </label>
+
+              <input
+                type="number"
+                name="pinCode"
+                value="<%= address.pinCode %>"
+                required
+              >
+            </div>
+
+            <div class="input-group">
+              <label>
+                <i class="bi bi-globe"></i>
+                Country
+              </label>
+
+              <input
+                type="text"
+                name="country"
+                value="<%= address.country %>"
+              >
+            </div>
+
+          </div>
+
+          <!-- Address Type -->
+
+          <div class="input-group">
+
+            <label>Address Type</label>
+
+            <div class="address-type-grid">
+
+              <label class="address-type-card <%= address.addressType === 'HOME' ? 'active' : '' %>">
+
+                <input
+                  type="radio"
+                  name="addressType"
+                  value="HOME"
+                  <%= address.addressType === 'HOME' ? 'checked' : '' %>
+                >
+
+                <i class="bi bi-house-door-fill"></i>
+
+                <span>Home</span>
+
+              </label>
+
+              <label class="address-type-card <%= address.addressType === 'OFFICE' ? 'active' : '' %>">
+
+                <input
+                  type="radio"
+                  name="addressType"
+                  value="OFFICE"
+                  <%= address.addressType === 'OFFICE' ? 'checked' : '' %>
+                >
+
+                <i class="bi bi-building"></i>
+
+                <span>Office</span>
+
+              </label>
+
+              <label class="address-type-card <%= address.addressType === 'OTHER' ? 'active' : '' %>">
+
+                <input
+                  type="radio"
+                  name="addressType"
+                  value="OTHER"
+                  <%= address.addressType === 'OTHER' ? 'checked' : '' %>
+                >
+
+                <i class="bi bi-geo-alt-fill"></i>
+
+                <span>Other</span>
+
+              </label>
+
+            </div>
+
+          </div>
+
+          <div class="checkbox-group">
+
+            <input
+              type="checkbox"
+              name="isDefault"
+              id="isDefault"
+              <%= address.isDefault ? "checked" : "" %>
+            >
+
+            <label for="isDefault">
+              Make this my default address
+            </label>
+
+          </div>
+
+          <div class="edit-actions">
+
+            <a
+              href="/addresses"
+              class="cancel-btn"
+            >
+              Cancel
+            </a>
+
+            <button
+              type="submit"
+              class="auth-btn"
+            >
+              Update Address
+            </button>
+
+          </div>
+
+        </form>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script src="/js/address.js"></script>

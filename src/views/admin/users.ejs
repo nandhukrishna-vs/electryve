@@ -1,0 +1,91 @@
+<div class="users-header">
+  <h2>User Management</h2>
+</div>
+
+<form class="search-form" method="GET" action="/admin/users">
+  <input
+    type="text"
+    name="search"
+    placeholder="Search users..."
+    value="<%= search || '' %>"
+  >
+
+  <button type="submit">Search</button>
+
+  <% if (search) { %>
+    <a href="/admin/users" class="clear-btn">Clear</a>
+  <% } %>
+</form>
+
+<div class="users-table-wrapper">
+  <table class="users-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Status</th>
+        <th>Joined</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <% if (users.length > 0) { %>
+        <% users.forEach(user => { %>
+          <tr>
+            <td><%= user.fullName %></td>
+            <td><%= user.email %></td>
+            <td><%= user.phone || "-" %></td>
+
+            <td>
+              <span
+    class="user-status <%= user.status === 'ACTIVE'
+        ? 'status-active'
+        : 'status-blocked' %>">
+                <%= user.status %>
+              </span>
+            </td>
+
+            <td>
+              <%= new Date(user.createdAt).toLocaleDateString() %>
+            </td>
+
+            <td>
+              <form
+                action="/admin/users/<%= user._id %>/toggle?_method=PATCH"
+                method="POST"
+                class="toggle-user-form"
+              >
+                <button
+    type="submit"
+    class="toggle-btn <%= user.status === 'ACTIVE'
+        ? 'block-btn'
+        : 'unblock-btn' %>">
+                  <%= user.status === "ACTIVE" ? "Block" : "Unblock" %>
+                </button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      <% } else { %>
+        <tr>
+          <td colspan="6" class="no-users">
+            No users found
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination">
+  <% for(let i = 1; i <= totalPages; i++) { %>
+    <a
+      href="/admin/users?page=<%= i %><%= search ? '&search=' + search : '' %>"
+      class="<%= currentPage === i ? 'active-page' : '' %>"
+    >
+      <%= i %>
+    </a>
+  <% } %>
+</div>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>Electryve Admin</title>
+
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+  >
+
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <div class="admin-wrapper">
+    <header class="admin-header">
+      <h1 class="logo">ELECTRYVE</h1>
+
+      <% if (user && user.role === "ADMIN") { %>
+        <a href="/admin/logout" class="logout-btn">
+          LOGOUT
+        </a>
+      <% } %>
+    </header>
+
+    <div class="admin-container">
+      <% if (user && user.role === "ADMIN") { %>
+        <aside class="sidebar">
+          <nav>
+            <ul>
+              <li>
+                <a href="/admin/dashboard">
+                  <i class="bi bi-grid"></i>
+                  Dashboard
+                </a>
+              </li>
+
+              <li>
+                <a href="/admin/users">
+                  <i class="bi bi-people"></i>
+                  Users
+                </a>
+              </li>
+
+              <li>
+                <a href="#">
+                  <i class="bi bi-box"></i>
+                  Products
+                </a>
+              </li>
+
+              <li>
+                <a href="#">
+                  <i class="bi bi-cart"></i>
+                  Orders
+                </a>
+              </li>
+
+              <li>
+                <a href="#">
+                  <i class="bi bi-tag"></i>
+                  Offers
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </aside>
+      <% } %>
+
+      <main class="admin-content">
+        <%- body %>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

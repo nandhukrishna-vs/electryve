@@ -1,0 +1,193 @@
+<div class="profile-page">
+
+  <div class="profile-header">
+    <h1>My Account</h1>
+    <p>Manage your personal information and account settings</p>
+  </div>
+
+  <% if (errorMessage) { %>
+    <div class="auth-error">
+      <%= errorMessage %>
+    </div>
+  <% } %>
+
+  <% if (successMessage) { %>
+    <div class="auth-success">
+      <%= successMessage %>
+    </div>
+  <% } %>
+
+  <div class="profile-grid">
+
+    <!-- Left Card -->
+    <div class="profile-sidebar">
+
+      <div class="profile-avatar-card">
+
+        <form
+          action="/profile/avatar"
+          method="POST"
+          enctype="multipart/form-data"
+          id="avatarForm"
+        >
+
+          <label
+            for="avatarInput"
+            class="avatar-label"
+          >
+
+            <% if(profileUser.avatar){ %>
+
+              <img
+                src="<%= profileUser.avatar %>"
+                alt="Profile"
+                class="avatar-image"
+              >
+
+            <% }else{ %>
+
+              <div class="avatar-placeholder">
+                <i class="bi bi-person-circle"></i>
+              </div>
+
+            <% } %>
+
+            <div class="avatar-overlay">
+              <i class="bi bi-camera-fill"></i>
+              Change Photo
+            </div>
+
+          </label>
+
+          <input
+            id="avatarInput"
+            type="file"
+            name="avatar"
+            accept="image/*"
+            hidden
+          >
+
+        </form>
+
+        <h2><%= profileUser.fullName %></h2>
+
+        <p><%= profileUser.email %></p>
+
+      </div>
+
+    </div>
+
+    <!-- Right Side -->
+
+    <div class="profile-content">
+
+      <!-- Personal Information -->
+
+      <div class="profile-section">
+
+        <div class="section-title">
+          <i class="bi bi-person-vcard"></i>
+          <h3>Personal Information</h3>
+        </div>
+
+        <div class="info-grid">
+
+          <div class="info-card">
+            <span>Full Name</span>
+            <h4><%= profileUser.fullName %></h4>
+          </div>
+
+          <div class="info-card">
+            <span>Email Address</span>
+            <h4><%= profileUser.email %></h4>
+          </div>
+
+          <div class="info-card">
+            <span>Phone Number</span>
+            <h4><%= profileUser.phone || "Not Added" %></h4>
+          </div>
+
+          <div class="info-card">
+            <span>Referral Code</span>
+            <h4><%= profileUser.referralCode %></h4>
+          </div>
+
+          <div class="info-card">
+            <span>Member Since</span>
+            <h4>
+              <%= new Date(profileUser.createdAt).toLocaleDateString() %>
+            </h4>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Quick Actions -->
+
+      <div class="profile-section">
+
+        <div class="section-title">
+          <i class="bi bi-lightning-charge"></i>
+          <h3>Quick Actions</h3>
+        </div>
+
+        <div class="action-grid">
+
+          <a
+            href="/profile/edit"
+            class="action-card"
+          >
+            <i class="bi bi-pencil-square"></i>
+
+            <div>
+              <h4>Edit Profile</h4>
+              <p>Update your personal information</p>
+            </div>
+          </a>
+
+          <a
+            href="/addresses"
+            class="action-card"
+          >
+            <i class="bi bi-geo-alt"></i>
+
+            <div>
+              <h4>Manage Addresses</h4>
+              <p>View and edit saved addresses</p>
+            </div>
+          </a>
+
+          <div class="action-card disabled">
+
+            <i class="bi bi-bag"></i>
+
+            <div>
+              <h4>My Orders</h4>
+              <p>Coming Soon</p>
+            </div>
+
+          </div>
+
+          <div class="action-card disabled">
+
+            <i class="bi bi-heart"></i>
+
+            <div>
+              <h4>Wishlist</h4>
+              <p>Coming Soon</p>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script src="/js/account.js"></script>
