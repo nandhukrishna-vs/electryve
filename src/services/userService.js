@@ -5,6 +5,10 @@ import {
   errorResponse
 } from "./helpers/responseHelper.js";
 
+import {
+  uploadImage,
+  deleteImage
+} from "./imageService.js";
 
 
 const updateProfile = async ({
@@ -200,10 +204,7 @@ const deleteAddress = async ({
 
 };
 
-const updateAvatar = async ({
-  file,
-  session
-}) => {
+const updateAvatar = async ({ file, session }) => {
 
   if (!file) {
     return errorResponse(
@@ -221,7 +222,16 @@ const updateAvatar = async ({
     );
   }
 
-  user.avatar = `/uploads/avatars/${file.filename}`;
+  // Delete previous avatar (if any)
+  if (user.avatar) {
+    await deleteImage(user.avatar);
+  }
+
+  // Upload new avatar to S3
+  const imageUrl = await uploadImage(file, "avatars");
+
+  // Save URL in MongoDB
+  user.avatar = imageUrl;
 
   await user.save();
 
@@ -235,7 +245,7 @@ const updateAvatar = async ({
 
     avatar: user.avatar
 
-};
+  };
 
 };
 

@@ -16,6 +16,7 @@ import userRoutes from "./src/routes/userRoutes.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 
 import globalMiddleware from "./src/middlewares/globalMiddleware.js";
+import uploadErrorHandler from "./src/middlewares/uploadErrorHandler.js";
 
 import {
   routeNotFound,
@@ -70,6 +71,7 @@ app.use(globalMiddleware);
 app.use("/auth", authRoutes);
 app.use("/", userRoutes);
 app.use("/admin", adminRoutes);
+app.use(uploadErrorHandler);
 // Error Handling
 app.use(routeNotFound);
 app.use(globalErrorHandler);
