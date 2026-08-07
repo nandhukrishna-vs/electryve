@@ -1,0 +1,446 @@
+<div class="container-fluid py-4">
+
+    <!-- Page Header & Title Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-1">
+                Products
+            </h2>
+            <p class="text-muted small mb-0">
+                Manage all products available in your store.
+            </p>
+        </div>
+        <a href="/admin/products/add" class="btn btn-dark d-flex align-items-center gap-2 shadow-sm rounded-3 px-3 py-2 fw-medium">
+            <i class="bi bi-plus-circle"></i>
+            Add Product
+        </a>
+    </div>
+
+    <!-- Extract Categories & Brands dynamically for filtering -->
+    <% 
+    const uniqueCategories = [];
+    const uniqueBrands = [];
+    products.forEach(p => {
+        if (p.category?.name && !uniqueCategories.includes(p.category.name)) {
+            uniqueCategories.push(p.category.name);
+        }
+        if (p.brand?.name && !uniqueBrands.includes(p.brand.name)) {
+            uniqueBrands.push(p.brand.name);
+        }
+    });
+    %>
+
+    <!-- Search & Filters Toolbar Card -->
+    <div class="card shadow-sm border-0 mb-4 rounded-3">
+        <div class="card-body py-3">
+            <form method="GET" action="/admin/products" id="searchForm" class="row g-2 align-items-center">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 text-muted py-2">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input
+                            type="text"
+                            class="form-control border-start-0 ps-0 py-2"
+                            name="search"
+                            id="searchInput"
+                            placeholder="Search products..."
+                            value="<%= search %>"
+                        >
+                    </div>
+                </div>
+                
+                <div class="col-6 col-md-2">
+                    <select id="categoryFilter" class="form-select py-2 rounded-3 border-light-subtle shadow-sm text-secondary">
+                        <option value="">Category (All)</option>
+                        <% uniqueCategories.forEach(cat => { %>
+                            <option value="<%= cat %>"><%= cat %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <select id="brandFilter" class="form-select py-2 rounded-3 border-light-subtle shadow-sm text-secondary">
+                        <option value="">Brand (All)</option>
+                        <% uniqueBrands.forEach(br => { %>
+                            <option value="<%= br %>"><%= br %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <select id="statusFilter" class="form-select py-2 rounded-3 border-light-subtle shadow-sm text-secondary">
+                        <option value="">Status (All)</option>
+                        <option value="listed">Listed</option>
+                        <option value="unlisted">Unlisted</option>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-dark w-100 py-2 rounded-3 fw-medium">
+                        Search
+                    </button>
+                    <button type="button" id="resetFiltersBtn" class="btn btn-light border w-100 py-2 rounded-3 fw-medium text-secondary">
+                        Reset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Product Inventory Table -->
+    <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light border-bottom text-uppercase fs-7 text-muted fw-semibold">
+                        <tr>
+                            <th class="ps-4 py-3" width="70">#</th>
+                            <th class="py-3" width="90">Image</th>
+                            <th class="py-3">Product Details</th>
+                            <th class="py-3" width="150">Price</th>
+                            <th class="py-3" width="150">Stock</th>
+                            <th class="py-3" width="130">Status</th>
+                            <th class="pe-4 py-3 text-end" width="160">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-top-0">
+                    <% if(products.length){ %>
+                        <% products.forEach((product, index)=>{ %>
+                        <tr class="product-row" 
+                            data-category="<%= product.category?.name || '' %>" 
+                            data-brand="<%= product.brand?.name || '' %>" 
+                            data-status="<%= product.isListed ? 'listed' : 'unlisted' %>"
+                            style="transition: background-color 0.2s ease-in-out;">
+                            
+                            <td class="ps-4 text-secondary small">
+                                <%= ((currentPage-1)*10)+index+1 %>
+                            </td>
+                            
+                            <td>
+                                <% if (
+                                    product.variants &&
+                                    product.variants.length > 0 &&
+                                    product.variants[0].images &&
+                                    product.variants[0].images.length > 0
+                                ){ %>
+                                    <img
+                                        src="<%= product.variants[0].images[0] %>"
+                                        class="rounded-3 border object-fit-cover shadow-xs"
+                                        style="width: 60px; height: 60px;"
+                                        alt="<%= product.name %>">
+                                <% } else { %>
+                                    <div class="rounded-3 border bg-light d-flex align-items-center justify-content-center text-muted" 
+                                         style="width: 60px; height: 60px;">
+                                        <i class="bi bi-image fs-4"></i>
+                                    </div>
+                                <% } %>
+                            </td>
+                            
+                            <td>
+                                <div class="fw-bold text-dark fs-6 mb-0.5 product-name"><%= product.name %></div>
+                                <div class="text-muted small d-flex flex-wrap gap-x-2 gap-y-1 align-items-center mb-0.5">
+                                    <span><%= product.brand?.name || '-' %></span>
+                                    <span class="text-muted-50">•</span>
+                                    <span><%= product.category?.name || '-' %></span>
+                                </div>
+                                <% if (product.variants && product.variants.length > 0 && product.variants[0].sku) { %>
+                                    <div class="text-secondary smaller">
+                                        <strong>SKU:</strong> <%= product.variants[0].sku %>
+                                    </div>
+                                <% } %>
+                            </td>
+                            
+                            <td>
+                                <% if (product.variants.length > 0) { %>
+                                    <% const variant = product.variants[0]; %>
+                                    <% if (variant.salePrice && variant.salePrice < variant.regularPrice) { %>
+                                        <div class="fw-bold text-dark">₹<%= variant.salePrice.toLocaleString() %></div>
+                                        <div class="text-muted text-decoration-line-through small">₹<%= variant.regularPrice.toLocaleString() %></div>
+                                    <% } else { %>
+                                        <div class="fw-bold text-dark">₹<%= variant.regularPrice.toLocaleString() %></div>
+                                    <% } %>
+                                <% } else { %>
+                                    <span class="text-muted">-</span>
+                                <% } %>
+                            </td>
+                            
+                            <td>
+                                <% const totalStock = product.variants.reduce((sum, variant) => sum + variant.stock, 0); %>
+                                <% if (totalStock > 10) { %>
+                                    <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium">
+                                        🟢 <%= totalStock %> pcs
+                                    </span>
+                                <% } else if (totalStock > 0) { %>
+                                    <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-medium">
+                                        🟡 Low Stock (<%= totalStock %>)
+                                    </span>
+                                <% } else { %>
+                                    <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 fw-medium">
+                                        🔴 Out of Stock
+                                    </span>
+                                <% } %>
+                            </td>
+                            
+                            <td>
+                                <% if(product.isListed){ %>
+                                    <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium">
+                                        Listed
+                                    </span>
+                                <% } else { %>
+                                    <span class="badge rounded-pill bg-secondary-subtle text-secondary border border-secondary-subtle px-2.5 py-1 fw-medium">
+                                        Unlisted
+                                    </span>
+                                <% } %>
+                            </td>
+                            
+                            <td class="pe-4">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a
+                                        href="/admin/products/edit/<%= product._id %>"
+                                        class="btn btn-sm btn-outline-primary rounded-3 d-inline-flex align-items-center justify-content-center"
+                                        style="width: 32px; height: 32px;"
+                                        data-bs-toggle="tooltip"
+                                        title="Edit"
+                                    >
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button
+                                        class="btn btn-sm btn-outline-warning rounded-3 toggle-btn d-inline-flex align-items-center justify-content-center"
+                                        style="width: 32px; height: 32px;"
+                                        data-id="<%= product._id %>"
+                                        data-bs-toggle="tooltip"
+                                        title="<%= product.isListed ? 'Hide' : 'Show' %>"
+                                    >
+                                        <i class="bi <%= product.isListed ? 'bi-eye-slash' : 'bi-eye' %>"></i>
+                                    </button>
+                                    <button
+                                        class="btn btn-sm btn-outline-danger rounded-3 delete-btn d-inline-flex align-items-center justify-content-center"
+                                        style="width: 32px; height: 32px;"
+                                        data-id="<%= product._id %>"
+                                        data-bs-toggle="tooltip"
+                                        title="Delete"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted mb-3">
+                                    <i class="bi bi-box-seam display-5"></i>
+                                </div>
+                                <h5 class="fw-semibold text-dark">No Products Found</h5>
+                                <p class="text-muted small mb-4">
+                                    There are no products matching your search criteria. Add your first product to get started.
+                                </p>
+                                <a href="/admin/products/add" class="btn btn-dark btn-sm rounded-3 px-4 py-2">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Product
+                                </a>
+                            </td>
+                        </tr>
+                    <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination Section -->
+    <% if(totalPages > 1){ %>
+    <nav class="mt-4">
+        <ul class="pagination pagination-sm justify-content-center gap-1.5">
+            <!-- Previous Button -->
+            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                <a class="page-link rounded-3 px-3 py-2 border border-light shadow-sm text-secondary fw-medium bg-white"
+                   href="/admin/products?page=<%= currentPage - 1 %>&search=<%= search %>">
+                    &laquo; Prev
+                </a>
+            </li>
+
+            <!-- Page Numbers -->
+            <% for(let i=1; i<=totalPages; i++){ %>
+                <li class="page-item <%= currentPage===i ? 'active':'' %>">
+                    <a
+                        class="page-link rounded-3 px-3 py-2 border border-light shadow-sm text-dark fw-medium <%= currentPage===i ? 'bg-dark text-white border-dark' : 'bg-white' %>"
+                        href="/admin/products?page=<%= i %>&search=<%= search %>"
+                    >
+                        <%= i %>
+                    </a>
+                </li>
+            <% } %>
+
+            <!-- Next Button -->
+            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                <a class="page-link rounded-3 px-3 py-2 border border-light shadow-sm text-secondary fw-medium bg-white"
+                   href="/admin/products?page=<%= currentPage + 1 %>&search=<%= search %>">
+                    Next &raquo;
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <% } %>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Client-side filtering logic
+    const categoryFilter = document.getElementById('categoryFilter');
+    const brandFilter = document.getElementById('brandFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+
+    const applyClientFilters = () => {
+        const catVal = categoryFilter.value.toLowerCase();
+        const brandVal = brandFilter.value.toLowerCase();
+        const statVal = statusFilter.value.toLowerCase();
+
+        document.querySelectorAll('.product-row').forEach(row => {
+            const rowCat = row.dataset.category.toLowerCase();
+            const rowBrand = row.dataset.brand.toLowerCase();
+            const rowStatus = row.dataset.status.toLowerCase();
+
+            const catMatches = !catVal || rowCat === catVal;
+            const brandMatches = !brandVal || rowBrand === brandVal;
+            const statMatches = !statVal || rowStatus === statVal;
+
+            if (catMatches && brandMatches && statMatches) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    };
+
+    categoryFilter.addEventListener('change', applyClientFilters);
+    brandFilter.addEventListener('change', applyClientFilters);
+    statusFilter.addEventListener('change', applyClientFilters);
+
+    resetFiltersBtn.addEventListener('click', () => {
+        categoryFilter.value = '';
+        brandFilter.value = '';
+        statusFilter.value = '';
+        document.getElementById('searchInput').value = '';
+        
+        document.querySelectorAll('.product-row').forEach(row => {
+            row.style.display = '';
+        });
+
+        // If a server-side search was active, submit form to clear it
+        if ('<%= search %>' !== '') {
+            document.getElementById('searchForm').submit();
+        }
+    });
+});
+
+document.querySelectorAll(".delete-btn")
+.forEach(button=>{
+
+button.addEventListener("click",async()=>{
+
+const id=button.dataset.id;
+
+const result=await Swal.fire({
+
+title:"Delete Product?",
+
+text:"This product will be deleted.",
+
+icon:"warning",
+
+showCancelButton:true,
+
+confirmButtonText:"Delete"
+
+});
+
+if(!result.isConfirmed)return;
+
+const response=await fetch(`/admin/products/${id}/delete`,{
+
+method:"DELETE",
+
+headers:{
+Accept:"application/json"
+}
+
+});
+
+const data=await response.json();
+
+if(data.success){
+
+Swal.fire({
+
+icon:"success",
+
+title:data.message
+
+}).then(()=>location.reload());
+
+}else{
+
+Swal.fire({
+
+icon:"error",
+
+title:data.message
+
+});
+
+}
+
+});
+
+});
+
+document.querySelectorAll(".toggle-btn")
+.forEach(button=>{
+
+button.addEventListener("click",async()=>{
+
+const id=button.dataset.id;
+
+const response=await fetch(`/admin/products/${id}/toggle`,{
+
+method:"PATCH",
+
+headers:{
+Accept:"application/json"
+}
+
+});
+
+const data=await response.json();
+
+if(data.success){
+
+location.reload();
+
+}else{
+
+Swal.fire({
+
+icon:"error",
+
+title:data.message
+
+});
+
+}
+
+});
+
+});
+
+</script>

@@ -1,0 +1,532 @@
+<div class="container-fluid py-4">
+
+    <!-- Page Header -->
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+
+            <h2 class="fw-bold mb-1">
+
+                Edit Product
+
+            </h2>
+
+            <p class="text-muted mb-0">
+
+                Update Product Information
+
+            </p>
+
+        </div>
+
+        <a
+            href="/admin/products"
+            class="btn btn-outline-secondary">
+
+            <i class="bi bi-arrow-left me-2"></i>
+
+            Back
+
+        </a>
+
+    </div>
+
+    <div class="card shadow-sm border-0">
+
+        <div class="card-body">
+
+            <% if(message){ %>
+
+                <div class="alert alert-danger">
+
+                    <%= message %>
+
+                </div>
+
+            <% } %>
+
+            <form
+                id="productForm"
+                action="/admin/products/edit/<%= product._id %>"
+                method="POST"
+                enctype="multipart/form-data">
+
+                <!-- Product Name -->
+
+                <div class="mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Product Name
+
+                    </label>
+
+                    <input
+                        type="text"
+                        name="name"
+                        class="form-control <%= errors.name ? 'is-invalid' : '' %>"
+                        value="<%= product.name || '' %>">
+
+                    <% if(errors.name){ %>
+
+                        <div class="invalid-feedback">
+
+                            <%= errors.name %>
+
+                        </div>
+
+                    <% } %>
+
+                </div>
+
+                <!-- Description -->
+
+                <div class="mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Description
+
+                    </label>
+
+                    <textarea
+                        rows="5"
+                        name="description"
+                        class="form-control <%= errors.description ? 'is-invalid' : '' %>"><%= product.description || "" %></textarea>
+
+                    <% if(errors.description){ %>
+
+                        <div class="invalid-feedback">
+
+                            <%= errors.description %>
+
+                        </div>
+
+                    <% } %>
+
+                </div>
+
+                <div class="row">
+
+                    <!-- Category -->
+
+                    <div class="col-md-6 mb-3">
+
+                        <label class="form-label fw-semibold">
+
+                            Category
+
+                        </label>
+
+                        <select
+                            name="category"
+                            class="form-select <%= errors.category ? 'is-invalid' : '' %>">
+
+                            <option value="">
+
+                                Select Category
+
+                            </option>
+
+                            <% categories.forEach(category=>{ %>
+
+                                <option
+                                    value="<%= category._id %>"
+                                    <%= (product.category && (typeof product.category === 'object' ? product.category._id.toString() : product.category.toString()) === category._id.toString()) ? "selected" : "" %>>
+
+                                    <%= category.name %>
+
+                                </option>
+
+                            <% }) %>
+
+                        </select>
+
+                        <% if(errors.category){ %>
+
+                            <div class="invalid-feedback">
+
+                                <%= errors.category %>
+
+                            </div>
+
+                        <% } %>
+
+                    </div>
+
+                    <!-- Brand -->
+
+                    <div class="col-md-6 mb-3">
+
+                        <label class="form-label fw-semibold">
+
+                            Brand
+
+                        </label>
+
+                        <select
+                            name="brand"
+                            class="form-select <%= errors.brand ? 'is-invalid' : '' %>">
+
+                            <option value="">
+
+                                Select Brand
+
+                            </option>
+
+                            <% brands.forEach(brand=>{ %>
+
+                                <option
+                                    value="<%= brand._id %>"
+                                    <%= (product.brand && (typeof product.brand === 'object' ? product.brand._id.toString() : product.brand.toString()) === brand._id.toString()) ? "selected" : "" %>>
+
+                                    <%= brand.name %>
+
+                                </option>
+
+                            <% }) %>
+
+                        </select>
+
+                        <% if(errors.brand){ %>
+
+                            <div class="invalid-feedback">
+
+                                <%= errors.brand %>
+
+                            </div>
+
+                        <% } %>
+
+                    </div>
+
+                </div>
+
+                <hr class="my-4">
+
+                <div class="d-flex justify-content-between align-items-center mb-4">
+
+                    <h4 class="fw-bold mb-0">
+
+                        Product Variants
+
+                    </h4>
+
+                    <button
+                        type="button"
+                        class="btn btn-dark"
+                        id="addVariantBtn">
+
+                        <i class="bi bi-plus-circle me-2"></i>
+
+                        Add Variant
+
+                    </button>
+
+                </div>
+
+                
+
+<div id="variantContainer"></div>
+
+
+<template id="variantTemplate">
+
+    <div class="card shadow-sm border-0 mb-4 variant-card">
+
+        <div class="card-header d-flex justify-content-between align-items-center">
+
+            <div>
+
+                <h5 class="mb-0 variant-title">
+
+                    Variant 1
+
+                </h5>
+
+                <small class="text-muted variant-subtitle">
+
+                    New Variant
+
+                </small>
+
+            </div>
+
+            <button
+                type="button"
+                class="btn btn-outline-danger btn-sm removeVariant">
+
+                <i class="bi bi-trash me-1"></i>
+
+                Remove
+
+            </button>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="row">
+
+                <!-- Color -->
+
+                <div class="col-md-6 mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Color
+
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control variant-color"
+                        data-field="color"
+                        placeholder="Black">
+
+                </div>
+
+                <!-- Capacity -->
+
+                <div class="col-md-6 mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Capacity
+
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control variant-capacity"
+                        data-field="storage"
+                        placeholder="128 GB">
+
+                </div>
+
+                <!-- SKU -->
+
+                <div class="col-md-6 mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        SKU
+
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        data-field="sku"
+                        placeholder="APL-IP16-BLK-128">
+
+                </div>
+
+                <!-- Regular Price -->
+
+                <div class="col-md-6 mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Regular Price
+
+                    </label>
+
+                    <input
+                        type="number"
+                        class="form-control"
+                        data-field="regularPrice">
+
+                </div>
+
+                <!-- Sale Price -->
+
+                <div class="col-md-6 mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Sale Price
+
+                    </label>
+
+                    <input
+                        type="number"
+                        class="form-control"
+                        data-field="salePrice">
+
+                </div>
+
+                <!-- Stock -->
+
+                <div class="col-md-6 mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Stock
+
+                    </label>
+
+                    <input
+                        type="number"
+                        class="form-control"
+                        data-field="stock">
+
+                </div>
+
+                <!-- Images -->
+
+                <div class="col-12 mb-3">
+
+                    <label class="form-label fw-semibold">
+
+                        Variant Images
+
+                    </label>
+
+                    <input
+                        type="file"
+                        class="form-control variantImages"
+                        multiple
+                        accept="image/*">
+
+                    <small class="text-muted">
+
+                        Upload 3 to 5 images.
+
+                    </small>
+
+                </div>
+
+                <!-- Preview -->
+
+                <!-- Existing Images -->
+
+<div class="col-12 mb-3">
+
+    <label class="form-label fw-semibold">
+
+        Existing Images
+
+    </label>
+
+    <div class="row existingImageContainer"></div>
+
+</div>
+
+<!-- New Images -->
+
+<div class="col-12">
+
+    <label class="form-label fw-semibold">
+
+        New Images
+
+    </label>
+
+    <div class="row newImagePreviewContainer"></div>
+
+</div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</template>
+<div class="d-flex justify-content-end gap-3 mt-4">
+
+    <a
+        href="/admin/products"
+        class="btn btn-outline-secondary">
+        Cancel
+    </a>
+
+    <button
+        type="submit"
+        class="btn btn-dark">
+        <i class="bi bi-check-circle me-2"></i>
+        Save Changes
+    </button>
+
+</div>
+</form>
+
+</div>
+
+</div>
+<div class="modal fade" id="cropModal" tabindex="-1">
+
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+                    Crop Image
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+    <div
+        style="
+            width:100%;
+            max-height:70vh;
+            overflow:hidden;
+        ">
+
+        <img
+            id="cropImage"
+            style="
+                display:block;
+                max-width:100%;
+            ">
+
+    </div>
+
+</div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    id="cropSaveBtn">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+<script>
+
+window.isEditPage = true;
+
+window.existingVariants =
+<%- JSON.stringify(product.variants || []) %>;
+
+</script>
+

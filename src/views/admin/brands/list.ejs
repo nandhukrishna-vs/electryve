@@ -1,0 +1,353 @@
+<div class="container-fluid py-4">
+
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h2 class="fw-bold mb-1">Brand Management</h2>
+            <p class="text-muted mb-0">
+                Manage all product brands
+            </p>
+        </div>
+
+        <a href="/admin/brands/add" class="btn btn-dark">
+            <i class="bi bi-plus-circle me-2"></i>
+            Add Brand
+        </a>
+
+    </div>
+
+    <!-- Search Card -->
+    <div class="card shadow-sm border-0 mb-4">
+
+        <div class="card-body">
+
+            <form
+                method="GET"
+                action="/admin/brands"
+                class="row g-3 align-items-center"
+            >
+
+                <div class="col-lg-10">
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        name="search"
+                        placeholder="Search brand..."
+                        value="<%= search %>"
+                    >
+
+                </div>
+
+                <div class="col-lg-2 d-flex">
+
+                    <button class="btn btn-dark w-100 me-2">
+                        <i class="bi bi-search"></i>
+                    </button>
+
+                    <% if(search){ %>
+
+                        <a
+                            href="/admin/brands"
+                            class="btn btn-outline-secondary"
+                        >
+                            Clear
+                        </a>
+
+                    <% } %>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <!-- Brand Table -->
+
+    <div class="card shadow-sm border-0">
+
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+
+                <table class="table table-hover align-middle mb-0">
+
+                    <thead class="table-light">
+
+                        <tr>
+
+                            <th width="70">#</th>
+
+                            <th>Name</th>
+
+                            <th>Description</th>
+
+                            <th width="130">
+                                Status
+                            </th>
+
+                            <th width="150">
+                                Created
+                            </th>
+
+                            <th width="190" class="text-center">
+                                Actions
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        <% if(brands.length){ %>
+
+                            <% brands.forEach((brand,index)=>{ %>
+
+                                <tr>
+
+                                    <td>
+                                        <%= ((currentPage-1)*10)+index+1 %>
+                                    </td>
+
+                                    <td class="fw-semibold">
+                                        <%= brand.name %>
+                                    </td>
+
+                                    <td class="text-muted">
+                                        <%= brand.description %>
+                                    </td>
+
+                                    <td>
+
+                                        <% if(brand.isListed){ %>
+
+                                            <span class="badge bg-success">
+                                                Listed
+                                            </span>
+
+                                        <% }else{ %>
+
+                                            <span class="badge bg-secondary">
+                                                Unlisted
+                                            </span>
+
+                                        <% } %>
+
+                                    </td>
+
+                                    <td>
+
+                                        <%= brand.createdAt.toLocaleDateString() %>
+
+                                    </td>
+
+                                    <td>
+
+                                        <div class="d-flex justify-content-center gap-2">
+
+                                            <a
+                                                href="/admin/brands/edit/<%= brand._id %>"
+                                                class="btn btn-outline-primary btn-sm"
+                                                title="Edit"
+                                            >
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+
+                                            <button
+                                                class="btn btn-outline-warning btn-sm toggle-btn"
+                                                data-id="<%= brand._id %>"
+                                                title="<%= brand.isListed ? 'Unlist' : 'List' %>"
+                                            >
+
+                                                <i class="bi <%= brand.isListed ? 'bi-eye-slash' : 'bi-eye' %>"></i>
+
+                                            </button>
+
+                                            <button
+                                                class="btn btn-outline-danger btn-sm delete-btn"
+                                                data-id="<%= brand._id %>"
+                                                title="Delete"
+                                            >
+
+                                                <i class="bi bi-trash"></i>
+
+                                            </button>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            <% }) %>
+
+                        <% }else{ %>
+
+                            <tr>
+
+                                <td colspan="6" class="text-center py-5">
+
+                                    <i class="bi bi-building display-5 text-secondary"></i>
+
+                                    <h5 class="mt-3">
+                                        No Brands Found
+                                    </h5>
+
+                                    <p class="text-muted">
+                                        Click "Add Brand" to create your first brand.
+                                    </p>
+
+                                </td>
+
+                            </tr>
+
+                        <% } %>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Pagination -->
+
+    <% if(totalPages>1){ %>
+
+        <nav class="mt-4">
+
+            <ul class="pagination justify-content-center">
+
+                <% for(let i=1;i<=totalPages;i++){ %>
+
+                    <li class="page-item <%= currentPage===i ? 'active':'' %>">
+
+                        <a
+                            class="page-link"
+                            href="/admin/brands?page=<%= i %>&search=<%= search %>"
+                        >
+                            <%= i %>
+                        </a>
+
+                    </li>
+
+                <% } %>
+
+            </ul>
+
+        </nav>
+
+    <% } %>
+
+</div>
+
+<script>
+
+document.querySelectorAll(".delete-btn")
+.forEach(button=>{
+
+button.addEventListener("click",async()=>{
+
+const id=button.dataset.id;
+
+const result=await Swal.fire({
+
+title:"Delete Brand?",
+
+text:"This brand will be deleted.",
+
+icon:"warning",
+
+showCancelButton:true,
+
+confirmButtonText:"Delete"
+
+});
+
+if(!result.isConfirmed)return;
+
+const response=await fetch(`/admin/brands/${id}/delete`,{
+
+method:"PATCH",
+
+headers:{
+Accept:"application/json"
+}
+
+});
+
+const data=await response.json();
+
+if(data.success){
+
+Swal.fire({
+
+icon:"success",
+
+title:data.message
+
+}).then(()=>location.reload());
+
+}else{
+
+Swal.fire({
+
+icon:"error",
+
+title:data.message
+
+});
+
+}
+
+});
+
+});
+
+document.querySelectorAll(".toggle-btn")
+.forEach(button=>{
+
+button.addEventListener("click",async()=>{
+
+const id=button.dataset.id;
+
+const response=await fetch(`/admin/brands/${id}/toggle`,{
+
+method:"PATCH",
+
+headers:{
+Accept:"application/json"
+}
+
+});
+
+const data=await response.json();
+
+if(data.success){
+
+location.reload();
+
+}else{
+
+Swal.fire({
+
+icon:"error",
+
+title:data.message
+
+});
+
+}
+
+});
+
+});
+
+</script>

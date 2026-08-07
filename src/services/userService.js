@@ -1,3 +1,4 @@
+import bcrypt from "bcrypt";
 import User from "../models/User.js";
 import Address from "../models/Address.js";
 import {
@@ -249,10 +250,55 @@ const updateAvatar = async ({ file, session }) => {
 
 };
 
+const changePassword = async ({
+  body,
+  session
+}) => {
+  const { currentPassword, newPassword } = body;
+
+  const user = await User.findById(session.user.id);
+  if (!user) {
+    return errorResponse(
+      "User not found",
+      "/auth/login"
+    );
+  }
+
+  if (user.password) {
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return errorResponse(
+        "Current password is incorrect",
+        "/profile/change-password"
+      );
+    }
+
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
+      return errorResponse(
+        "New password cannot be the same as the current password",
+        "/profile/change-password"
+      );
+    }
+  }
+
+  const saltRounds = 10;
+  const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+  user.password = hashedPassword;
+  await user.save();
+
+  return successResponse(
+    "Password changed successfully",
+    "/profile"
+  );
+};
+
 export {
   updateProfile,
   addAddress,
   updateAddress,
   deleteAddress,
-  updateAvatar
+  updateAvatar,
+  changePassword
 };

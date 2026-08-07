@@ -1,3 +1,5 @@
+import User from "../models/User.js";
+
 const validateProfileUpdate = (
   req,
   res,
@@ -67,7 +69,47 @@ const validateAddress = (
   next();
 };
 
+const validateChangePassword = async (
+  req,
+  res,
+  next
+) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  try {
+    const user = await User.findById(req.session.user.id);
+    if (!user) {
+      req.session.errorMessage = "User not found";
+      return res.redirect("/auth/login");
+    }
+
+    if (user.password) {
+      if (!currentPassword || !currentPassword.trim()) {
+        req.session.errorMessage = "Current password is required";
+        return res.redirect("/profile/change-password");
+      }
+    }
+
+    if (!newPassword || newPassword.trim().length < 8) {
+      req.session.errorMessage = "New password must be at least 8 characters";
+      return res.redirect("/profile/change-password");
+    }
+
+    if (newPassword !== confirmPassword) {
+      req.session.errorMessage = "Confirm password must match new password";
+      return res.redirect("/profile/change-password");
+    }
+
+    next();
+  } catch (error) {
+    console.error("validateChangePassword Error:", error);
+    req.session.errorMessage = "Validation failed";
+    return res.redirect("/profile/change-password");
+  }
+};
+
 export {
   validateProfileUpdate,
-  validateAddress
+  validateAddress,
+  validateChangePassword
 };

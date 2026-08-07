@@ -19,7 +19,8 @@ const ALLOWED_EXTENSIONS = [
   ".jpg",
   ".jpeg",
   ".png",
-  ".webp"
+  ".webp",
+  ".jfif"
 ];
 
 const getImageUrl = (key) => {
@@ -41,6 +42,9 @@ const uploadImage = async (file, folder) => {
   const extension = path
   .extname(file.originalname)
   .toLowerCase();
+
+console.log("Original Name:", file.originalname);
+console.log("Extension:", path.extname(file.originalname).toLowerCase());
 
 if (!ALLOWED_EXTENSIONS.includes(extension)) {
   throw new Error("Invalid image format");

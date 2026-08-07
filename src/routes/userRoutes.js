@@ -2,7 +2,8 @@ import express from "express";
 
 import {
   validateProfileUpdate,
-  validateAddress
+  validateAddress,
+  validateChangePassword
 } from "../validators/userValidator.js";
 
 import {
@@ -16,7 +17,9 @@ import {
   addAddress,
   loadEditAddress,
   updateAddress,
-  deleteAddress
+  deleteAddress,
+  loadChangePassword,
+  changePassword
 } from "../controllers/userController.js";
 
 import {
@@ -24,12 +27,24 @@ import {
 } from "../middlewares/userMiddleware.js";
 
 import upload from "../middlewares/uploadMiddleware.js";
+import * as productController from "../controllers/productController.js";
+import * as cartController from "../controllers/cartController.js";
 
 const router = express.Router();
 
 router.get("/", loadHome);
 
 router.get("/profile", isLoggedIn, loadProfile);
+
+router.get("/shop", productController.loadShop);
+router.get("/product/:id", productController.loadProductDetails);
+
+// Cart Routes
+router.get("/cart", isLoggedIn, cartController.loadCart);
+router.get("/cart/count", cartController.getCartCount);
+router.post("/cart/add", cartController.addToCart);
+router.post("/cart/update-quantity", isLoggedIn, cartController.updateQuantity);
+router.post("/cart/remove", isLoggedIn, cartController.removeItem);
 
 router.get(
   "/profile/edit",
@@ -42,6 +57,19 @@ router.post(
   isLoggedIn,
   validateProfileUpdate,
   updateProfile
+);
+
+router.get(
+  "/profile/change-password",
+  isLoggedIn,
+  loadChangePassword
+);
+
+router.post(
+  "/profile/change-password",
+  isLoggedIn,
+  validateChangePassword,
+  changePassword
 );
 
 

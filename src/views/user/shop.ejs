@@ -1,0 +1,571 @@
+<!-- Storefront Custom Styles -->
+<style>
+    .shop-body-wrapper {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #f8f9fa;
+        min-height: 100vh;
+    }
+    .shop-banner {
+        background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+        border-radius: 20px;
+        padding: 4rem 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .product-card {
+        background-color: #ffffff;
+        border: 1px solid #f3f4f6;
+        border-radius: 16px;
+        overflow: hidden;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .product-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+    }
+    .image-container-box {
+        position: relative;
+        height: 240px;
+        background-color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .image-container-box img {
+        max-height: 200px;
+        max-width: 90%;
+        object-fit: contain;
+        transition: transform 0.3s ease;
+    }
+    .product-card:hover .image-container-box img {
+        transform: scale(1.04);
+    }
+    .product-title-clamp {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 48px;
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+    .badge-discount {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        background-color: #dc3545;
+        color: #ffffff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 6px 10px;
+        border-radius: 8px;
+        z-index: 3;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    .wishlist-heart-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #ffffff;
+        border: 1px solid #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 3;
+        transition: background-color 0.2s, color 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .wishlist-heart-btn:hover {
+        background-color: #fee2e2;
+    }
+    .wishlist-heart-btn i {
+        color: #9ca3af;
+        font-size: 1.1rem;
+        transition: color 0.2s;
+    }
+    .wishlist-heart-btn:hover i {
+        color: #dc3545;
+    }
+    .offcanvas-filters {
+        width: 340px;
+        border-radius: 0 16px 16px 0;
+    }
+    .custom-pagination-btn {
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+</style>
+
+<div class="shop-body-wrapper py-4">
+    <div class="container-xl">
+
+        <!-- Storefront Page Header Banner -->
+        <div class="shop-banner text-center text-white mb-4">
+            <h1 class="fw-bold mb-2">Shop</h1>
+            <p class="text-white-50 mb-0">Discover the latest electronics and premium gadgets.</p>
+        </div>
+
+        <!-- Main Shop Form containing search, Offcanvas filters, sorting and grid -->
+        <form id="filterForm" method="GET" action="/shop">
+            <input type="hidden" name="page" id="formPageInput" value="<%= currentPage %>">
+
+            <!-- Top Toolbar Card (Flipkart/Amazon style) -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+                <div class="card-body p-3.5 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    
+                    <!-- Shop title & product count -->
+                    <div>
+                        <h4 class="fw-bold text-dark mb-1">Products</h4>
+                        <p class="text-secondary small mb-0">Showing <%= products.length %> Products</p>
+                    </div>
+
+                    <!-- Search bar with icon and clear button -->
+                    <div class="d-flex align-items-center gap-3 flex-grow-1 mx-lg-4" style="max-width: 500px;">
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden border">
+                            <span class="input-group-text bg-white border-0 text-muted py-2">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input
+                                type="text"
+                                class="form-control border-0 ps-0 py-2"
+                                name="search"
+                                id="searchInput"
+                                placeholder="Search products..."
+                                value="<%= search %>"
+                            >
+                            <% if (search) { %>
+                                <button type="button" class="btn bg-white border-0 text-muted py-2" onclick="clearSearchOnly()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            <% } else { %>
+                                <span class="bg-white px-2"></span>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="d-flex align-items-center gap-2">
+                        
+                        <!-- Filters Offcanvas trigger button -->
+                        <button class="btn btn-outline-dark d-flex align-items-center gap-2 py-2 px-3 rounded-3 fw-medium" type="button" data-bs-toggle="offcanvas" data-bs-target="#filtersOffcanvas" aria-controls="filtersOffcanvas">
+                            <i class="bi bi-funnel"></i>
+                            Filters
+                        </button>
+
+                        <!-- Sorting Dropdown -->
+                        <select id="sortSelect" name="sort" class="form-select border-light-subtle rounded-3 py-2 text-secondary shadow-sm" style="width: 180px;" onchange="this.form.submit()">
+                            <option value="newest" <%= sortOption === 'newest' ? 'selected' : '' %>>Newest</option>
+                            <option value="price-asc" <%= sortOption === 'price-asc' ? 'selected' : '' %>>Price Low → High</option>
+                            <option value="price-desc" <%= sortOption === 'price-desc' ? 'selected' : '' %>>Price High → Low</option>
+                            <option value="alpha-asc" <%= sortOption === 'alpha-asc' ? 'selected' : '' %>>A → Z</option>
+                            <option value="alpha-desc" <%= sortOption === 'alpha-desc' ? 'selected' : '' %>>Z → A</option>
+                        </select>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Offcanvas Filters Sidebar Panel -->
+            <div class="offcanvas offcanvas-start border-0 shadow offcanvas-filters" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
+                <div class="offcanvas-header border-bottom py-3">
+                    <h5 class="offcanvas-title fw-bold text-dark" id="filtersOffcanvasLabel">Filters</h5>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+                <div class="offcanvas-body d-flex flex-column justify-content-between">
+                    <div>
+                        <!-- Category Section -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-dark mb-3">Category</h6>
+                            <div class="d-flex flex-column gap-2.5">
+                                <% categories.forEach(cat => { %>
+                                    <div class="form-check">
+                                        <input 
+                                            class="form-check-input" 
+                                            type="checkbox" 
+                                            name="category" 
+                                            value="<%= cat.name %>" 
+                                            id="cat_<%= cat._id %>"
+                                            <%= selectedCategories.includes(cat.name) ? 'checked' : '' %>
+                                        >
+                                        <label class="form-check-label text-secondary small fw-medium" for="cat_<%= cat._id %>">
+                                            <%= cat.name %>
+                                        </label>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        </div>
+
+                        <hr class="my-3 text-muted opacity-25">
+
+                        <!-- Brand Section -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-dark mb-3">Brand</h6>
+                            <div class="d-flex flex-column gap-2.5">
+                                <% brands.forEach(br => { %>
+                                    <div class="form-check">
+                                        <input 
+                                            class="form-check-input" 
+                                            type="checkbox" 
+                                            name="brand" 
+                                            value="<%= br.name %>" 
+                                            id="brand_<%= br._id %>"
+                                            <%= selectedBrands.includes(br.name) ? 'checked' : '' %>
+                                        >
+                                        <label class="form-check-label text-secondary small fw-medium" for="brand_<%= br._id %>">
+                                            <%= br.name %>
+                                        </label>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        </div>
+
+                        <hr class="my-3 text-muted opacity-25">
+
+                        <!-- Price Section -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-dark mb-3">Price Range</h6>
+                            <div class="d-flex flex-column gap-2.5">
+                                <div class="form-check">
+                                    <input 
+                                        class="form-check-input" 
+                                        type="radio" 
+                                        name="price" 
+                                        value="under-25000" 
+                                        id="price_under"
+                                        <%= selectedPrices.includes('under-25000') ? 'checked' : '' %>
+                                    >
+                                    <label class="form-check-label text-secondary small fw-medium" for="price_under">
+                                        Under ₹25,000
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input 
+                                        class="form-check-input" 
+                                        type="radio" 
+                                        name="price" 
+                                        value="25000-50000" 
+                                        id="price_mid1"
+                                        <%= selectedPrices.includes('25000-50000') ? 'checked' : '' %>
+                                    >
+                                    <label class="form-check-label text-secondary small fw-medium" for="price_mid1">
+                                        ₹25,000 – ₹50,000
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input 
+                                        class="form-check-input" 
+                                        type="radio" 
+                                        name="price" 
+                                        value="50000-75000" 
+                                        id="price_mid2"
+                                        <%= selectedPrices.includes('50000-75000') ? 'checked' : '' %>
+                                    >
+                                    <label class="form-check-label text-secondary small fw-medium" for="price_mid2">
+                                        ₹50,000 – ₹75,000
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input 
+                                        class="form-check-input" 
+                                        type="radio" 
+                                        name="price" 
+                                        value="above-75000" 
+                                        id="price_above"
+                                        <%= selectedPrices.includes('above-75000') ? 'checked' : '' %>
+                                    >
+                                    <label class="form-check-label text-secondary small fw-medium" for="price_above">
+                                        Above ₹75,000
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Buttons of Drawer -->
+                    <div class="d-flex gap-2 border-top pt-3 mt-4">
+                        <button type="button" class="btn btn-light border w-100 py-2.5 rounded-3 text-secondary fw-semibold" onclick="resetAllFilters()">
+                            Reset
+                        </button>
+                        <button type="submit" class="btn btn-dark w-100 py-2.5 rounded-3 fw-semibold">
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Grid layout (4 cards desktop, 2 tablet, 1 mobile) -->
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+                <% if(products.length){ %>
+                    <% products.forEach(product => { %>
+                        <div class="col">
+                            <div class="product-card">
+                                
+                                <!-- Image wrapper container with fixed size, cover/contain and light bg -->
+                                <div class="image-container-box">
+                                    <!-- Discount badge top-left -->
+                                    <% if(product.discountPercentage > 0){ %>
+                                        <span class="badge-discount">
+                                            <%= product.discountPercentage %>% OFF
+                                        </span>
+                                    <% } %>
+
+                                    <!-- Wishlist heart icon top-right (UI only) -->
+                                    <button type="button" class="wishlist-heart-btn" title="Add to Wishlist">
+                                        <i class="bi bi-heart"></i>
+                                    </button>
+
+                                    <!-- Image rendering -->
+                                    <% if(product.defaultVariant && product.defaultVariant.images && product.defaultVariant.images.length){ %>
+                                        <img
+                                            src="<%= product.defaultVariant.images[0] %>"
+                                            alt="<%= product.name %>"
+                                        >
+                                    <% } else { %>
+                                        <div class="text-muted">
+                                            <i class="bi bi-image display-5"></i>
+                                        </div>
+                                    <% } %>
+                                </div>
+
+                                <!-- Body content -->
+                                <div class="card-body p-3.5 d-flex flex-column justify-content-between flex-grow-1">
+                                    <div>
+                                        <!-- Brand (small muted text) -->
+                                        <div class="text-muted small fw-medium mb-1">
+                                            <%= product.brand?.name || '-' %>
+                                        </div>
+
+                                        <!-- Product Name (bold, max 2 lines clamp) -->
+                                        <h6 class="fw-bold text-dark product-name-clamp mb-2" title="<%= product.name %>">
+                                            <%= product.name %>
+                                        </h6>
+
+                                        <!-- SKU -->
+                                        <% if(product.defaultVariant && product.defaultVariant.sku){ %>
+                                            <div class="text-secondary mb-2 smaller-text">
+                                                SKU: <%= product.defaultVariant.sku %>
+                                            </div>
+                                        <% } %>
+
+                                        <!-- Stock status Badge (Bootstrap Badges) -->
+                                        <div class="mb-3">
+                                            <% if(product.stockStatus === 'In Stock'){ %>
+                                                <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium" style="font-size: 0.72rem;">
+                                                    In Stock
+                                                </span>
+                                            <% } else if(product.stockStatus === 'Low Stock'){ %>
+                                                <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-medium" style="font-size: 0.72rem;">
+                                                     Low Stock
+                                                </span>
+                                            <% } else { %>
+                                                <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 fw-medium" style="font-size: 0.72rem;">
+                                                     Out of Stock
+                                                </span>
+                                            <% } %>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <!-- Prices (Sale price bold/dark/large, Regular price strikethrough/gray) -->
+                                        <div class="d-flex align-items-baseline gap-2 mb-3">
+                                            <% if(product.defaultVariant){ %>
+                                                <span class="fw-bold text-dark fs-4">₹<%= product.defaultVariant.salePrice.toLocaleString() %></span>
+                                                <% if(product.discountPercentage > 0){ %>
+                                                    <span class="text-muted text-decoration-line-through small">₹<%= product.defaultVariant.regularPrice.toLocaleString() %></span>
+                                                <% } %>
+                                            <% } else { %>
+                                                <span class="text-muted">-</span>
+                                            <% } %>
+                                        </div>
+
+                                        <!-- View Details & Add to Cart button split -->
+                                        <div class="d-flex gap-2">
+                                            <a href="/product/<%= product._id %>" class="btn btn-outline-dark flex-grow-1 rounded-3 py-2 fw-semibold text-center small">
+                                                Details
+                                            </a>
+                                            <button 
+                                                type="button"
+                                                class="btn btn-dark flex-grow-1 rounded-3 py-2 fw-semibold text-center small shop-add-to-cart-btn"
+                                                data-product-id="<%= product._id %>"
+                                                data-variant-id="<%= product.defaultVariant?._id %>"
+                                                <%= product.stockStatus === 'Out of Stock' ? 'disabled' : '' %>
+                                            >
+                                                Add to Cart
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    <% }) %>
+                <% } else { %>
+                    <!-- Empty Grid state -->
+                    <div class="col-12 text-center py-5 bg-white border border-light shadow-sm rounded-4 mt-2">
+                        <div class="text-muted mb-3">
+                            <i class="bi bi-funnel display-5"></i>
+                        </div>
+                        <h5 class="fw-bold text-dark">No Products Found</h5>
+                        <p class="text-muted small mb-4">
+                            Try changing your filters or search terms.
+                        </p>
+                        <button type="button" class="btn btn-dark rounded-3 px-4 py-2 small" onclick="resetAllFilters()">
+                            Reset Filters
+                        </button>
+                    </div>
+                <% } %>
+            </div>
+
+            <!-- Pagination Section below table -->
+            <% if(totalPages > 1){ %>
+                <nav class="mt-5">
+                    <ul class="pagination pagination-sm justify-content-center gap-1.5">
+                        
+                        <!-- Previous button -->
+                        <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                            <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
+                               href="javascript:void(0)" onclick="navigateToPage(<%= currentPage - 1 %>)">
+                                &laquo; Prev
+                            </a>
+                        </li>
+
+                        <!-- Page Numbers -->
+                        <% for(let i=1; i<=totalPages; i++){ %>
+                            <li class="page-item <%= currentPage===i ? 'active' : '' %>">
+                                <a
+                                    class="page-link custom-pagination-btn border border-light shadow-sm text-dark fw-semibold <%= currentPage===i ? 'bg-dark text-white border-dark' : 'bg-white' %>"
+                                    href="javascript:void(0)" onclick="navigateToPage(<%= i %>)"
+                                >
+                                    <%= i %>
+                                </a>
+                            </li>
+                        <% } %>
+
+                        <!-- Next button -->
+                        <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                            <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
+                               href="javascript:void(0)" onclick="navigateToPage(<%= currentPage + 1 %>)">
+                                Next &raquo;
+                            </a>
+                        </li>
+
+                    </ul>
+                </nav>
+            <% } %>
+
+        </form>
+    </div>
+</div>
+
+<script>
+// Navigate page link click helper
+function navigateToPage(pageNum) {
+    document.getElementById('formPageInput').value = pageNum;
+    document.getElementById('filterForm').submit();
+}
+
+// Reset ONLY search input, keeping other filters
+function clearSearchOnly() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('formPageInput').value = 1;
+    document.getElementById('filterForm').submit();
+}
+
+// Redirects to shop without filters
+function resetAllFilters() {
+    window.location.href = '/shop';
+}
+
+// Add to Cart AJAX click listener
+document.addEventListener("DOMContentLoaded", function() {
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    document.querySelectorAll(".shop-add-to-cart-btn").forEach(btn => {
+        btn.addEventListener("click", function(e) {
+            e.preventDefault();
+            const productId = this.dataset.productId;
+            const variantId = this.dataset.variantId;
+            
+            fetch("/cart/add", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    productId,
+                    variantId,
+                    quantity: 1
+                })
+            })
+            .then(res => {
+                if (res.status === 401) {
+                    Swal.fire({
+                        title: 'Log In Required',
+                        text: 'You need to log in to add items to your cart.',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Log In',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#111827'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "/auth/login";
+                        }
+                    });
+                    return;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    Toast.fire({
+                        icon: 'success',
+                        title: data.message || "Product added to cart!"
+                    });
+                    if (typeof refreshNavbarCartCount === "function") {
+                        refreshNavbarCartCount();
+                    }
+                } else if (data) {
+                    Swal.fire({
+                        title: 'Oops...',
+                        text: data.message || "Failed to add product to cart.",
+                        icon: 'error',
+                        confirmButtonColor: '#111827'
+                    });
+                }
+            })
+            .catch(err => {
+                console.error("Shop page add to cart error:", err);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'An error occurred while adding the product to your cart.',
+                    icon: 'error',
+                    confirmButtonColor: '#111827'
+                });
+            });
+        });
+    });
+});
+</script>

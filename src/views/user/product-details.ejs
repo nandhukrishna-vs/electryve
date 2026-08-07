@@ -1,0 +1,812 @@
+<!-- PDP Redesign & Refinement -->
+<style>
+    .pdp-section {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #f8f9fa;
+        min-height: 100vh;
+    }
+    /* Gallery Styles */
+    .pdp-main-image-viewport {
+        position: relative;
+        overflow: hidden;
+        cursor: zoom-in;
+        height: 420px;
+        background-color: #ffffff;
+        border-radius: 16px;
+        border: 1px solid #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .pdp-main-image-viewport img {
+        transition: transform 0.15s ease-out, opacity 0.2s ease-in-out;
+        max-height: 380px;
+        max-width: 90%;
+        object-fit: contain;
+    }
+    .pdp-thumbnail-box {
+        width: 68px;
+        height: 68px;
+        border-radius: 8px;
+        border: 2px solid #e5e7eb;
+        overflow: hidden;
+        cursor: pointer;
+        transition: border-color 0.2s;
+        background-color: #ffffff;
+    }
+    .pdp-thumbnail-box.active {
+        border-color: #111827;
+    }
+    .pdp-thumbnail-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 0.25rem;
+    }
+    /* Offers section formatting */
+    .pdp-offer-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .pdp-offer-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    /* Related Products Horizontal Scrolling Layout */
+    .pdp-related-scroll-container {
+        display: flex;
+        overflow-x: auto;
+        gap: 1.25rem;
+        padding-bottom: 1rem;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+    }
+    .pdp-related-scroll-container::-webkit-scrollbar {
+        height: 6px;
+    }
+    .pdp-related-scroll-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    .pdp-related-scroll-container::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    .pdp-related-scroll-container::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+    .pdp-related-item-card {
+        flex: 0 0 280px;
+        scroll-snap-align: start;
+    }
+    .pdp-rp-card {
+        background-color: #ffffff;
+        border: 1px solid #f3f4f6;
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .pdp-rp-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.08) !important;
+    }
+    .pdp-rp-img-box {
+        position: relative;
+        height: 200px;
+        background-color: #f8f9fa;
+        overflow: hidden;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .pdp-rp-img-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 0.8rem;
+    }
+    .pdp-rp-name-clamp {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 40px;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    .spec-table-row {
+        border-bottom: 1px solid #f3f4f6;
+        padding: 10px 0;
+    }
+    .spec-table-row:last-child {
+        border-bottom: none;
+    }
+</style>
+
+<div class="pdp-section py-4">
+    <div class="container-xl">
+
+        <!-- Clickable Breadcrumbs (Home > Shop > Category > Product) -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb fs-7">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted fw-medium">Home</a></li>
+                <li class="breadcrumb-item"><a href="/shop" class="text-decoration-none text-muted fw-medium">Shop</a></li>
+                <li class="breadcrumb-item">
+                    <a href="/shop?category=<%= encodeURIComponent(product.category.name) %>" class="text-decoration-none text-muted fw-medium">
+                        <%= product.category.name %>
+                    </a>
+                </li>
+                <li class="breadcrumb-item active text-dark fw-bold" aria-current="page"><%= product.name %></li>
+            </ol>
+        </nav>
+
+        <div class="row g-4 mb-5">
+            
+            <!-- Left Column: Product Image Gallery -->
+            <div class="col-md-6 col-lg-5">
+                
+                <!-- Main viewport image container -->
+                <div class="pdp-main-image-viewport shadow-sm" id="pdpMainImgContainer">
+                    <img 
+                        src="<%= product.defaultVariant.display.image %>" 
+                        id="pdpMainProductImg" 
+                        alt="<%= product.name %>"
+                    >
+                </div>
+
+                <!-- Thumbnail gallery viewport container -->
+                <div class="d-flex gap-2 mt-3 overflow-auto pb-1" id="pdpThumbnailsContainer">
+                    <% product.defaultVariant.display.images.forEach((img, idx) => { %>
+                        <div class="pdp-thumbnail-box shadow-sm <%= idx === 0 ? 'active' : '' %>" onclick="switchPdpImage('<%= img %>', this)">
+                            <img src="<%= img %>" alt="Thumbnail <%= idx + 1 %>">
+                        </div>
+                    <% }) %>
+                </div>
+
+                <!-- Shared product buttons & Future Modules placeholder section -->
+                <div class="card border-0 shadow-sm rounded-4 p-3.5 mt-4 bg-white">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="fw-bold text-dark small">Product Options</span>
+                        
+                        <!-- Share and Wishlist placeholder UI buttons -->
+                        <div class="d-flex gap-2">
+                            <!-- Share Product (UI Only Placeholder) -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5" title="Share Product" onclick="alert('Feature coming soon!')">
+                                <i class="bi bi-share"></i> Share
+                            </button>
+                            <!-- Wishlist (UI Only Placeholder) -->
+                            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2.5" title="Add to Wishlist" onclick="alert('Added to wishlist mockup!')">
+                                <i class="bi bi-heart"></i> Wishlist
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Product Detail Attributes -->
+            <div class="col-md-6 col-lg-7">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    
+                    <!-- Brand information -->
+                    <span class="text-uppercase text-muted fw-bold small tracking-wider mb-1 d-block">
+                        <%= product.brand.name %>
+                    </span>
+
+                    <!-- Product Name -->
+                    <h2 class="fw-bold text-dark mb-2"><%= product.name %></h2>
+
+                    <!-- star ratings future-ready layout section -->
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <div class="text-warning small">
+                            <i class="bi bi-star-fill"></i>
+                            <i class="bi bi-star-fill"></i>
+                            <i class="bi bi-star-fill"></i>
+                            <i class="bi bi-star-fill"></i>
+                            <i class="bi bi-star-fill text-muted"></i>
+                        </div>
+                        <span class="text-secondary small fw-medium">0 Ratings</span>
+                        <span class="text-muted">•</span>
+                        <span class="text-secondary small fw-medium">0 Reviews</span>
+                    </div>
+
+                    <!-- SKU ID -->
+                    <div class="text-secondary small mb-3">
+                        <strong>SKU:</strong> <span id="pdpDisplaySku"><%= product.defaultVariant.display.sku %></span>
+                    </div>
+
+                    <!-- Pricing attributes box (Sale, Regular, Discount) -->
+                    <div class="d-flex align-items-baseline gap-2 mb-3">
+                        <span class="fw-bold text-dark fs-2" id="pdpDisplaySalePrice">
+                            ₹<%= product.defaultVariant.display.salePrice.toLocaleString() %>
+                        </span>
+                        
+                        <span 
+                            class="text-muted text-decoration-line-through fs-6" 
+                            id="pdpDisplayRegularPrice"
+                            style="<%= product.defaultVariant.display.discountPercentage > 0 ? '' : 'display: none;' %>"
+                        >
+                            ₹<%= product.defaultVariant.display.regularPrice.toLocaleString() %>
+                        </span>
+                        
+                        <span 
+                            class="badge bg-danger rounded-3 px-2.5 py-1.5 fw-semibold ms-2" 
+                            id="pdpDisplayDiscountBadge"
+                            style="<%= product.defaultVariant.display.discountPercentage > 0 ? '' : 'display: none;' %>"
+                        >
+                            <%= product.defaultVariant.display.discountPercentage %>% OFF
+                        </span>
+                    </div>
+
+                    <!-- Stock indicator badges -->
+                    <div class="mb-4">
+                        <span 
+                            id="pdpDisplayStockBadge"
+                            class="badge rounded-pill px-3 py-1.5 fw-semibold border <%= 
+                                product.defaultVariant.display.stockStatus === 'In Stock' ? 'bg-success-subtle text-success border-success-subtle' : 
+                                product.defaultVariant.display.stockStatus === 'Low Stock' ? 'bg-warning-subtle text-warning-emphasis border-warning-subtle' : 
+                                'bg-danger-subtle text-danger border-danger-subtle' 
+                            %>"
+                            style="font-size: 0.8rem;"
+                        >
+                            <%= 
+                                product.defaultVariant.display.stockStatus === 'In Stock' ? '🟢 In Stock' : 
+                                product.defaultVariant.display.stockStatus === 'Low Stock' ? '🟡 Low Stock' : 
+                                '🔴 Out of Stock' 
+                            %>
+                        </span>
+                    </div>
+
+                    <!-- Variant selectable button options -->
+                    <% if (product.variants && product.variants.length > 1) { %>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-dark small mb-2">Select variant</label>
+                            <div class="d-flex flex-wrap gap-2" id="pdpVariantSelector">
+                                <% product.variants.forEach((v, idx) => { %>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-outline-dark rounded-3 px-3 py-2 text-start pdp-variant-opt-btn <%= v.sku === product.defaultVariant.display.sku ? 'active' : '' %>"
+                                        data-index="<%= idx %>"
+                                    >
+                                        <div class="fw-bold small"><%= v.color %> / <%= v.storage %></div>
+                                        <div class="smaller-text text-muted">₹<%= v.display.salePrice.toLocaleString() %></div>
+                                    </button>
+                                <% }); %>
+                            </div>
+                        </div>
+                    <% } %>
+
+                    <!-- Available Offers box (Flipkart/Croma style) -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-1.5">
+                            <i class="bi bi-tags text-success fs-5"></i>
+                            Available Offers
+                        </h6>
+                        <div class="row row-cols-1 row-cols-md-3 g-2.5">
+                            
+                            <div class="col">
+                                <div class="p-3 pdp-offer-card h-100">
+                                    <div class="fw-bold text-dark mb-1.5 small">
+                                        <i class="bi bi-wallet2 text-success me-1"></i> Bank Offer
+                                    </div>
+                                    <p class="text-secondary mb-0" style="font-size: 0.76rem; line-height: 1.35;">
+                                        Get 10% Instant Discount on HDFC Credit Cards, up to ₹1,500.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="col">
+                                <div class="p-3 pdp-offer-card h-100">
+                                    <div class="fw-bold text-dark mb-1.5 small">
+                                        <i class="bi bi-gift text-success me-1"></i> Combo Offer
+                                    </div>
+                                    <p class="text-secondary mb-0" style="font-size: 0.76rem; line-height: 1.35;">
+                                        Buy with compatible chargers & adapters and save 5% more.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="col">
+                                <div class="p-3 pdp-offer-card h-100">
+                                    <div class="fw-bold text-dark mb-1.5 small">
+                                        <i class="bi bi-truck text-success me-1"></i> Free Delivery
+                                    </div>
+                                    <p class="text-secondary mb-0" style="font-size: 0.76rem; line-height: 1.35;">
+                                        No delivery fee applicable on this variant purchase today.
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Quantity Selector & Action checkout buttons -->
+                    <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="quantity" class="text-secondary small fw-medium mb-0">Qty:</label>
+                            <div class="input-group" style="width: 130px;">
+                                <button class="btn btn-outline-secondary btn-sm px-2.5" type="button" id="qtyBtnMinus" onclick="changePdpQty(-1)">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                <input 
+                                    type="number" 
+                                    id="quantity" 
+                                    name="quantity" 
+                                    value="<%= product.defaultVariant.display.stock > 0 ? 1 : 0 %>" 
+                                    min="<%= product.defaultVariant.display.stock > 0 ? 1 : 0 %>" 
+                                    max="<%= product.defaultVariant.display.stock %>" 
+                                    class="form-control text-center bg-white border-secondary-subtle" 
+                                    readonly
+                                >
+                                <button class="btn btn-outline-secondary btn-sm px-2.5" type="button" id="qtyBtnPlus" onclick="changePdpQty(1)">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2 flex-grow-1">
+                            <button 
+                                type="button" 
+                                id="pdpAddToCartBtn" 
+                                class="btn btn-outline-dark rounded-3 py-2 px-4 fw-semibold flex-grow-1 shadow-sm"
+                                <%= product.defaultVariant.display.stock > 0 ? '' : 'disabled' %>
+                            >
+                                Add to Cart
+                            </button>
+                            <button 
+                                type="button" 
+                                id="pdpBuyNowBtn" 
+                                class="btn btn-dark rounded-3 py-2 px-4 fw-semibold flex-grow-1 shadow-sm"
+                                <%= product.defaultVariant.display.stock > 0 ? '' : 'disabled' %>
+                            >
+                                Buy Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Highlights bullet points block (displays only if attributes exist) -->
+                    <% 
+                    const highlightsList = [];
+                    if (product.defaultVariant.display.sku) {
+                        highlightsList.push(`Storage configuration: ${product.defaultVariant.storage || 'Standard'}`);
+                    }
+                    if (product.specifications?.display) {
+                        highlightsList.push(`Display parameters: ${product.specifications.display}`);
+                    }
+                    if (product.specifications?.camera) {
+                        highlightsList.push(`Camera configuration: ${product.specifications.camera}`);
+                    }
+                    if (product.specifications?.battery) {
+                        highlightsList.push(`Battery details: ${product.specifications.battery}`);
+                    }
+                    %>
+                    <% if (highlightsList.length > 0) { %>
+                        <div class="mb-4" id="pdpHighlightsSection">
+                            <h6 class="fw-bold text-dark mb-2.5">Highlights</h6>
+                            <ul class="highlight-list ps-3 mb-0">
+                                <% highlightsList.forEach(item => { %>
+                                    <li><%= item %></li>
+                                <% }) %>
+                            </ul>
+                        </div>
+                    <% } %>
+
+                    <!-- Product Description -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-dark mb-2">Description</h6>
+                        <p class="text-secondary small lh-base mb-0"><%= product.description %></p>
+                    </div>
+
+                    <!-- Key Specifications Card -->
+                    <div class="card border-light-subtle p-3.5 mt-auto rounded-3">
+                        <h6 class="fw-bold text-dark mb-3">Key Specifications</h6>
+                        <div class="container-fluid p-0">
+                            
+                            <div class="row spec-table-row">
+                                <div class="col-6 text-secondary small fw-medium">Brand</div>
+                                <div class="col-6 text-dark small fw-bold"><%= product.brand.name %></div>
+                            </div>
+                            
+                            <div class="row spec-table-row">
+                                <div class="col-6 text-secondary small fw-medium">Color</div>
+                                <div class="col-6 text-dark small fw-bold" id="specColor"><%= product.defaultVariant.color %></div>
+                            </div>
+
+                            <div class="row spec-table-row">
+                                <div class="col-6 text-secondary small fw-medium">Storage</div>
+                                <div class="col-6 text-dark small fw-bold" id="specStorage"><%= product.defaultVariant.storage %></div>
+                            </div>
+
+                            <div class="row spec-table-row">
+                                <div class="col-6 text-secondary small fw-medium">SKU</div>
+                                <div class="col-6 text-dark small fw-bold text-uppercase" id="specSku"><%= product.defaultVariant.display.sku %></div>
+                            </div>
+
+                            <div class="row spec-table-row">
+                                <div class="col-6 text-secondary small fw-medium">Availability</div>
+                                <div class="col-6 text-dark small fw-bold" id="specStockStatus"><%= product.defaultVariant.display.stockStatus %></div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Related Products Section (8 Products maximum Carousel) -->
+        <% if (relatedProducts && relatedProducts.length > 0) { %>
+            <div class="border-top pt-5">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="fw-bold text-dark mb-0">Related Products</h3>
+                    <div class="text-muted small">Swipe or scroll horizontally &rarr;</div>
+                </div>
+                
+                <div class="pdp-related-scroll-container" id="pdpRelatedScroll">
+                    <% relatedProducts.forEach(rp => { %>
+                        <div class="pdp-related-item-card">
+                            <div class="pdp-rp-card shadow-sm">
+                                
+                                <!-- Image box -->
+                                <div class="pdp-rp-img-box">
+                                    <% if (rp.defaultVariant.display.discountPercentage > 0) { %>
+                                        <span class="badge bg-danger rounded-3 px-2 py-1.5 fw-semibold small shadow-sm position-absolute top-3 start-3" style="z-index: 2;">
+                                            <%= rp.defaultVariant.display.discountPercentage %>% OFF
+                                        </span>
+                                    <% } %>
+
+                                    <!-- Wishlist placeholder heart (UI only) -->
+                                    <button type="button" class="btn btn-light position-absolute top-3 end-3 rounded-circle d-flex align-items-center justify-content-center border shadow-sm" style="width: 32px; height: 32px; z-index: 2;" title="Add to Wishlist" onclick="alert('Wishlist mockup!')">
+                                        <i class="bi bi-heart text-danger" style="font-size: 0.9rem;"></i>
+                                    </button>
+
+                                    <!-- Image content -->
+                                    <img src="<%= rp.defaultVariant.display.image %>" alt="<%= rp.name %>">
+                                </div>
+
+                                <!-- Body details content -->
+                                <div class="card-body p-3.5 d-flex flex-column justify-content-between flex-grow-1">
+                                    <div>
+                                        <div class="text-muted small fw-medium mb-1"><%= rp.brand?.name || '-' %></div>
+                                        <h6 class="fw-bold text-dark pdp-rp-name-clamp mb-2" title="<%= rp.name %>"><%= rp.name %></h6>
+                                        
+                                        <div class="mb-3">
+                                            <% if (rp.defaultVariant.display.stockStatus === 'In Stock') { %>
+                                                <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-medium" style="font-size: 0.7rem;">In Stock</span>
+                                            <% } else if (rp.defaultVariant.display.stockStatus === 'Low Stock') { %>
+                                                <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 fw-medium" style="font-size: 0.7rem;">Low Stock</span>
+                                            <% } else { %>
+                                                <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fw-medium" style="font-size: 0.7rem;">Out of Stock</span>
+                                            <% } %>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div class="d-flex align-items-baseline gap-2 mb-3">
+                                            <span class="fw-bold text-dark fs-5">₹<%= rp.defaultVariant.display.salePrice.toLocaleString() %></span>
+                                            <% if (rp.defaultVariant.display.discountPercentage > 0) { %>
+                                                <span class="text-muted text-decoration-line-through small">₹<%= rp.defaultVariant.display.regularPrice.toLocaleString() %></span>
+                                            <% } %>
+                                        </div>
+                                        
+                                        <a href="/product/<%= rp._id %>" class="btn btn-dark w-100 rounded-3 py-2 fw-medium text-center small shadow-sm">
+                                            View Details
+                                        </a>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
+            </div>
+        <% } %>
+
+        <!-- Placeholders for Recently Viewed Products (UI preparation) -->
+        <div class="border-top pt-5 mt-5">
+            <h5 class="fw-bold text-secondary mb-3">Recently Viewed</h5>
+            <p class="text-muted small">No recently viewed items yet. Start shopping to fill this section.</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- Fullscreen Image Zoom Modal lightbox -->
+<div class="modal fade border-0" id="pdpImageZoomModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 rounded-4 overflow-hidden bg-transparent">
+            <div class="modal-body p-0 position-relative d-flex align-items-center justify-content-center">
+                <button type="button" class="btn-close btn-close-white position-absolute top-3 end-3 bg-dark rounded-circle p-2.5 shadow" data-bs-dismiss="modal" aria-label="Close" style="z-index: 5; opacity: 0.9;"></button>
+                <img src="" id="pdpModalZoomImg" class="w-100 h-100 rounded-4" style="object-fit: contain; max-height: 80vh;" alt="Zoom View">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Application Product Variants JSON container -->
+<script id="productVariantsJson" type="application/json"><%- JSON.stringify(product.variants) %></script>
+
+<script>
+// JSON loaded variant data
+const pdpVariants = JSON.parse(document.getElementById('productVariantsJson').textContent);
+
+// Thumbnail switch function
+function switchPdpImage(imageUrl, thumbBox) {
+    const mainImg = document.getElementById('pdpMainProductImg');
+    
+    // Apply smooth fade out transition
+    mainImg.style.opacity = '0';
+    setTimeout(() => {
+        mainImg.src = imageUrl;
+        mainImg.style.opacity = '1';
+    }, 150);
+
+    document.querySelectorAll('.pdp-thumbnail-box').forEach(box => box.classList.remove('active'));
+    if (thumbBox) {
+        thumbBox.classList.add('active');
+    }
+}
+
+// Quantity selector handler delta values
+function changePdpQty(delta) {
+    const qtyInput = document.getElementById('quantity');
+    const min = parseInt(qtyInput.min) || 0;
+    const max = parseInt(qtyInput.max) || 0;
+    let currentVal = parseInt(qtyInput.value) || 0;
+    
+    currentVal += delta;
+    if (currentVal < min) currentVal = min;
+    if (currentVal > max) currentVal = max;
+    
+    qtyInput.value = currentVal;
+    updatePdpQtyButtons();
+}
+
+function updatePdpQtyButtons() {
+    const qtyInput = document.getElementById('quantity');
+    const min = parseInt(qtyInput.min) || 0;
+    const max = parseInt(qtyInput.max) || 0;
+    const currentVal = parseInt(qtyInput.value) || 0;
+    
+    document.getElementById('qtyBtnMinus').disabled = (currentVal <= min);
+    document.getElementById('qtyBtnPlus').disabled = (currentVal >= max || max === 0);
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // Hover zoom on desktop & Touch focus on mobile viewport image container
+    const mainContainer = document.getElementById('pdpMainImgContainer');
+    const mainImg = document.getElementById('pdpMainProductImg');
+    
+    if (mainContainer && mainImg) {
+        mainContainer.addEventListener('mousemove', (e) => {
+            const rect = mainContainer.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            mainImg.style.transformOrigin = `${x}% ${y}%`;
+            mainImg.style.transform = 'scale(1.7)';
+        });
+        
+        mainContainer.addEventListener('mouseleave', () => {
+            mainImg.style.transform = 'scale(1)';
+            mainImg.style.transformOrigin = 'center center';
+        });
+        
+        mainContainer.addEventListener('click', () => {
+            const zoomModal = new bootstrap.Modal(document.getElementById('pdpImageZoomModal'));
+            document.getElementById('pdpModalZoomImg').src = mainImg.src;
+            zoomModal.show();
+        });
+    }
+
+    // Set up variant buttons list switching
+    const variantBtns = document.querySelectorAll('.pdp-variant-opt-btn');
+    variantBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            variantBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            const variantIndex = parseInt(this.dataset.index);
+            const variant = pdpVariants[variantIndex];
+            if (!variant) return;
+
+            const display = variant.display;
+
+            // 1. Swap main price details instantly
+            document.getElementById('pdpDisplaySalePrice').textContent = `₹${display.salePrice.toLocaleString()}`;
+            const regPriceText = document.getElementById('pdpDisplayRegularPrice');
+            const discountBadge = document.getElementById('pdpDisplayDiscountBadge');
+
+            if (display.discountPercentage > 0) {
+                regPriceText.textContent = `₹${display.regularPrice.toLocaleString()}`;
+                regPriceText.style.display = '';
+                discountBadge.textContent = `${display.discountPercentage}% OFF`;
+                discountBadge.style.display = '';
+            } else {
+                regPriceText.style.display = 'none';
+                discountBadge.style.display = 'none';
+            }
+
+            // 2. Swap SKU
+            document.getElementById('pdpDisplaySku').textContent = display.sku;
+
+            // 3. Swap Stock Status indicator
+            const stockBadge = document.getElementById('pdpDisplayStockBadge');
+            const qtyInput = document.getElementById('quantity');
+            const addCartBtn = document.getElementById('pdpAddToCartBtn');
+            const buyNowBtn = document.getElementById('pdpBuyNowBtn');
+
+            if (display.stockStatus === 'In Stock') {
+                stockBadge.className = "badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3 py-1.5 fw-semibold";
+                stockBadge.textContent = "🟢 In Stock";
+                qtyInput.disabled = false;
+                qtyInput.value = 1;
+                qtyInput.min = 1;
+                qtyInput.max = display.stock;
+                addCartBtn.disabled = false;
+                buyNowBtn.disabled = false;
+            } else if (display.stockStatus === 'Low Stock') {
+                stockBadge.className = "badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1.5 fw-semibold";
+                stockBadge.textContent = "🟡 Low Stock";
+                qtyInput.disabled = false;
+                qtyInput.value = 1;
+                qtyInput.min = 1;
+                qtyInput.max = display.stock;
+                addCartBtn.disabled = false;
+                buyNowBtn.disabled = false;
+            } else {
+                stockBadge.className = "badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-3 py-1.5 fw-semibold";
+                stockBadge.textContent = "🔴 Out of Stock";
+                qtyInput.disabled = true;
+                qtyInput.value = 0;
+                qtyInput.min = 0;
+                qtyInput.max = 0;
+                addCartBtn.disabled = true;
+                buyNowBtn.disabled = true;
+            }
+            updatePdpQtyButtons();
+
+            // 4. Swap Gallery images viewport and thumbnails
+            switchPdpImage(display.image);
+
+            const thumbsContainer = document.getElementById('pdpThumbnailsContainer');
+            thumbsContainer.innerHTML = '';
+            display.images.forEach((img, idx) => {
+                const box = document.createElement('div');
+                box.className = `pdp-thumbnail-box shadow-sm ${idx === 0 ? 'active' : ''}`;
+                box.onclick = function() { switchPdpImage(img, this); };
+                const imageEl = document.createElement('img');
+                imageEl.src = img;
+                imageEl.alt = `Thumbnail ${idx + 1}`;
+                box.appendChild(imageEl);
+                thumbsContainer.appendChild(box);
+            });
+
+            // 5. Swap Key specifications table parameters
+            document.getElementById('specColor').textContent = variant.color;
+            document.getElementById('specStorage').textContent = variant.storage;
+            document.getElementById('specSku').textContent = display.sku;
+            document.getElementById('specStockStatus').textContent = display.stockStatus;
+
+            // 6. Swap Highlights lists parameters
+            const highlightsContainer = document.getElementById('pdpHighlightsSection');
+            if (highlightsContainer) {
+                const list = highlightsContainer.querySelector('.highlight-list');
+                list.innerHTML = '';
+                
+                const lists = [
+                    `Storage configuration: ${variant.storage || 'Standard'}`
+                ];
+                <% if (product.specifications?.display) { %>
+                    lists.push(`Display parameters: <%= product.specifications.display %>`);
+                <% } %>
+                <% if (product.specifications?.camera) { %>
+                    lists.push(`Camera configuration: <%= product.specifications.camera %>`);
+                <% } %>
+                <% if (product.specifications?.battery) { %>
+                    lists.push(`Battery details: <%= product.specifications.battery %>`);
+                <% } %>
+
+                lists.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    list.appendChild(li);
+                });
+            }
+        });
+    });
+
+    // Initialize quantity selectors state
+    updatePdpQtyButtons();
+
+    // PDP Add to Cart AJAX handler
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    const addCartBtn = document.getElementById('pdpAddToCartBtn');
+    if (addCartBtn) {
+        addCartBtn.addEventListener('click', function() {
+            const qty = parseInt(document.getElementById('quantity').value) || 1;
+            const activeVariantBtn = document.querySelector('.pdp-variant-opt-btn.active');
+            
+            // Map selected variant id from active selector button indices
+            let selectedVariantId = '<%= product.defaultVariant._id %>';
+            if (activeVariantBtn) {
+                const idx = parseInt(activeVariantBtn.dataset.index);
+                selectedVariantId = pdpVariants[idx]._id;
+            }
+
+            fetch('/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    productId: '<%= product._id %>',
+                    variantId: selectedVariantId,
+                    quantity: qty
+                })
+            })
+            .then(res => {
+                if (res.status === 401) {
+                    Swal.fire({
+                        title: 'Log In Required',
+                        text: 'You need to log in to add items to your cart.',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Log In',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#111827'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "/auth/login";
+                        }
+                    });
+                    return;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    Toast.fire({
+                        icon: 'success',
+                        title: data.message || 'Product added to cart successfully!'
+                    });
+                    if (typeof refreshNavbarCartCount === 'function') {
+                        refreshNavbarCartCount();
+                    }
+                } else if (data) {
+                    Swal.fire({
+                        title: 'Oops...',
+                        text: data.message || "Failed to add product to cart.",
+                        icon: 'error',
+                        confirmButtonColor: '#111827'
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('Error adding to cart:', err);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'An error occurred while adding the product to your cart.',
+                    icon: 'error',
+                    confirmButtonColor: '#111827'
+                });
+            });
+        });
+    }
+});
+</script>

@@ -1,0 +1,628 @@
+<!-- Modern Cart Redesign -->
+<style>
+    .cart-section-wrapper {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #f8f9fa;
+        min-height: 80vh;
+    }
+    /* Cart Item Card refinements */
+    .cart-item-modern-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cart-item-modern-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    }
+    .cart-image-wrapper {
+        width: 110px;
+        height: 110px;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        background-color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .cart-image-wrapper img {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+    }
+    .btn-qty-action {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px !important;
+        transition: transform 0.1s;
+    }
+    .btn-qty-action:active {
+        transform: scale(0.9);
+    }
+    .btn-qty-input {
+        max-width: 46px;
+        height: 32px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-align: center;
+        border-left: none;
+        border-right: none;
+    }
+    .badge-discount-percent {
+        font-size: 0.72rem;
+        background-color: #fee2e2;
+        color: #dc3545;
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        padding: 3px 6px;
+    }
+    .pdp-sticky-summary {
+        position: sticky;
+        top: 24px;
+    }
+</style>
+
+<div class="cart-section-wrapper py-5">
+    <div class="container-xl" id="pdpCartMainContainer">
+
+        <!-- Page Header -->
+        <div class="mb-4">
+            <h1 class="fw-bold text-dark mb-1">Shopping Cart</h1>
+            <p class="text-secondary small">Review items, adjust quantities, and checkout securely.</p>
+        </div>
+
+        <!-- Warning Price Alerts -->
+        <% if (priceChanges && priceChanges.length > 0) { %>
+            <div class="alert alert-warning alert-dismissible fade show rounded-3 mb-4 shadow-sm border-warning-subtle" role="alert">
+                <div class="d-flex align-items-center mb-1">
+                    <i class="bi bi-exclamation-triangle-fill text-warning fs-5 me-2"></i>
+                    <strong class="text-dark">Cart Price / Quantity Alerts</strong>
+                </div>
+                <ul class="mb-0 small text-secondary ps-3">
+                    <% priceChanges.forEach(msg => { %>
+                        <li><%= msg %></li>
+                    <% }) %>
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <% } %>
+
+        <% if (items && items.length > 0) { %>
+            <!-- 2-column layout (Left: Cart items, Right: summary + coupons) -->
+            <div class="row g-4" id="pdpCartItemsRow">
+                
+                <!-- Left Grid: Cart items list -->
+                <div class="col-lg-8">
+                    <div class="d-flex flex-column gap-3">
+                        <% items.forEach(item => { %>
+                            <div class="card cart-item-modern-card p-3 shadow-sm border-light-subtle" id="cart-row-<%= item.product._id %>-<%= item.variantId %>">
+                                <div class="row g-3 align-items-center">
+                                    
+                                    <!-- Image wrapper -->
+                                    <div class="col-auto">
+                                        <div class="cart-image-wrapper shadow-sm">
+                                            <img src="<%= item.imageSnapshot %>" alt="<%= item.nameSnapshot %>">
+                                        </div>
+                                    </div>
+
+                                    <!-- Detail info -->
+                                    <div class="col col-md-6 flex-grow-1">
+                                        <!-- Brand small uppercase -->
+                                        <% if (item.product?.brand) { %>
+                                            <span class="text-uppercase text-muted fw-bold d-block mb-0.5" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                                <%= item.product.brand.name %>
+                                            </span>
+                                        <% } %>
+                                        
+                                        <!-- Product name bold -->
+                                        <h5 class="fw-bold text-dark mb-1.5 text-truncate" style="font-size: 1.05rem;" title="<%= item.nameSnapshot %>">
+                                            <%= item.nameSnapshot %>
+                                        </h5>
+
+                                        <!-- Variant metadata -->
+                                        <div class="text-secondary small mb-2.5">
+                                            <%= item.variantSnapshot %>
+                                        </div>
+
+                                        <!-- Stock status Badge -->
+                                        <div class="mb-2">
+                                            <% if (item.isUnavailable) { %>
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 small">
+                                                    ⚠️ Unavailable
+                                                </span>
+                                            <% } else if (item.isOutOfStock) { %>
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 small">
+                                                    🔴 Out of Stock
+                                                </span>
+                                            <% } else { %>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 small">
+                                                    🟢 In Stock
+                                                </span>
+                                            <% } %>
+                                        </div>
+                                    </div>
+
+                                    <!-- Pricing, Quantity and Actions -->
+                                    <div class="col-12 col-md-4 d-flex flex-column align-items-md-end justify-content-between gap-2 text-md-end mt-md-0 border-top pt-3 pt-md-0 border-md-0">
+                                        
+                                        <!-- Item total pricing on the right -->
+                                        <div class="mb-1">
+                                            <% if (!item.isUnavailable && !item.isOutOfStock) { %>
+                                                <!-- Current Sale price snapshot -->
+                                                <div class="d-flex align-items-baseline gap-1.5 justify-content-md-end">
+                                                    <span class="fw-bold text-dark fs-5">
+                                                        ₹<%= item.priceSnapshot.toLocaleString() %>
+                                                    </span>
+                                                    <% if (item.regularPrice && item.regularPrice > item.priceSnapshot) { %>
+                                                        <span class="text-muted text-decoration-line-through smaller-text">
+                                                            ₹<%= item.regularPrice.toLocaleString() %>
+                                                        </span>
+                                                        <span class="badge-discount-percent fw-semibold">
+                                                            <%= item.discountPercentage %>% OFF
+                                                        </span>
+                                                    <% } %>
+                                                </div>
+                                                <!-- Row Item Subtotal -->
+                                                <div class="text-secondary small mt-0.5">
+                                                    Total: <strong class="text-dark fs-6">₹<span id="pdp-item-subtotal-<%= item.product._id %>-<%= item.variantId %>"><%= (item.quantity * item.priceSnapshot).toLocaleString() %></span></strong>
+                                                </div>
+                                            <% } else { %>
+                                                <div class="text-danger small fw-semibold">
+                                                    <%= item.isUnavailable ? 'This product is no longer available.' : 'Currently unavailable.' %>
+                                                </div>
+                                            <% } %>
+                                        </div>
+
+                                        <!-- Quantity Selector placing below prices -->
+                                        <% if (!item.isUnavailable && !item.isOutOfStock) { %>
+                                            <div class="d-flex align-items-center gap-2 justify-content-md-end my-1">
+                                                <div class="input-group input-group-sm" style="width: 110px;">
+                                                    <button 
+                                                        class="btn btn-outline-dark btn-qty-action" 
+                                                        type="button" 
+                                                        id="pdp-minus-<%= item.product._id %>-<%= item.variantId %>"
+                                                        onclick="adjustCartQtyAjax('<%= item.product._id %>', '<%= item.variantId %>', -1)"
+                                                        <%= item.quantity <= 1 ? 'disabled' : '' %>
+                                                    >
+                                                        <i class="bi bi-minus"></i>
+                                                    </button>
+                                                    <input 
+                                                        type="text" 
+                                                        id="pdp-qty-<%= item.product._id %>-<%= item.variantId %>"
+                                                        value="<%= item.quantity %>" 
+                                                        class="form-control btn-qty-input border-secondary-subtle bg-white" 
+                                                        readonly
+                                                    >
+                                                    <button 
+                                                        class="btn btn-outline-dark btn-qty-action" 
+                                                        type="button" 
+                                                        id="pdp-plus-<%= item.product._id %>-<%= item.variantId %>"
+                                                        onclick="adjustCartQtyAjax('<%= item.product._id %>', '<%= item.variantId %>', 1)"
+                                                        <%= item.quantity >= Math.min(item.stock, 5) ? 'disabled' : '' %>
+                                                    >
+                                                        <i class="bi bi-plus"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        <% } %>
+
+                                        <!-- Remove Item Action Button placed below qty selector -->
+                                        <button 
+                                            type="button" 
+                                            class="btn btn-sm btn-outline-danger px-2.5 py-1.5 rounded-3 d-flex align-items-center gap-1.5 mt-1"
+                                            onclick="confirmRemoveCartItem('<%= item.product._id %>', '<%= item.variantId %>')"
+                                        >
+                                            <i class="bi bi-trash3"></i> Remove
+                                        </button>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                </div>
+
+                <!-- Right Grid: Sticky Order Summary & Coupon Panel -->
+                <div class="col-lg-4">
+                    <div class="pdp-sticky-summary">
+                        
+                        <!-- Coupons Widget (Coming Soon) -->
+                        <div class="card border-light-subtle shadow-sm p-3.5 mb-3 rounded-4 bg-white">
+                            <h6 class="fw-bold text-dark mb-2.5 d-flex align-items-center gap-2">
+                                <i class="bi bi-ticket-perforated text-success fs-5"></i>
+                                Apply Coupon
+                            </h6>
+                            <div class="input-group shadow-sm rounded-3 overflow-hidden border">
+                                <input type="text" class="form-control border-0 px-3 py-2 bg-light-subtle" placeholder="Enter coupon code" disabled>
+                                <button class="btn btn-dark border-0 px-3 fw-semibold" type="button" disabled>Apply</button>
+                            </div>
+                            <div class="text-muted smaller-text mt-2">
+                                <i class="bi bi-info-circle me-1"></i> Coupon codes integration is coming soon!
+                            </div>
+                        </div>
+
+                        <!-- Sticky Summary Card -->
+                        <div class="card border-light-subtle shadow-sm p-4 rounded-4 bg-white">
+                            <h5 class="fw-bold text-dark mb-3.5">Price Details</h5>
+                            
+                            <div class="d-flex flex-column gap-3 mb-4" style="font-size: 0.9rem;">
+                                
+                                <div class="d-flex justify-content-between text-secondary">
+                                    <span>Total Items</span>
+                                    <% 
+                                    const totalItemsCount = items.reduce((acc, it) => acc + (it.isUnavailable || it.isOutOfStock ? 0 : it.quantity), 0);
+                                    %>
+                                    <span class="fw-bold text-dark" id="summaryTotalItems"><%= totalItemsCount %> Items</span>
+                                </div>
+
+                                <div class="d-flex justify-content-between text-secondary">
+                                    <span>Subtotal</span>
+                                    <span class="fw-bold text-dark">₹<span id="summarySubtotal"><%= cartSummary.subtotal.toLocaleString() %></span></span>
+                                </div>
+
+                                <div class="d-flex justify-content-between text-secondary">
+                                    <span>Discount Savings</span>
+                                    <span class="fw-bold text-success">-₹<span id="summaryDiscount"><%= cartSummary.discount.toLocaleString() %></span></span>
+                                </div>
+
+                                <div class="d-flex justify-content-between text-secondary">
+                                    <span>Shipping Delivery</span>
+                                    <span class="fw-bold text-dark" id="summaryShipping">
+                                        <%= cartSummary.shipping === 0 ? 'FREE' : '₹' + cartSummary.shipping.toLocaleString() %>
+                                    </span>
+                                </div>
+
+                                <% if (cartSummary.discount > 0) { %>
+                                    <div class="alert alert-success border-0 px-3 py-2 d-flex align-items-center gap-2 mb-0" style="font-size: 0.8rem;" id="summarySavingsAlert">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        <span>You will save <strong>₹<span id="summaryTotalSavings"><%= cartSummary.discount.toLocaleString() %></span></strong> on this order.</span>
+                                    </div>
+                                <% } else { %>
+                                    <div class="alert alert-success border-0 px-3 py-2 d-flex align-items-center gap-2 mb-0" style="font-size: 0.8rem; display: none;" id="summarySavingsAlert">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        <span>You will save <strong>₹<span id="summaryTotalSavings">0</span></strong> on this order.</span>
+                                    </div>
+                                <% } %>
+
+                                <hr class="my-2 text-muted opacity-25">
+
+                                <div class="d-flex justify-content-between text-secondary fs-5 align-items-center">
+                                    <span class="fw-bold text-dark">Total Amount</span>
+                                    <span class="fw-bold text-dark">₹<span id="summaryGrandTotal"><%= cartSummary.grandTotal.toLocaleString() %></span></span>
+                                </div>
+
+                            </div>
+
+                            <!-- Checkout Trigger Button -->
+                            <button 
+                                type="button" 
+                                id="checkoutBtn"
+                                class="btn btn-dark w-100 rounded-3 py-2.5 fw-semibold shadow-sm mb-2"
+                                <%= canCheckout ? '' : 'disabled' %>
+                                onclick="proceedToCheckout()"
+                            >
+                                Proceed to Checkout
+                            </button>
+                            
+                            <div 
+                                class="text-danger small text-center mt-2" 
+                                id="checkoutWarning" 
+                                style="<%= canCheckout ? 'display: none;' : 'display: block;' %>"
+                            >
+                                <i class="bi bi-exclamation-circle me-1"></i>
+                                Remove unavailable or out-of-stock items to proceed.
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        <% } else { %>
+            <!-- Empty state layout -->
+            <div class="card border-0 shadow-sm rounded-4 text-center py-5 px-4 bg-white mt-4" id="emptyCartState">
+                <div class="text-muted mb-3.5">
+                    <span class="display-1 text-secondary opacity-50"><i class="bi bi-cart-x"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-2">Your cart is empty.</h3>
+                <p class="text-secondary small mb-4">Add products to your cart to explore items and checkout.</p>
+                <a href="/shop" class="btn btn-dark rounded-3 px-4 py-2.5 fw-semibold">
+                    Continue Shopping
+                </a>
+            </div>
+        <% } %>
+
+    </div>
+</div>
+
+<!-- AJAX Scripts & SweetAlert2 bindings -->
+<script>
+// SweetAlert2 Toast Mixin helper
+let CartToast;
+document.addEventListener("DOMContentLoaded", () => {
+    CartToast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+});
+
+/**
+ * AJAX update item quantity with Toast confirmations
+ */
+async function adjustCartQtyAjax(productId, variantId, delta) {
+    const qtyInput = document.getElementById(`pdp-qty-${productId}-${variantId}`);
+    if (!qtyInput) return;
+
+    const currentVal = parseInt(qtyInput.value, 10);
+    const newVal = currentVal + delta;
+
+    if (newVal < 1 || newVal > 5) return;
+
+    const minusBtn = document.getElementById(`pdp-minus-${productId}-${variantId}`);
+    const plusBtn = document.getElementById(`pdp-plus-${productId}-${variantId}`);
+    if (minusBtn) minusBtn.disabled = true;
+    if (plusBtn) plusBtn.disabled = true;
+
+    try {
+        const response = await fetch("/cart/update-quantity", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                productId: productId,
+                variantId: variantId,
+                quantity: newVal
+            })
+        });
+
+        if (response.status === 401) {
+            Swal.fire({
+                title: 'Log In Required',
+                text: 'Please log in to manage your cart.',
+                icon: 'info',
+                confirmButtonColor: '#111827'
+            }).then(() => {
+                window.location.href = "/auth/login";
+            });
+            return;
+        }
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to update quantity.");
+        }
+
+        // Update input value
+        qtyInput.value = newVal;
+
+        // Update item subtotal
+        const itemSubtotal = document.getElementById(`pdp-item-subtotal-${productId}-${variantId}`);
+        if (itemSubtotal) {
+            itemSubtotal.textContent = data.itemTotal.toLocaleString();
+        }
+
+        // Update summary fields
+        updateCartSummary(data.cartSummary, data.count);
+
+        // Toast Alert
+        CartToast.fire({
+            icon: 'success',
+            title: 'Quantity updated successfully!'
+        });
+
+        // Update navbar count badge
+        if (typeof refreshNavbarCartCount === "function") {
+            refreshNavbarCartCount();
+        }
+    } catch (error) {
+        console.error("Quantity adjust cart AJAX error:", error);
+        Swal.fire({
+            title: 'Error',
+            text: error.message || 'An error occurred while updating quantity.',
+            icon: 'error',
+            confirmButtonColor: '#111827'
+        });
+    } finally {
+        setTimeout(() => {
+            const inputVal = parseInt(qtyInput.value, 10);
+            if (minusBtn) minusBtn.disabled = (inputVal <= 1);
+            if (plusBtn) plusBtn.disabled = (inputVal >= 5);
+        }, 100);
+    }
+}
+
+/**
+ * SweetAlert2 confirmation modal before removing item
+ */
+function confirmRemoveCartItem(productId, variantId) {
+    Swal.fire({
+        title: 'Remove Item?',
+        text: "Are you sure you want to remove this item from your cart?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, remove it!',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            removeCartItemAjax(productId, variantId);
+        }
+    });
+}
+
+/**
+ * AJAX remove item from Cart with fade transition and Toast alert
+ */
+async function removeCartItemAjax(productId, variantId) {
+    try {
+        const response = await fetch("/cart/remove", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                productId: productId,
+                variantId: variantId
+            })
+        });
+
+        if (response.status === 401) {
+            window.location.href = "/auth/login";
+            return;
+        }
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to remove item.");
+        }
+
+        // Fade out item row
+        const itemRow = document.getElementById(`cart-row-${productId}-${variantId}`);
+        if (itemRow) {
+            itemRow.style.transition = "all 0.3s ease-out";
+            itemRow.style.opacity = "0";
+            itemRow.style.transform = "translateY(-10px)";
+            setTimeout(() => {
+                itemRow.remove();
+                
+                // Switch to empty state if no remaining cards
+                const cards = document.querySelectorAll(".cart-item-modern-card");
+                if (cards.length === 0) {
+                    displayEmptyCartLayout();
+                }
+            }, 300);
+        }
+
+        // Update summary
+        updateCartSummary(data.cartSummary, data.count);
+
+        // Toast Alert
+        CartToast.fire({
+            icon: 'success',
+            title: 'Item removed from cart.'
+        });
+
+        // Update navbar badge
+        if (typeof refreshNavbarCartCount === "function") {
+            refreshNavbarCartCount();
+        }
+    } catch (error) {
+        console.error("AJAX removal error:", error);
+        Swal.fire({
+            title: 'Error',
+            text: error.message || 'An error occurred while removing the item.',
+            icon: 'error',
+            confirmButtonColor: '#111827'
+        });
+    }
+}
+
+/**
+ * Updates prices layout in Sticky Order Summary Card
+ */
+function updateCartSummary(summary, totalCount) {
+    if (!summary) return;
+    
+    document.getElementById("summarySubtotal").textContent = summary.subtotal.toLocaleString();
+    document.getElementById("summaryDiscount").textContent = summary.discount.toLocaleString();
+    
+    const shipping = document.getElementById("summaryShipping");
+    if (shipping) {
+        shipping.textContent = summary.shipping === 0 ? "FREE" : "₹" + summary.shipping.toLocaleString();
+    }
+    
+    document.getElementById("summaryGrandTotal").textContent = summary.grandTotal.toLocaleString();
+    
+    // Update Total items count
+    const totalItems = document.getElementById("summaryTotalItems");
+    if (totalItems) {
+        totalItems.textContent = `${totalCount} Items`;
+    }
+
+    // Update total savings alerts
+    const savingsAlert = document.getElementById("summarySavingsAlert");
+    const savingsVal = document.getElementById("summaryTotalSavings");
+    if (summary.discount > 0) {
+        if (savingsVal) savingsVal.textContent = summary.discount.toLocaleString();
+        if (savingsAlert) savingsAlert.style.display = "flex";
+    } else {
+        if (savingsAlert) savingsAlert.style.display = "none";
+    }
+    
+    // Check checkout viability based on remaining cards
+    evaluateCheckoutButtonState();
+}
+
+/**
+ * Check checkout button validity
+ */
+function evaluateCheckoutButtonState() {
+    const checkoutBtn = document.getElementById("checkoutBtn");
+    const warning = document.getElementById("checkoutWarning");
+    if (!checkoutBtn) return;
+
+    const remainingCards = document.querySelectorAll(".cart-item-modern-card");
+    const unlistedBadges = document.querySelectorAll(".bg-danger-subtle");
+    const hasIssues = unlistedBadges.length > 0;
+
+    if (remainingCards.length > 0 && !hasIssues) {
+        checkoutBtn.disabled = false;
+        if (warning) warning.style.display = "none";
+    } else {
+        checkoutBtn.disabled = true;
+        if (warning && remainingCards.length > 0) warning.style.display = "block";
+    }
+}
+
+/**
+ * Proceeds to Checkout flow
+ */
+function proceedToCheckout() {
+    Swal.fire({
+        title: 'Proceeding to Checkout',
+        text: 'You are now navigating to the checkout portal.',
+        icon: 'success',
+        confirmButtonColor: '#111827'
+    }).then(() => {
+        alert("Checkout module coming soon!");
+    });
+}
+
+/**
+ * Show empty cart layout block
+ */
+function displayEmptyCartLayout() {
+    const container = document.getElementById("pdpCartMainContainer");
+    container.innerHTML = `
+        <div class="card border-0 shadow-sm rounded-4 text-center py-5 px-4 bg-white mt-4" id="emptyCartState">
+            <div class="text-muted mb-3.5">
+                <span class="display-1 text-secondary opacity-50"><i class="bi bi-cart-x"></i></span>
+            </div>
+            <h3 class="fw-bold text-dark mb-2">Your cart is empty.</h3>
+            <p class="text-secondary small mb-4">Add products to your cart to explore items and checkout.</p>
+            <a href="/shop" class="btn btn-dark rounded-3 px-4 py-2.5 fw-semibold">
+                Continue Shopping
+            </a>
+        </div>
+    `;
+}
+
+// Initial check
+document.addEventListener("DOMContentLoaded", evaluateCheckoutButtonState);
+</script>

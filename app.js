@@ -18,6 +18,11 @@ import adminRoutes from "./src/routes/adminRoutes.js";
 import globalMiddleware from "./src/middlewares/globalMiddleware.js";
 import uploadErrorHandler from "./src/middlewares/uploadErrorHandler.js";
 
+import categoryRoutes from "./src/routes/categoryRoutes.js";
+
+import brandRoutes from "./src/routes/brandRoutes.js";
+import productRoutes from "./src/routes/productRoutes.js";
+
 import {
   routeNotFound,
   globalErrorHandler
@@ -71,6 +76,9 @@ app.use(globalMiddleware);
 app.use("/auth", authRoutes);
 app.use("/", userRoutes);
 app.use("/admin", adminRoutes);
+app.use("/admin/categories", categoryRoutes);
+app.use("/admin/brands", brandRoutes);
+app.use("/admin/products", productRoutes);
 app.use(uploadErrorHandler);
 // Error Handling
 app.use(routeNotFound);

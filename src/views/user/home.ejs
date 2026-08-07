@@ -1,20 +1,78 @@
 <section class="hero-section">
-  <div class="hero-content">
-    <h1>Welcome to Electryve</h1>
-    <p>Premium Electronics at Best Prices</p>
-    <a href="#" class="shop-btn">Shop Now</a>
-  </div>
+
+    <div class="hero-content">
+
+        <span class="hero-tag">
+            Premium Electronics
+        </span>
+
+        <h1>
+            Welcome to <br> Electryve
+        </h1>
+
+        <p>
+            Discover smartphones, laptops, gaming accessories
+            and premium gadgets at the best prices.
+        </p>
+
+        <a href="/shop" class="shop-btn">
+            Shop Now
+            <i class="bi bi-arrow-right"></i>
+        </a>
+
+    </div>
+
+    <div class="hero-image">
+
+        <img
+            src="/images/hero-phone.png"
+            alt="Hero Product"
+        >
+
+    </div>
+
 </section>
 
 <section class="categories-section">
-  <h2>Categories</h2>
 
-  <div class="category-grid">
-    <div class="category-card">Phones</div>
-    <div class="category-card">Laptops</div>
-    <div class="category-card">Earbuds</div>
-    <div class="category-card">Gaming</div>
-  </div>
+    <h2>Categories</h2>
+
+    <div class="category-grid">
+
+        <% categories.forEach(category => { %>
+
+            <div class="category-card">
+
+                <div class="category-icon">
+
+                    <% if(category.name.toLowerCase() === "phones"){ %>
+
+                        <i class="bi bi-phone"></i>
+
+                    <% } else if(category.name.toLowerCase() === "laptops"){ %>
+
+                        <i class="bi bi-laptop"></i>
+
+                    <% } else if(category.name.toLowerCase() === "earbuds"){ %>
+
+                        <i class="bi bi-headphones"></i>
+
+                    <% } else { %>
+
+                        <i class="bi bi-controller"></i>
+
+                    <% } %>
+
+                </div>
+
+                <h3><%= category.name %></h3>
+
+            </div>
+
+        <% }) %>
+
+    </div>
+
 </section>
 
 <section class="featured-section">

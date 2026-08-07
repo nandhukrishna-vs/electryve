@@ -1,9 +1,24 @@
 import User from "../models/User.js";
 import Address from "../models/Address.js";
 import * as userService from "../services/userService.js";
-const loadHome = (req, res) => {
-  res.render("user/home");
-  
+import Category from "../models/Category.js";
+const loadHome = async (req, res) => {
+  try {
+
+    const categories = await Category.find({
+      isListed: true,
+      isDeleted: false
+    });
+    
+    res.render("user/home", {
+      categories,
+      
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).render("error");
+  }
 };
 
 const loadProfile = async (req, res) => {
@@ -321,6 +336,45 @@ const updateAvatar = async (req, res) => {
 
 };
 
+const loadChangePassword = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.session.user.id);
+    if (!user) {
+      req.session.errorMessage = "User not found";
+      return res.redirect("/");
+    }
+
+    res.render("user/change-password", {
+      profileUser: user
+    });
+  } catch (error) {
+    console.error("Load Change Password Error:", error);
+    req.session.errorMessage = "Failed to load page";
+    return res.redirect("/profile");
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const result = await userService.changePassword({
+      body: req.body,
+      session: req.session
+    });
+
+    if (!result.success) {
+      req.session.errorMessage = result.message;
+      return res.redirect(result.redirect);
+    }
+
+    req.session.successMessage = result.message;
+    return res.redirect(result.redirect);
+  } catch (error) {
+    console.error("Change Password Controller Error:", error);
+    req.session.errorMessage = "Failed to update password";
+    return res.redirect("/profile/change-password");
+  }
+};
+
 export {
   loadHome,
   loadProfile,
@@ -332,5 +386,7 @@ export {
   addAddress,
   loadEditAddress,
   updateAddress,
-  deleteAddress
+  deleteAddress,
+  loadChangePassword,
+  changePassword
 };

@@ -317,3 +317,34 @@ body {
 .toggle-password:hover {
   color: #000;
 }
+
+.table tbody tr:hover{
+    background:#f8f9fa;
+}
+
+.table td,
+.table th{
+    vertical-align:middle;
+}
+
+.card{
+    border-radius:12px;
+}
+
+.btn{
+    border-radius:8px;
+}
+
+.badge{
+    font-size:13px;
+    padding:8px 12px;
+}
+
+.pagination .page-link{
+    color:#000;
+}
+
+.pagination .active .page-link{
+    background:#000;
+    border-color:#000;
+}
