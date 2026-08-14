@@ -265,6 +265,34 @@ const loadShop = async (req, res, next) => {
 
 };
 
+const getShopProductsData = async (req, res, next) => {
+    try {
+        const result = await productService.getShopProducts(req.query);
+        return res.status(200).json({
+            success: true,
+            products: result.products,
+            currentPage: result.currentPage,
+            totalPages: result.totalPages,
+            totalProducts: result.totalProducts,
+            activeCategories: result.categories,
+            activeBrands: result.brands,
+            filters: {
+                search: result.search || "",
+                categories: result.selectedCategories || [],
+                brands: result.selectedBrands || [],
+                priceRanges: result.selectedPrices || [],
+                sort: result.sortOption || "newest"
+            }
+        });
+    } catch (error) {
+        console.error("AJAX Shop Data Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load products. Please try again."
+        });
+    }
+};
+
 const loadProductDetails = async (req, res, next) => {
     try {
         const result = await productService.getProductDetails(req.params.id);
@@ -296,5 +324,6 @@ export {
     toggleProductStatus,
     deleteProduct,
     loadShop,
+    getShopProductsData,
     loadProductDetails
 };

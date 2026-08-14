@@ -795,6 +795,7 @@ const getShopProducts = async (query) => {
         products,
         currentPage: page,
         totalPages: Math.ceil(totalProducts / limit),
+        totalProducts,
         categories: activeCategories,
         brands: activeBrands,
         search,

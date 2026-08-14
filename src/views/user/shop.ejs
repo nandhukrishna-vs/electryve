@@ -126,7 +126,7 @@
                     <!-- Shop title & product count -->
                     <div>
                         <h4 class="fw-bold text-dark mb-1">Products</h4>
-                        <p class="text-secondary small mb-0">Showing <%= products.length %> Products</p>
+                        <p class="text-secondary small mb-0" id="productCountText">Showing <%= products.length %> Products</p>
                     </div>
 
                     <!-- Search bar with icon and clear button -->
@@ -143,13 +143,10 @@
                                 placeholder="Search products..."
                                 value="<%= search %>"
                             >
-                            <% if (search) { %>
-                                <button type="button" class="btn bg-white border-0 text-muted py-2" onclick="clearSearchOnly()">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            <% } else { %>
-                                <span class="bg-white px-2"></span>
-                            <% } %>
+                            <button type="button" id="clearSearchBtn" class="btn bg-white border-0 text-muted py-2" style="<%= search ? 'display: inline-block;' : 'display: none;' %>">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                            <span id="searchSpacer" class="bg-white px-2" style="<%= search ? 'display: none;' : 'display: inline-block;' %>"></span>
                         </div>
                     </div>
 
@@ -163,7 +160,7 @@
                         </button>
 
                         <!-- Sorting Dropdown -->
-                        <select id="sortSelect" name="sort" class="form-select border-light-subtle rounded-3 py-2 text-secondary shadow-sm" style="width: 180px;" onchange="this.form.submit()">
+                        <select id="sortSelect" name="sort" class="form-select border-light-subtle rounded-3 py-2 text-secondary shadow-sm" style="width: 180px;">
                             <option value="newest" <%= sortOption === 'newest' ? 'selected' : '' %>>Newest</option>
                             <option value="price-asc" <%= sortOption === 'price-asc' ? 'selected' : '' %>>Price Low → High</option>
                             <option value="price-desc" <%= sortOption === 'price-desc' ? 'selected' : '' %>>Price High → Low</option>
@@ -305,7 +302,7 @@
             </div>
 
             <!-- Products Grid layout (4 cards desktop, 2 tablet, 1 mobile) -->
-            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+            <div id="productGrid" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
                 <% if(products.length){ %>
                     <% products.forEach(product => { %>
                         <div class="col">
@@ -429,125 +426,550 @@
             </div>
 
             <!-- Pagination Section below table -->
-            <% if(totalPages > 1){ %>
-                <nav class="mt-5">
-                    <ul class="pagination pagination-sm justify-content-center gap-1.5">
-                        
-                        <!-- Previous button -->
-                        <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                            <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
-                               href="javascript:void(0)" onclick="navigateToPage(<%= currentPage - 1 %>)">
-                                &laquo; Prev
-                            </a>
-                        </li>
-
-                        <!-- Page Numbers -->
-                        <% for(let i=1; i<=totalPages; i++){ %>
-                            <li class="page-item <%= currentPage===i ? 'active' : '' %>">
-                                <a
-                                    class="page-link custom-pagination-btn border border-light shadow-sm text-dark fw-semibold <%= currentPage===i ? 'bg-dark text-white border-dark' : 'bg-white' %>"
-                                    href="javascript:void(0)" onclick="navigateToPage(<%= i %>)"
-                                >
-                                    <%= i %>
+            <div id="shopPaginationContainer">
+                <% if(totalPages > 1){ %>
+                    <nav class="mt-5" id="shopPagination">
+                        <ul class="pagination pagination-sm justify-content-center gap-1.5">
+                            
+                            <!-- Previous button -->
+                            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                                <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
+                                   href="javascript:void(0)" onclick="navigateToPage(<%= currentPage - 1 %>)">
+                                    &laquo; Prev
                                 </a>
                             </li>
-                        <% } %>
 
-                        <!-- Next button -->
-                        <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                            <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
-                               href="javascript:void(0)" onclick="navigateToPage(<%= currentPage + 1 %>)">
-                                Next &raquo;
-                            </a>
-                        </li>
+                            <!-- Page Numbers -->
+                            <% for(let i=1; i<=totalPages; i++){ %>
+                                <li class="page-item <%= currentPage===i ? 'active' : '' %>">
+                                    <a
+                                        class="page-link custom-pagination-btn border border-light shadow-sm text-dark fw-semibold <%= currentPage===i ? 'bg-dark text-white border-dark' : 'bg-white' %>"
+                                        href="javascript:void(0)" onclick="navigateToPage(<%= i %>)"
+                                    >
+                                        <%= i %>
+                                    </a>
+                                </li>
+                            <% } %>
 
-                    </ul>
-                </nav>
-            <% } %>
+                            <!-- Next button -->
+                            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                                <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
+                                   href="javascript:void(0)" onclick="navigateToPage(<%= currentPage + 1 %>)">
+                                    Next &raquo;
+                                </a>
+                            </li>
+
+                        </ul>
+                    </nav>
+                <% } %>
+            </div>
 
         </form>
     </div>
 </div>
 
 <script>
-// Navigate page link click helper
-function navigateToPage(pageNum) {
-    document.getElementById('formPageInput').value = pageNum;
-    document.getElementById('filterForm').submit();
-}
+let shopAbortController = null;
 
-// Reset ONLY search input, keeping other filters
-function clearSearchOnly() {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('formPageInput').value = 1;
-    document.getElementById('filterForm').submit();
-}
+/**
+ * Sync form input states based on URLSearchParams
+ */
+function syncFormFromUrl(params) {
+    const form = document.getElementById("filterForm");
+    if (!form) return;
 
-// Redirects to shop without filters
-function resetAllFilters() {
-    window.location.href = '/shop';
-}
+    // Sync Search Input
+    const search = params.get("search") || "";
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput) searchInput.value = search;
+    
+    const clearBtn = document.getElementById("clearSearchBtn");
+    const spacer = document.getElementById("searchSpacer");
+    if (search) {
+        if (clearBtn) clearBtn.style.display = "inline-block";
+        if (spacer) spacer.style.display = "none";
+    } else {
+        if (clearBtn) clearBtn.style.display = "none";
+        if (spacer) spacer.style.display = "inline-block";
+    }
 
-// Add to Cart AJAX click listener
-document.addEventListener("DOMContentLoaded", function() {
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 2500,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
-        }
+    // Sync Categories
+    const selectedCategories = params.getAll("category");
+    form.querySelectorAll("input[name='category']").forEach(cb => {
+        cb.checked = selectedCategories.includes(cb.value);
     });
 
-    document.querySelectorAll(".shop-add-to-cart-btn").forEach(btn => {
-        btn.addEventListener("click", function(e) {
-            e.preventDefault();
-            const productId = this.dataset.productId;
-            const variantId = this.dataset.variantId;
+    // Sync Brands
+    const selectedBrands = params.getAll("brand");
+    form.querySelectorAll("input[name='brand']").forEach(cb => {
+        cb.checked = selectedBrands.includes(cb.value);
+    });
+
+    // Sync Price Ranges
+    const price = params.get("price") || "";
+    form.querySelectorAll("input[name='price']").forEach(radio => {
+        radio.checked = (radio.value === price);
+    });
+
+    // Sync Sort Dropdown
+    const sort = params.get("sort") || "newest";
+    const sortSelect = document.getElementById("sortSelect");
+    if (sortSelect) sortSelect.value = sort;
+
+    // Sync Hidden Page Input
+    const page = params.get("page") || 1;
+    const pageInput = document.getElementById("formPageInput");
+    if (pageInput) pageInput.value = page;
+}
+
+/**
+ * Fetch products dynamically using AJAX
+ */
+async function fetchShopProducts(updateHistory = true) {
+    if (shopAbortController) {
+        shopAbortController.abort();
+    }
+    shopAbortController = new AbortController();
+
+    const form = document.getElementById("filterForm");
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    
+    // Add non-empty inputs to URL params
+    for (const [key, value] of formData.entries()) {
+        if (value && value.trim()) {
+            params.append(key, value);
+        }
+    }
+
+    // Show loading state
+    const grid = document.getElementById("productGrid");
+    if (grid) {
+        grid.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-dark mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-secondary small mb-0">Loading products...</p>
+            </div>
+        `;
+    }
+
+    try {
+        const response = await fetch(`/shop/data?${params.toString()}`, {
+            method: "GET",
+            headers: {
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            signal: shopAbortController.signal
+        });
+
+        if (!response.ok) {
+            throw new Error("Unable to load products. Please try again.");
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || "Unable to load products. Please try again.");
+        }
+
+        // Render products list
+        renderProducts(data.products);
+
+        // Render pagination component
+        renderPagination(data.currentPage, data.totalPages);
+
+        // Update total products count text
+        const countText = document.getElementById("productCountText");
+        if (countText) {
+            countText.textContent = `Showing ${data.products.length} Products`;
+        }
+
+        // Update URL state in history
+        if (updateHistory) {
+            const newUrl = `/shop${params.toString() ? '?' + params.toString() : ''}`;
+            history.pushState({ path: newUrl }, '', newUrl);
+        }
+
+    } catch (error) {
+        if (error.name === "AbortError") {
+            return;
+        }
+        console.error("AJAX product fetch error:", error);
+        if (window.showError) {
+            window.showError(error.message || "Unable to load products. Please try again.");
+        } else {
+            Swal.fire({
+                title: "Error",
+                text: error.message || "Unable to load products. Please try again.",
+                icon: "error",
+                confirmButtonColor: "#111827"
+            });
+        }
+    }
+}
+
+/**
+ * Render dynamic product cards HTML
+ */
+function renderProducts(products) {
+    const grid = document.getElementById("productGrid");
+    if (!grid) return;
+
+    if (!products || products.length === 0) {
+        showShopEmptyState();
+        return;
+    }
+
+    let html = "";
+    products.forEach(product => {
+        const defaultVariant = product.defaultVariant;
+        const discountBadge = product.discountPercentage > 0 
+            ? `<span class="badge-discount">${product.discountPercentage}% OFF</span>`
+            : "";
+        
+        let imgHtml = "";
+        if (defaultVariant && defaultVariant.images && defaultVariant.images.length > 0) {
+            imgHtml = `<img src="${defaultVariant.images[0]}" alt="${product.name}">`;
+        } else {
+            imgHtml = `<div class="text-muted"><i class="bi bi-image display-5"></i></div>`;
+        }
+
+        const skuHtml = (defaultVariant && defaultVariant.sku)
+            ? `<div class="text-secondary mb-2 smaller-text">SKU: ${defaultVariant.sku}</div>`
+            : "";
+
+        let stockStatusHtml = "";
+        if (product.stockStatus === 'In Stock') {
+            stockStatusHtml = `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium" style="font-size: 0.72rem;">In Stock</span>`;
+        } else if (product.stockStatus === 'Low Stock') {
+            stockStatusHtml = `<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-medium" style="font-size: 0.72rem;">Low Stock</span>`;
+        } else {
+            stockStatusHtml = `<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 fw-medium" style="font-size: 0.72rem;">Out of Stock</span>`;
+        }
+
+        let priceHtml = "";
+        if (defaultVariant) {
+            priceHtml = `<span class="fw-bold text-dark fs-4">₹${defaultVariant.salePrice.toLocaleString()}</span>`;
+            if (product.discountPercentage > 0) {
+                priceHtml += ` <span class="text-muted text-decoration-line-through small">₹${defaultVariant.regularPrice.toLocaleString()}</span>`;
+            }
+        } else {
+            priceHtml = `<span class="text-muted">-</span>`;
+        }
+
+        const disabledAttr = product.stockStatus === 'Out of Stock' ? 'disabled' : '';
+        const variantId = defaultVariant ? defaultVariant._id : '';
+        const brandName = product.brand ? product.brand.name : '-';
+
+        html += `
+            <div class="col">
+                <div class="product-card">
+                    <div class="image-container-box">
+                        ${discountBadge}
+                        <button type="button" class="wishlist-heart-btn" title="Add to Wishlist">
+                            <i class="bi bi-heart"></i>
+                        </button>
+                        ${imgHtml}
+                    </div>
+                    <div class="card-body p-3.5 d-flex flex-column justify-content-between flex-grow-1">
+                        <div>
+                            <div class="text-muted small fw-medium mb-1">
+                                ${brandName}
+                            </div>
+                            <h6 class="fw-bold text-dark product-name-clamp mb-2" title="${product.name}">
+                                ${product.name}
+                            </h6>
+                            ${skuHtml}
+                            <div class="mb-3">
+                                ${stockStatusHtml}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-baseline gap-2 mb-3">
+                                ${priceHtml}
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="/product/${product._id}" class="btn btn-outline-dark flex-grow-1 rounded-3 py-2 fw-semibold text-center small">
+                                    Details
+                                </a>
+                                <button 
+                                    type="button"
+                                    class="btn btn-dark flex-grow-1 rounded-3 py-2 fw-semibold text-center small shop-add-to-cart-btn"
+                                    data-product-id="${product._id}"
+                                    data-variant-id="${variantId}"
+                                    ${disabledAttr}
+                                >
+                                    Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    grid.innerHTML = html;
+}
+
+/**
+ * Render dynamic pagination links
+ */
+function renderPagination(currentPage, totalPages) {
+    const container = document.getElementById("shopPaginationContainer");
+    if (!container) return;
+
+    if (totalPages <= 1) {
+        container.innerHTML = "";
+        return;
+    }
+
+    let html = `<nav class="mt-5" id="shopPagination">
+                    <ul class="pagination pagination-sm justify-content-center gap-1.5">`;
+
+    // Previous Button
+    const prevDisabled = currentPage === 1 ? 'disabled' : '';
+    html += `<li class="page-item ${prevDisabled}">
+                <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
+                   href="javascript:void(0)" onclick="navigateToPage(${currentPage - 1})">
+                    &laquo; Prev
+                </a>
+             </li>`;
+
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+        const activeClass = currentPage === i ? 'active' : '';
+        const bgClass = currentPage === i ? 'bg-dark text-white border-dark' : 'bg-white';
+        html += `<li class="page-item ${activeClass}">
+                    <a class="page-link custom-pagination-btn border border-light shadow-sm text-dark fw-semibold ${bgClass}"
+                       href="javascript:void(0)" onclick="navigateToPage(${i})">
+                        ${i}
+                    </a>
+                 </li>`;
+    }
+
+    // Next Button
+    const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+    html += `<li class="page-item ${nextDisabled}">
+                <a class="page-link custom-pagination-btn border border-light shadow-sm text-secondary fw-semibold bg-white"
+                   href="javascript:void(0)" onclick="navigateToPage(${currentPage + 1})">
+                    Next &raquo;
+                </a>
+             </li>`;
+
+    html += `</ul></nav>`;
+    container.innerHTML = html;
+}
+
+/**
+ * Render empty list state card
+ */
+function showShopEmptyState() {
+    const grid = document.getElementById("productGrid");
+    if (grid) {
+        grid.innerHTML = `
+            <div class="col-12 text-center py-5 bg-white border border-light shadow-sm rounded-4 mt-2">
+                <div class="text-muted mb-3">
+                    <i class="bi bi-funnel display-5"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Products Found</h5>
+                <p class="text-muted small mb-4">
+                    Try changing your search or filters.
+                </p>
+                <button type="button" class="btn btn-dark rounded-3 px-4 py-2 small" onclick="resetAllFilters()">
+                    Reset Filters
+                </button>
+            </div>
+        `;
+    }
+    
+    const paginationContainer = document.getElementById("shopPaginationContainer");
+    if (paginationContainer) {
+        paginationContainer.innerHTML = "";
+    }
+}
+
+/**
+ * Global Page Navigation helper
+ */
+function navigateToPage(pageNum) {
+    const pageInput = document.getElementById('formPageInput');
+    if (pageInput) {
+        pageInput.value = pageNum;
+        fetchShopProducts();
+    }
+}
+
+/**
+ * Reset All filter selectors to default
+ */
+function resetAllFilters() {
+    const form = document.getElementById("filterForm");
+    if (!form) return;
+
+    // Reset search inputs
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput) searchInput.value = "";
+    
+    const clearBtn = document.getElementById("clearSearchBtn");
+    if (clearBtn) clearBtn.style.display = "none";
+    const spacer = document.getElementById("searchSpacer");
+    if (spacer) spacer.style.display = "inline-block";
+
+    // Uncheck categories and brands
+    form.querySelectorAll("input[type='checkbox']").forEach(cb => cb.checked = false);
+    
+    // Uncheck price radios
+    form.querySelectorAll("input[type='radio']").forEach(r => r.checked = false);
+    
+    // Reset sorting
+    const sortSelect = document.getElementById("sortSelect");
+    if (sortSelect) sortSelect.value = "newest";
+    
+    // Reset page to 1
+    const pageInput = document.getElementById("formPageInput");
+    if (pageInput) pageInput.value = 1;
+    
+    fetchShopProducts();
+}
+
+// Bind globally for onclick handlers
+window.navigateToPage = navigateToPage;
+window.resetAllFilters = resetAllFilters;
+
+/**
+ * Initialization and Event bindings
+ */
+document.addEventListener("DOMContentLoaded", () => {
+    const filterForm = document.getElementById("filterForm");
+    if (!filterForm) return;
+
+    // Intercept form submit event
+    filterForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const pageInput = document.getElementById("formPageInput");
+        if (pageInput) pageInput.value = 1;
+        fetchShopProducts();
+    });
+
+    // Fetch instantly on any checkboxes / radios / sort select modifications
+    filterForm.addEventListener("change", (e) => {
+        if (e.target.id === "searchInput") return;
+        const pageInput = document.getElementById("formPageInput");
+        if (pageInput) pageInput.value = 1;
+        fetchShopProducts();
+    });
+
+    // Debounced search text inputs keyups
+    let searchDebounceTimeout = null;
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput) {
+        searchInput.addEventListener("input", () => {
+            clearTimeout(searchDebounceTimeout);
             
-            fetch("/cart/add", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    productId,
-                    variantId,
-                    quantity: 1
-                })
+            // Toggle clear icon dynamically
+            const clearBtn = document.getElementById("clearSearchBtn");
+            const spacer = document.getElementById("searchSpacer");
+            if (searchInput.value.trim()) {
+                if (clearBtn) clearBtn.style.display = "inline-block";
+                if (spacer) spacer.style.display = "none";
+            } else {
+                if (clearBtn) clearBtn.style.display = "none";
+                if (spacer) spacer.style.display = "inline-block";
+            }
+            
+            searchDebounceTimeout = setTimeout(() => {
+                const pageInput = document.getElementById("formPageInput");
+                if (pageInput) pageInput.value = 1;
+                fetchShopProducts();
+            }, 450);
+        });
+    }
+
+    // Direct clear search icon binding
+    const clearBtn = document.getElementById("clearSearchBtn");
+    if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+            if (searchInput) searchInput.value = "";
+            clearBtn.style.display = "none";
+            const spacer = document.getElementById("searchSpacer");
+            if (spacer) spacer.style.display = "inline-block";
+            const pageInput = document.getElementById("formPageInput");
+            if (pageInput) pageInput.value = 1;
+            fetchShopProducts();
+        });
+    }
+
+    // Window history popstate navigation
+    window.addEventListener("popstate", () => {
+        const params = new URLSearchParams(window.location.search);
+        syncFormFromUrl(params);
+        fetchShopProducts(false);
+    });
+
+    // Event Delegation: Add to Cart button clicks
+    document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".shop-add-to-cart-btn");
+        if (!btn) return;
+        e.preventDefault();
+
+        const productId = btn.dataset.productId;
+        const variantId = btn.dataset.variantId;
+        if (!productId || !variantId) return;
+
+        fetch("/cart/add", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                productId,
+                variantId,
+                quantity: 1
             })
-            .then(res => {
-                if (res.status === 401) {
-                    Swal.fire({
-                        title: 'Log In Required',
-                        text: 'You need to log in to add items to your cart.',
-                        icon: 'info',
-                        showCancelButton: true,
-                        confirmButtonText: 'Log In',
-                        cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#111827'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            window.location.href = "/auth/login";
-                        }
-                    });
-                    return;
-                }
-                return res.json();
-            })
-            .then(data => {
-                if (data && data.success) {
-                    Toast.fire({
-                        icon: 'success',
-                        title: data.message || "Product added to cart!"
-                    });
-                    if (typeof refreshNavbarCartCount === "function") {
-                        refreshNavbarCartCount();
+        })
+        .then(res => {
+            if (res.status === 401) {
+                Swal.fire({
+                    title: 'Log In Required',
+                    text: 'You need to log in to add items to your cart.',
+                    icon: 'info',
+                    showCancelButton: true,
+                    confirmButtonText: 'Log In',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#111827'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = "/auth/login";
                     }
-                } else if (data) {
+                });
+                return;
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data && data.success) {
+                if (window.showSuccess) {
+                    window.showSuccess(data.message || "Product added to cart!");
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: data.message || "Product added to cart!",
+                        confirmButtonColor: '#111827'
+                    });
+                }
+                if (typeof refreshNavbarCartCount === "function") {
+                    refreshNavbarCartCount();
+                }
+            } else if (data) {
+                if (window.showError) {
+                    window.showError(data.message || "Failed to add product to cart.");
+                } else {
                     Swal.fire({
                         title: 'Oops...',
                         text: data.message || "Failed to add product to cart.",
@@ -555,16 +977,20 @@ document.addEventListener("DOMContentLoaded", function() {
                         confirmButtonColor: '#111827'
                     });
                 }
-            })
-            .catch(err => {
-                console.error("Shop page add to cart error:", err);
+            }
+        })
+        .catch(err => {
+            console.error("Shop page add to cart error:", err);
+            if (window.showError) {
+                window.showError("An error occurred while adding the product to your cart.");
+            } else {
                 Swal.fire({
                     title: 'Error',
                     text: 'An error occurred while adding the product to your cart.',
                     icon: 'error',
                     confirmButtonColor: '#111827'
                 });
-            });
+            }
         });
     });
 });
