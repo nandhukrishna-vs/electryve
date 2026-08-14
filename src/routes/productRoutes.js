@@ -2,9 +2,11 @@ import express from "express";
 
 import * as productController from "../controllers/productController.js";
 import upload from "../middlewares/uploadMiddleware.js";
+import { isAdmin } from "../middlewares/adminMiddleware.js";
 
 const router = express.Router();
 
+router.use(isAdmin); // Apply isAdmin middleware to all routes in this router
 
 // Product List
 
