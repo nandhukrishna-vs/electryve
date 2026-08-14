@@ -344,21 +344,6 @@
 
 <!-- AJAX Scripts & SweetAlert2 bindings -->
 <script>
-// SweetAlert2 Toast Mixin helper
-let CartToast;
-document.addEventListener("DOMContentLoaded", () => {
-    CartToast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 2500,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
-        }
-    });
-});
 
 /**
  * AJAX update item quantity with Toast confirmations
@@ -420,10 +405,16 @@ async function adjustCartQtyAjax(productId, variantId, delta) {
         updateCartSummary(data.cartSummary, data.count);
 
         // Toast Alert
-        CartToast.fire({
-            icon: 'success',
-            title: 'Quantity updated successfully!'
-        });
+        if (window.showSuccess) {
+            window.showSuccess('Quantity updated successfully!');
+        } else {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Quantity updated successfully!',
+                confirmButtonColor: '#111827'
+            });
+        }
 
         // Update navbar count badge
         if (typeof refreshNavbarCartCount === "function") {
@@ -513,10 +504,16 @@ async function removeCartItemAjax(productId, variantId) {
         updateCartSummary(data.cartSummary, data.count);
 
         // Toast Alert
-        CartToast.fire({
-            icon: 'success',
-            title: 'Item removed from cart.'
-        });
+        if (window.showSuccess) {
+            window.showSuccess('Item removed from cart.');
+        } else {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Item removed from cart.',
+                confirmButtonColor: '#111827'
+            });
+        }
 
         // Update navbar badge
         if (typeof refreshNavbarCartCount === "function") {

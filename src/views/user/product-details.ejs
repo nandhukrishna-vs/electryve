@@ -724,18 +724,6 @@ document.addEventListener("DOMContentLoaded", function() {
     updatePdpQtyButtons();
 
     // PDP Add to Cart AJAX handler
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 2500,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
-        }
-    });
-
     const addCartBtn = document.getElementById('pdpAddToCartBtn');
     if (addCartBtn) {
         addCartBtn.addEventListener('click', function() {
@@ -781,30 +769,44 @@ document.addEventListener("DOMContentLoaded", function() {
             })
             .then(data => {
                 if (data && data.success) {
-                    Toast.fire({
-                        icon: 'success',
-                        title: data.message || 'Product added to cart successfully!'
-                    });
+                    if (window.showSuccess) {
+                        window.showSuccess(data.message || 'Product added to cart successfully!');
+                    } else {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: data.message || 'Product added to cart successfully!',
+                            confirmButtonColor: '#111827'
+                        });
+                    }
                     if (typeof refreshNavbarCartCount === 'function') {
                         refreshNavbarCartCount();
                     }
                 } else if (data) {
-                    Swal.fire({
-                        title: 'Oops...',
-                        text: data.message || "Failed to add product to cart.",
-                        icon: 'error',
-                        confirmButtonColor: '#111827'
-                    });
+                    if (window.showError) {
+                        window.showError(data.message || "Failed to add product to cart.");
+                    } else {
+                        Swal.fire({
+                            title: 'Oops...',
+                            text: data.message || "Failed to add product to cart.",
+                            icon: 'error',
+                            confirmButtonColor: '#111827'
+                        });
+                    }
                 }
             })
             .catch(err => {
                 console.error('Error adding to cart:', err);
-                Swal.fire({
-                    title: 'Error',
-                    text: 'An error occurred while adding the product to your cart.',
-                    icon: 'error',
-                    confirmButtonColor: '#111827'
-                });
+                if (window.showError) {
+                    window.showError("An error occurred while adding the product to your cart.");
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'An error occurred while adding the product to your cart.',
+                        icon: 'error',
+                        confirmButtonColor: '#111827'
+                    });
+                }
             });
         });
     }
