@@ -169,7 +169,7 @@ const deleteCategory = async (id) => {
       message: "Category not found"
     };
   }
-
+  
   category.isDeleted = true;
 
   await category.save();
@@ -180,7 +180,7 @@ const deleteCategory = async (id) => {
   };
 
 };
-
+ 
 export {
   getCategories,
   createCategory,

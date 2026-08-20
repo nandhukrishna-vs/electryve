@@ -5,6 +5,7 @@ import Category from "../models/Category.js";
 import Brand from "../models/Brand.js";
 import validateProduct from "../validators/productValidator.js";
 import { uploadImages, deleteImage } from "./imageService.js";
+import { getProductReviewsSummary } from "./reviewService.js";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -936,10 +937,15 @@ const getProductDetails = async (id) => {
         };
     }).filter(Boolean);
 
+    const reviewSummary = await getProductReviewsSummary(id);
+
     return {
         product: {
             ...product,
-            defaultVariant
+            defaultVariant,
+            averageRating: reviewSummary.averageRating,
+            totalReviews: reviewSummary.totalReviews,
+            ratingDistribution: reviewSummary.ratingDistribution
         },
         relatedProducts
     };

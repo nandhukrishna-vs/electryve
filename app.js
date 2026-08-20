@@ -14,6 +14,7 @@ import passport from "./src/config/passport.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import userRoutes from "./src/routes/userRoutes.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
+import reviewRoutes from "./src/routes/reviewRoutes.js";
 
 import globalMiddleware from "./src/middlewares/globalMiddleware.js";
 import uploadErrorHandler from "./src/middlewares/uploadErrorHandler.js";
@@ -75,6 +76,7 @@ app.use(globalMiddleware);
 // Routes
 app.use("/auth", authRoutes);
 app.use("/", userRoutes);
+app.use("/", reviewRoutes);
 app.use("/admin", adminRoutes);
 app.use("/admin/categories", categoryRoutes);
 app.use("/admin/brands", brandRoutes);

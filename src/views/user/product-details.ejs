@@ -201,16 +201,21 @@
 
                     <!-- star ratings future-ready layout section -->
                     <div class="d-flex align-items-center gap-2 mb-3">
-                        <div class="text-warning small">
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-fill text-muted"></i>
+                        <div class="text-warning small d-flex align-items-center gap-0.5" id="pdpHeaderStars">
+                            <% const avgRating = product.averageRating || 0; %>
+                            <% for(let i = 1; i <= 5; i++) { %>
+                                <% if (avgRating >= i) { %>
+                                    <i class="bi bi-star-fill"></i>
+                                <% } else if (avgRating >= i - 0.5) { %>
+                                    <i class="bi bi-star-half"></i>
+                                <% } else { %>
+                                    <i class="bi bi-star text-muted"></i>
+                                <% } %>
+                            <% } %>
                         </div>
-                        <span class="text-secondary small fw-medium">0 Ratings</span>
+                        <span class="text-secondary small fw-medium" id="pdpHeaderAvgRating"><%= avgRating %> / 5</span>
                         <span class="text-muted">•</span>
-                        <span class="text-secondary small fw-medium">0 Reviews</span>
+                        <span class="text-secondary small fw-medium" id="pdpHeaderTotalReviews"><%= product.totalReviews || 0 %> Reviews</span>
                     </div>
 
                     <!-- SKU ID -->
@@ -436,6 +441,72 @@
                 </div>
             </div>
 
+        </div>
+
+        <!-- Reviews & Ratings Section -->
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mt-5 mb-5" id="reviews-ratings-container">
+            <h3 class="fw-bold text-dark mb-4">Customer Reviews & Ratings</h3>
+            
+            <div class="row g-4">
+                <!-- Rating Summary Column -->
+                <div class="col-lg-4">
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 p-4 bg-light rounded-4 text-center">
+                        <h1 class="display-4 fw-bold text-dark mb-0" id="avgRatingDisplay"><%= product.averageRating || 0 %></h1>
+                        <div class="text-warning fs-3 my-2 d-flex align-items-center gap-0.5" id="avgStarsDisplay">
+                            <% const avg = product.averageRating || 0; %>
+                            <% for(let i = 1; i <= 5; i++) { %>
+                                <% if (avg >= i) { %>
+                                    <i class="bi bi-star-fill"></i>
+                                <% } else if (avg >= i - 0.5) { %>
+                                    <i class="bi bi-star-half"></i>
+                                <% } else { %>
+                                    <i class="bi bi-star text-muted"></i>
+                                <% } %>
+                            <% } %>
+                        </div>
+                        <p class="text-muted mb-0" id="totalReviewsDisplay"><%= product.totalReviews || 0 %> Ratings & Reviews</p>
+                        
+                        <!-- Rating Distribution Bars -->
+                        <div class="w-100 mt-4" id="distributionBars">
+                            <% for(let stars = 5; stars >= 1; stars--) { 
+                                const count = product.ratingDistribution ? (product.ratingDistribution[stars] || 0) : 0;
+                                const percentage = (product.totalReviews || 0) > 0 ? (count / product.totalReviews) * 100 : 0;
+                            %>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="small fw-semibold text-secondary" style="width: 15px;"><%= stars %></span>
+                                    <i class="bi bi-star-fill text-warning small"></i>
+                                    <div class="progress flex-grow-1" style="height: 8px;">
+                                        <div class="progress-bar bg-warning" role="progressbar" style="width: <%= percentage %>%" aria-valuenow="<%= percentage %>" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    <span class="small text-muted count-display" style="width: 25px; text-align: right;"><%= count %></span>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Reviews List and Actions Column -->
+                <div class="col-lg-8">
+                    <!-- User Review Actions Area (Write / Edit / View Own Review) -->
+                    <div id="user-review-action-area" class="mb-4 p-4 border rounded-4 bg-white" style="display: none;">
+                        <!-- Populate dynamically using script -->
+                    </div>
+                    
+                    <!-- Reviews List Container -->
+                    <div id="reviews-list-container">
+                        <div id="reviews-list" class="d-flex flex-column gap-3">
+                            <!-- Loaded dynamically via AJAX -->
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <nav aria-label="Reviews pagination" class="mt-4" id="reviews-pagination" style="display: none;">
+                            <ul class="pagination pagination-sm justify-content-center mb-0">
+                                <!-- Loaded dynamically via AJAX -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Related Products Section (8 Products maximum Carousel) -->
@@ -809,6 +880,490 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             });
         });
+    }
+
+    // Reviews & Ratings Module
+    const productId = "<%= product._id %>";
+    const isUserLoggedIn = <%= user ? 'true' : 'false' %>;
+    let currentReviewsPage = 1;
+
+    // Load reviews on startup
+    loadReviews(1);
+    loadUserReviewArea();
+
+    function loadReviews(page) {
+        currentReviewsPage = page;
+        fetch(`/product/${productId}/reviews?page=${page}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    renderReviewsList(data.reviews);
+                    renderPagination(data.currentPage, data.totalPages);
+                } else {
+                    console.error("Failed to load reviews:", data.message);
+                }
+            })
+            .catch(err => console.error("Error loading reviews:", err));
+    }
+
+    function renderReviewsList(reviews) {
+        const listContainer = document.getElementById("reviews-list");
+        if (!listContainer) return;
+
+        if (!reviews || reviews.length === 0) {
+            listContainer.innerHTML = `
+                <div class="text-center py-4 text-muted border-bottom border-light">
+                    <i class="bi bi-chat-left-text fs-2 mb-2 d-block"></i>
+                    <span>No reviews yet. Be the first to write one!</span>
+                </div>
+            `;
+            return;
+        }
+
+        let html = "";
+        reviews.forEach(review => {
+            const userName = review.user?.fullName || "Anonymous";
+            const userAvatar = review.user?.avatar 
+                ? `/uploads/${review.user.avatar}` 
+                : "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/person-circle.svg";
+            
+            const dateStr = new Date(review.createdAt).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric"
+            });
+
+            let starsHtml = "";
+            for (let i = 1; i <= 5; i++) {
+                if (review.rating >= i) {
+                    starsHtml += `<i class="bi bi-star-fill text-warning"></i>`;
+                } else {
+                    starsHtml += `<i class="bi bi-star text-muted"></i>`;
+                }
+            }
+
+            const escapedText = escapeHtml(review.reviewText);
+
+            html += `
+                <div class="d-flex gap-3 py-3 border-bottom border-light">
+                    <img src="${userAvatar}" alt="${userName}" class="rounded-circle bg-light border" style="width: 44px; height: 44px; object-fit: cover;" onerror="this.src='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/person-circle.svg'">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="fw-bold text-dark mb-0 small">${userName}</h6>
+                            <span class="text-muted small" style="font-size: 0.75rem;">${dateStr}</span>
+                        </div>
+                        <div class="mb-2" style="font-size: 0.85rem;">
+                            ${starsHtml}
+                        </div>
+                        <p class="text-secondary small mb-0 lh-base text-break">${escapedText}</p>
+                    </div>
+                </div>
+            `;
+        });
+        listContainer.innerHTML = html;
+    }
+
+    function renderPagination(currentPage, totalPages) {
+        const paginationContainer = document.getElementById("reviews-pagination");
+        if (!paginationContainer) return;
+
+        if (totalPages <= 1) {
+            paginationContainer.style.display = "none";
+            return;
+        }
+
+        paginationContainer.style.display = "block";
+        const ul = paginationContainer.querySelector("ul");
+        let html = "";
+
+        // Previous button
+        html += `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <button class="page-link" onclick="loadReviews(${currentPage - 1})" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </button>
+            </li>
+        `;
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            html += `
+                <li class="page-item ${currentPage === i ? 'active' : ''}">
+                    <button class="page-link" onclick="loadReviews(${i})">${i}</button>
+                </li>
+            `;
+        }
+
+        // Next button
+        html += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <button class="page-link" onclick="loadReviews(${currentPage + 1})" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </button>
+            </li>
+        `;
+
+        ul.innerHTML = html;
+    }
+
+    function loadUserReviewArea() {
+        const actionArea = document.getElementById("user-review-action-area");
+        if (!actionArea) return;
+
+        if (!isUserLoggedIn) {
+            actionArea.style.display = "block";
+            actionArea.innerHTML = `
+                <div class="text-center py-2">
+                    <span class="text-secondary small">Want to review this product? <a href="/auth/login" class="text-dark fw-bold text-decoration-none border-bottom border-dark">Log In</a> to write a review.</span>
+                </div>
+            `;
+            return;
+        }
+
+        fetch(`/product/${productId}/reviews/my-review`)
+            .then(res => res.json())
+            .then(data => {
+                actionArea.style.display = "block";
+                if (data.success && data.review) {
+                    renderMyReviewView(data.review);
+                } else {
+                    renderWriteReviewForm();
+                }
+            })
+            .catch(err => console.error("Error loading user review:", err));
+    }
+
+    function renderMyReviewView(review) {
+        const actionArea = document.getElementById("user-review-action-area");
+        
+        let starsHtml = "";
+        for (let i = 1; i <= 5; i++) {
+            if (review.rating >= i) {
+                starsHtml += `<i class="bi bi-star-fill text-warning"></i>`;
+            } else {
+                starsHtml += `<i class="bi bi-star text-muted"></i>`;
+            }
+        }
+        
+        const escapedText = escapeHtml(review.reviewText);
+
+        actionArea.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold text-dark mb-0">Your Review</h6>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-dark rounded-pill px-3" onclick="renderWriteReviewForm(${JSON.stringify(review).replace(/"/g, '&quot;')})">
+                        <i class="bi bi-pencil-square me-1"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="deleteUserReview('${review._id}')">
+                        <i class="bi bi-trash3 me-1"></i> Delete
+                    </button>
+                </div>
+            </div>
+            <div class="mb-2" style="font-size: 0.85rem;">
+                ${starsHtml}
+            </div>
+            <p class="text-secondary small mb-0 lh-base text-break">${escapedText}</p>
+        `;
+    }
+
+    function renderWriteReviewForm(editingReview = null) {
+        const actionArea = document.getElementById("user-review-action-area");
+        
+        const heading = editingReview ? "Edit Your Review" : "Write a Review";
+        const btnText = editingReview ? "Update Review" : "Submit Review";
+        const currentRating = editingReview ? editingReview.rating : 0;
+        const currentText = editingReview ? editingReview.reviewText : "";
+        const cancelBtn = editingReview 
+            ? `<button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadUserReviewArea()">Cancel</button>` 
+            : "";
+
+        actionArea.innerHTML = `
+            <h6 class="fw-bold text-dark mb-3">${heading}</h6>
+            <form id="review-submit-form">
+                <!-- Star Input -->
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-secondary mb-1 d-block">Overall Rating</label>
+                    <div class="d-flex gap-1 fs-4" id="review-stars-input">
+                        <i class="bi bi-star review-star-select text-muted" data-value="1" style="cursor: pointer;"></i>
+                        <i class="bi bi-star review-star-select text-muted" data-value="2" style="cursor: pointer;"></i>
+                        <i class="bi bi-star review-star-select text-muted" data-value="3" style="cursor: pointer;"></i>
+                        <i class="bi bi-star review-star-select text-muted" data-value="4" style="cursor: pointer;"></i>
+                        <i class="bi bi-star review-star-select text-muted" data-value="5" style="cursor: pointer;"></i>
+                    </div>
+                    <input type="hidden" name="rating" id="review-rating-value" value="${currentRating}">
+                    <div class="invalid-feedback d-block" id="err-rating"></div>
+                </div>
+
+                <!-- Review Textarea -->
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-secondary mb-1" for="reviewTextInput">Review Description</label>
+                    <textarea class="form-control small" id="reviewTextInput" name="reviewText" rows="3" placeholder="Tell us what you think about this product (5 to 500 characters)..." style="font-size: 0.85rem;">${currentText}</textarea>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <div class="invalid-feedback d-block" id="err-reviewText"></div>
+                        <div class="text-muted small text-end flex-grow-1" style="font-size: 0.75rem;"><span id="charCount">0</span> / 500 characters</div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end">
+                    ${cancelBtn}
+                    <button type="submit" class="btn btn-sm btn-dark rounded-pill px-4" id="reviewSubmitBtn">${btnText}</button>
+                </div>
+            </form>
+        `;
+
+        // Initialize Star Event Listeners
+        const stars = actionArea.querySelectorAll(".review-star-select");
+        const ratingInput = actionArea.querySelector("#review-rating-value");
+
+        function updateSelectedStars(value) {
+            stars.forEach(s => {
+                const val = parseInt(s.getAttribute("data-value"));
+                if (val <= value) {
+                    s.classList.remove("bi-star", "text-muted");
+                    s.classList.add("bi-star-fill", "text-warning");
+                } else {
+                    s.classList.remove("bi-star-fill", "text-warning");
+                    s.classList.add("bi-star", "text-muted");
+                }
+            });
+        }
+
+        if (currentRating > 0) {
+            updateSelectedStars(currentRating);
+        }
+
+        stars.forEach(star => {
+            star.addEventListener("click", () => {
+                const value = parseInt(star.getAttribute("data-value"));
+                ratingInput.value = value;
+                updateSelectedStars(value);
+            });
+            star.addEventListener("mouseover", () => {
+                const value = parseInt(star.getAttribute("data-value"));
+                updateSelectedStars(value);
+            });
+            star.addEventListener("mouseout", () => {
+                const value = parseInt(ratingInput.value) || 0;
+                updateSelectedStars(value);
+            });
+        });
+
+        // Initialize Character Counter
+        const textarea = actionArea.querySelector("#reviewTextInput");
+        const charSpan = actionArea.querySelector("#charCount");
+        
+        if (textarea) {
+            charSpan.textContent = textarea.value.length;
+            textarea.addEventListener("input", () => {
+                charSpan.textContent = textarea.value.length;
+            });
+        }
+
+        // Form Submit handler
+        const form = actionArea.querySelector("#review-submit-form");
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            
+            const rating = ratingInput.value;
+            const reviewText = textarea.value;
+
+            // Clear errors
+            actionArea.querySelector("#err-rating").textContent = "";
+            actionArea.querySelector("#err-reviewText").textContent = "";
+
+            // Submit AJAX
+            const editId = editingReview ? editingReview._id : null;
+            submitReview(rating, reviewText, editId);
+        });
+    }
+
+    function submitReview(rating, reviewText, editReviewId = null) {
+        const url = editReviewId 
+            ? `/product/${productId}/reviews/${editReviewId}` 
+            : `/product/${productId}/reviews`;
+        
+        const method = editReviewId ? "PATCH" : "POST";
+        const submitBtn = document.getElementById("reviewSubmitBtn");
+        if (submitBtn) submitBtn.disabled = true;
+
+        fetch(url, {
+            method: method,
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ rating, reviewText })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (submitBtn) submitBtn.disabled = false;
+            
+            if (data.success) {
+                if (window.showSuccess) {
+                    window.showSuccess(data.message);
+                } else {
+                    Swal.fire({ title: "Success", text: data.message, icon: "success", confirmButtonColor: "#111827" });
+                }
+                
+                // Refresh Areas
+                loadUserReviewArea();
+                loadReviews(1);
+                
+                // Recalculate and update summary display immediately
+                if (data.summary) {
+                    updateRatingSummary(data.summary);
+                }
+            } else {
+                if (data.errors) {
+                    // Display validation errors
+                    if (data.errors.rating) {
+                        const err = document.getElementById("err-rating");
+                        if (err) err.textContent = data.errors.rating;
+                    }
+                    if (data.errors.reviewText) {
+                        const err = document.getElementById("err-reviewText");
+                        if (err) err.textContent = data.errors.reviewText;
+                    }
+                } else {
+                    if (window.showError) {
+                        window.showError(data.message);
+                    } else {
+                        Swal.fire({ title: "Error", text: data.message, icon: "error", confirmButtonColor: "#111827" });
+                    }
+                }
+            }
+        })
+        .catch(err => {
+            if (submitBtn) submitBtn.disabled = false;
+            console.error("Error submitting review:", err);
+            if (window.showError) {
+                window.showError("An error occurred while submitting your review.");
+            } else {
+                Swal.fire({ title: "Error", text: "An error occurred while submitting your review.", icon: "error", confirmButtonColor: "#111827" });
+            }
+        });
+    }
+
+    function deleteUserReview(reviewId) {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "Do you want to delete your review? This action cannot be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#dc3545",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "Yes, delete it"
+        }).then(result => {
+            if (result.isConfirmed) {
+                fetch(`/product/${productId}/reviews/${reviewId}`, {
+                    method: "DELETE"
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (window.showSuccess) {
+                            window.showSuccess(data.message);
+                        } else {
+                            Swal.fire({ title: "Deleted", text: data.message, icon: "success", confirmButtonColor: "#111827" });
+                        }
+                        
+                        // Refresh Areas
+                        loadUserReviewArea();
+                        loadReviews(1);
+                        
+                        // Recalculate and update summary display immediately
+                        if (data.summary) {
+                            updateRatingSummary(data.summary);
+                        }
+                    } else {
+                        if (window.showError) {
+                            window.showError(data.message);
+                        } else {
+                            Swal.fire({ title: "Error", text: data.message, icon: "error", confirmButtonColor: "#111827" });
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("Error deleting review:", err);
+                    if (window.showError) {
+                        window.showError("An error occurred while deleting your review.");
+                    } else {
+                        Swal.fire({ title: "Error", text: "An error occurred while deleting your review.", icon: "error", confirmButtonColor: "#111827" });
+                    }
+                });
+            }
+        });
+    }
+
+    function updateRatingSummary(summary) {
+        const avg = summary.averageRating || 0;
+        const total = summary.totalReviews || 0;
+        const dist = summary.ratingDistribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        
+        // Update Header Display
+        const headerAvg = document.getElementById("pdpHeaderAvgRating");
+        if (headerAvg) headerAvg.textContent = `${avg} / 5`;
+        const headerTotal = document.getElementById("pdpHeaderTotalReviews");
+        if (headerTotal) headerTotal.textContent = `${total} Reviews`;
+        
+        const headerStars = document.getElementById("pdpHeaderStars");
+        if (headerStars) {
+            headerStars.innerHTML = getStarsHtml(avg);
+        }
+        
+        // Update Card Display
+        const cardAvg = document.getElementById("avgRatingDisplay");
+        if (cardAvg) cardAvg.textContent = avg;
+        const cardTotal = document.getElementById("totalReviewsDisplay");
+        if (cardTotal) cardTotal.textContent = `${total} Ratings & Reviews`;
+        const cardStars = document.getElementById("avgStarsDisplay");
+        if (cardStars) {
+            cardStars.innerHTML = getStarsHtml(avg);
+        }
+        
+        // Update Distribution progress bars
+        const distContainer = document.getElementById("distributionBars");
+        if (distContainer) {
+            let barsHtml = "";
+            for (let stars = 5; stars >= 1; stars--) {
+                const count = dist[stars] || 0;
+                const percentage = total > 0 ? (count / total) * 100 : 0;
+                barsHtml += `
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="small fw-semibold text-secondary" style="width: 15px;">${stars}</span>
+                        <i class="bi bi-star-fill text-warning small"></i>
+                        <div class="progress flex-grow-1" style="height: 8px;">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: ${percentage}%" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <span class="small text-muted count-display" style="width: 25px; text-align: right;">${count}</span>
+                    </div>
+                `;
+            }
+            distContainer.innerHTML = barsHtml;
+        }
+    }
+
+    function getStarsHtml(rating) {
+        let html = "";
+        for(let i = 1; i <= 5; i++) {
+            if (rating >= i) {
+                html += `<i class="bi bi-star-fill"></i>`;
+            } else if (rating >= i - 0.5) {
+                html += `<i class="bi bi-star-half"></i>`;
+            } else {
+                html += `<i class="bi bi-star text-muted"></i>`;
+            }
+        }
+        return html;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 });
 </script>
