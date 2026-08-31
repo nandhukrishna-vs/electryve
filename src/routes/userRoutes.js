@@ -29,6 +29,8 @@ import {
 import upload from "../middlewares/uploadMiddleware.js";
 import * as productController from "../controllers/productController.js";
 import * as cartController from "../controllers/cartController.js";
+import * as wishlistController from "../controllers/wishlistController.js";
+import * as wishlistValidator from "../validators/wishlistValidator.js";
 
 const router = express.Router();
 
@@ -111,5 +113,12 @@ router.delete(
   isLoggedIn,
   deleteAddress
 );
+
+// Wishlist Routes
+router.get("/wishlist", isLoggedIn, wishlistController.loadWishlist);
+router.get("/wishlist/count", wishlistController.getWishlistCount);
+router.get("/wishlist/status", wishlistValidator.validateWishlistStatus, wishlistController.checkWishlistStatus);
+router.post("/wishlist/add", isLoggedIn, wishlistValidator.validateWishlist, wishlistController.addToWishlist);
+router.post("/wishlist/remove", isLoggedIn, wishlistValidator.validateWishlist, wishlistController.removeFromWishlist);
 
 export default router;

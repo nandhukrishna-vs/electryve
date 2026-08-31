@@ -317,9 +317,11 @@
                                         </span>
                                     <% } %>
 
-                                    <!-- Wishlist heart icon top-right (UI only) -->
-                                    <button type="button" class="wishlist-heart-btn" title="Add to Wishlist">
-                                        <i class="bi bi-heart"></i>
+                                    <!-- Wishlist heart icon top-right -->
+                                    <button type="button" class="wishlist-heart-btn" title="Wishlist" 
+                                            data-product-id="<%= product._id %>" 
+                                            data-variant-id="<%= product.defaultVariant?._id %>">
+                                        <i class="bi <%= product.isInWishlist ? 'bi-heart-fill text-danger' : 'bi-heart' %>"></i>
                                     </button>
 
                                     <!-- Image rendering -->
@@ -670,8 +672,10 @@ function renderProducts(products) {
                 <div class="product-card">
                     <div class="image-container-box">
                         ${discountBadge}
-                        <button type="button" class="wishlist-heart-btn" title="Add to Wishlist">
-                            <i class="bi bi-heart"></i>
+                        <button type="button" class="wishlist-heart-btn" title="Wishlist" 
+                                data-product-id="${product._id}" 
+                                data-variant-id="${variantId}">
+                            <i class="bi ${product.isInWishlist ? 'bi-heart-fill text-danger' : 'bi-heart'}"></i>
                         </button>
                         ${imgHtml}
                     </div>
@@ -991,6 +995,81 @@ document.addEventListener("DOMContentLoaded", () => {
                     confirmButtonColor: '#111827'
                 });
             }
+        });
+    });
+
+    // Event delegation for wishlist toggle
+    document.addEventListener("click", function(e) {
+        const btn = e.target.closest(".wishlist-heart-btn");
+        if (!btn) return;
+
+        e.preventDefault();
+
+        const productId = btn.dataset.productId;
+        const variantId = btn.dataset.variantId;
+        const icon = btn.querySelector("i");
+
+        if (!productId || !variantId) return;
+
+        const inWishlist = icon.classList.contains("bi-heart-fill");
+        const url = inWishlist ? "/wishlist/remove" : "/wishlist/add";
+
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ productId, variantId })
+        })
+        .then(res => {
+            if (res.status === 401 || res.redirected) {
+                // If not logged in, redirect to login page
+                window.location.href = "/auth/login";
+                return;
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (!data) return;
+            if (data.success) {
+                // Toggle icon
+                if (data.inWishlist) {
+                    icon.className = "bi bi-heart-fill text-danger";
+                } else {
+                    icon.className = "bi bi-heart";
+                }
+
+                if (window.showSuccess) {
+                    window.showSuccess(data.message);
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: data.message,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+
+                if (typeof refreshNavbarWishlistCount === "function") {
+                    refreshNavbarWishlistCount();
+                }
+            } else {
+                if (window.showError) {
+                    window.showError(data.message);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message,
+                        confirmButtonColor: '#111827'
+                    });
+                }
+            }
+        })
+        .catch(err => {
+            console.error("Wishlist error:", err);
+            window.location.href = "/auth/login";
         });
     });
 });

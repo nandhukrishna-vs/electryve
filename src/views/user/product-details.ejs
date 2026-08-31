@@ -177,9 +177,9 @@
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5" title="Share Product" onclick="alert('Feature coming soon!')">
                                 <i class="bi bi-share"></i> Share
                             </button>
-                            <!-- Wishlist (UI Only Placeholder) -->
-                            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2.5" title="Add to Wishlist" onclick="alert('Added to wishlist mockup!')">
-                                <i class="bi bi-heart"></i> Wishlist
+                            <!-- Wishlist -->
+                            <button type="button" id="pdpWishlistBtn" class="btn btn-sm btn-outline-danger rounded-pill px-2.5" title="Wishlist">
+                                <i class="bi bi-heart" id="pdpWishlistIcon"></i> <span id="pdpWishlistText">Wishlist</span>
                             </button>
                         </div>
                     </div>
@@ -788,6 +788,9 @@ document.addEventListener("DOMContentLoaded", function() {
                     list.appendChild(li);
                 });
             }
+
+            // 7. Update wishlist button status for the selected variant
+            checkPdpWishlistStatus(variant._id);
         });
     });
 
@@ -878,6 +881,123 @@ document.addEventListener("DOMContentLoaded", function() {
                         confirmButtonColor: '#111827'
                     });
                 }
+            });
+        });
+    }
+
+    // Wishlist Logic
+    function checkPdpWishlistStatus(variantId) {
+        const pdpWishlistIcon = document.getElementById('pdpWishlistIcon');
+        const pdpWishlistText = document.getElementById('pdpWishlistText');
+        const pdpWishlistBtn = document.getElementById('pdpWishlistBtn');
+        if (!pdpWishlistBtn || !pdpWishlistIcon) return;
+
+        fetch(`/wishlist/status?productId=<%= product._id %>&variantId=${variantId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.inWishlist) {
+                    pdpWishlistIcon.className = "bi bi-heart-fill";
+                    pdpWishlistText.textContent = "In Wishlist";
+                    pdpWishlistBtn.classList.remove("btn-outline-danger");
+                    pdpWishlistBtn.classList.add("btn-danger");
+                } else {
+                    pdpWishlistIcon.className = "bi bi-heart";
+                    pdpWishlistText.textContent = "Wishlist";
+                    pdpWishlistBtn.classList.remove("btn-danger");
+                    pdpWishlistBtn.classList.add("btn-outline-danger");
+                }
+            })
+            .catch(err => console.error("Error checking wishlist status:", err));
+    }
+
+    // Initialize wishlist state for default variant on load
+    document.addEventListener("DOMContentLoaded", () => {
+        const activeVariantBtn = document.querySelector('.pdp-variant-opt-btn.active');
+        let initialVariantId = '<%= product.defaultVariant._id %>';
+        if (activeVariantBtn) {
+            const idx = parseInt(activeVariantBtn.dataset.index);
+            initialVariantId = pdpVariants[idx]._id;
+        }
+        checkPdpWishlistStatus(initialVariantId);
+    });
+
+    const pdpWishlistBtn = document.getElementById('pdpWishlistBtn');
+    if (pdpWishlistBtn) {
+        pdpWishlistBtn.addEventListener('click', function() {
+            const activeVariantBtn = document.querySelector('.pdp-variant-opt-btn.active');
+            let selectedVariantId = '<%= product.defaultVariant._id %>';
+            if (activeVariantBtn) {
+                const idx = parseInt(activeVariantBtn.dataset.index);
+                selectedVariantId = pdpVariants[idx]._id;
+            }
+
+            const icon = document.getElementById('pdpWishlistIcon');
+            const inWishlist = icon && icon.classList.contains("bi-heart-fill");
+            const url = inWishlist ? "/wishlist/remove" : "/wishlist/add";
+
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    productId: '<%= product._id %>',
+                    variantId: selectedVariantId
+                })
+            })
+            .then(res => {
+                if (res.status === 401 || res.redirected) {
+                    Swal.fire({
+                        title: 'Log In Required',
+                        text: 'You need to log in to add items to your wishlist.',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Log In',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#111827'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "/auth/login";
+                        }
+                    });
+                    return;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return;
+                if (data.success) {
+                    if (window.showSuccess) {
+                        window.showSuccess(data.message);
+                    } else {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: data.message,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    }
+                    checkPdpWishlistStatus(selectedVariantId);
+                    if (typeof refreshNavbarWishlistCount === "function") {
+                        refreshNavbarWishlistCount();
+                    }
+                } else {
+                    if (window.showError) {
+                        window.showError(data.message);
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message,
+                            confirmButtonColor: '#111827'
+                        });
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("PDP Wishlist toggle error:", err);
+                window.location.href = "/auth/login";
             });
         });
     }

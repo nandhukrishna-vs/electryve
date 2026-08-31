@@ -4,6 +4,7 @@ import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import Brand from "../models/Brand.js";
 import { MAX_CART_QUANTITY, SHIPPING_CHARGE, FREE_SHIPPING_MIN_SUBTOTAL } from "../config/cartConfig.js";
+import { removeItemForCart } from "./wishlistService.js";
 
 const fallbackSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23f3f4f6"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-family="sans-serif" font-size="16">No Image Available</text></svg>`;
 
@@ -266,14 +267,9 @@ const addToCart = async (userId, productId, variantId, quantity = 1) => {
 
         await cart.save();
 
-        // Wishlist Integration - Automatically remove from Wishlist if Wishlist model exists
+        // Wishlist Integration - Automatically remove from Wishlist
         try {
-            if (mongoose.models.Wishlist) {
-                await mongoose.model("Wishlist").updateOne(
-                    { user: userId },
-                    { $pull: { items: { product: productId, variantId: variantId } } }
-                );
-            }
+            await removeItemForCart(userId, productId, variantId);
         } catch (err) {
             console.error("Wishlist integration warning:", err);
         }
