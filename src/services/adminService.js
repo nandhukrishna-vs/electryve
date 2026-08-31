@@ -57,7 +57,7 @@ const adminLogin = async ({
 
   await admin.save();
 
-  session.user = {
+  session.admin = {
     id: admin._id,
     role: admin.role
   };

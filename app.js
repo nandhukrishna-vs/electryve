@@ -8,7 +8,7 @@ import methodOverride from "method-override";
 import expressLayouts from "express-ejs-layouts";
 
 import connectDB from "./src/config/db.js";
-import sessionConfig from "./src/config/session.js";
+import { userSession, adminSession } from "./src/config/session.js";
 import passport from "./src/config/passport.js";
 
 import authRoutes from "./src/routes/authRoutes.js";
@@ -64,7 +64,13 @@ app.use(expressLayouts);
 app.set("layout", "layouts/user-layout");
 
 // Session Middleware
-app.use(sessionConfig);
+app.use((req, res, next) => {
+  if (req.path.startsWith("/admin")) {
+    adminSession(req, res, next);
+  } else {
+    userSession(req, res, next);
+  }
+});
 
 // Passport Middleware
 app.use(passport.initialize());

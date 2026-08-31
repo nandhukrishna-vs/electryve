@@ -2,15 +2,15 @@ import User from "../models/User.js";
 
 const isAdmin = async (req, res, next) => {
   try {
-    if (!req.session.user) {
+    if (!req.session.admin) {
       return res.redirect("/admin/login");
     }
 
-    const user = await User.findById(req.session.user.id);
+    const user = await User.findById(req.session.admin.id);
 
     if (!user) {
       req.session.destroy(() => {});
-      res.clearCookie("connect.sid");
+      res.clearCookie("admin.sid");
       return res.redirect("/admin/login");
     }
 
@@ -21,7 +21,7 @@ const isAdmin = async (req, res, next) => {
 
     if (user.status !== "ACTIVE") {
       req.session.destroy(() => {});
-      res.clearCookie("connect.sid");
+      res.clearCookie("admin.sid");
       return res.redirect("/admin/login");
     }
 

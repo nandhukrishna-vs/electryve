@@ -11,19 +11,19 @@ const isLoggedIn = async (req, res, next) => {
 
     if (!user) {
       req.session.destroy(() => {});
-      res.clearCookie("connect.sid");
+      res.clearCookie("user.sid");
       return res.redirect("/login");
     }
 
     if (user.status === "BLOCKED") {
       req.session.destroy(() => {});
-      res.clearCookie("connect.sid");
+      res.clearCookie("user.sid");
       return res.redirect("/login");
     }
 
     if (user.status === "DELETED") {
       req.session.destroy(() => {});
-      res.clearCookie("connect.sid");
+      res.clearCookie("user.sid");
       return res.redirect("/login");
     }
 

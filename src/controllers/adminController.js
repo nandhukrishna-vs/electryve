@@ -3,7 +3,7 @@ import User from "../models/User.js";
 import * as adminService from "../services/adminService.js";
 
 const loadAdminLogin = (req, res) => {
-  if (req.session.user?.role === "ADMIN") {
+  if (req.session.admin?.role === "ADMIN") {
     return res.redirect("/admin/dashboard");
   }
 
@@ -69,7 +69,7 @@ const adminLogout = (req, res) => {
       return res.redirect("/admin/dashboard");
     }
 
-    res.clearCookie("connect.sid");
+    res.clearCookie("admin.sid");
     return res.redirect("/admin/login");
   });
 };

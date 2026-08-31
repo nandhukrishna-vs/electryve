@@ -205,7 +205,7 @@ const logout = (req, res) => {
       return res.redirect("/");
     }
 
-    res.clearCookie("connect.sid");
+    res.clearCookie("user.sid");
     return res.redirect("/auth/login");
   });
 };
