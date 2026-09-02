@@ -29,6 +29,7 @@ const loadProducts = async (req, res, next) => {
         res.render("admin/products/list", {
             layout: "layouts/admin-layout",
             title: "Products",
+            query: req.query,
             ...result
         });
 
@@ -67,19 +68,28 @@ const loadAddProduct = async (req, res, next) => {
 
 
 const addProduct = async (req, res, next) => {
-
     try {
-
         const result = await productService.createProduct({
-    body: req.body,
-    files: req.files
-});
+            body: req.body,
+            files: req.files
+        });
+
+        const isAjax = req.xhr || req.headers.accept?.includes("json");
 
         if (result.success) {
-
+            if (isAjax) {
+                return res.json({ success: true, message: result.message, redirect: "/admin/products" });
+            }
             req.session.successMessage = result.message;
             return res.redirect("/admin/products");
+        }
 
+        if (isAjax) {
+            return res.status(400).json({
+                success: false,
+                message: result.message || "Validation failed",
+                errors: result.errors || {}
+            });
         }
 
         const { categories, brands } = await getProductFormData();
@@ -90,23 +100,19 @@ const addProduct = async (req, res, next) => {
             categories,
             brands,
             product: {
-    ...req.body,
-    variants: Array.isArray(req.body.variants)
-        ? req.body.variants
-        : req.body.variants
-            ? Object.values(req.body.variants)
-            : []
-},
+                ...req.body,
+                variants: Array.isArray(req.body.variants)
+                    ? req.body.variants
+                    : req.body.variants
+                        ? Object.values(req.body.variants)
+                        : []
+            },
             errors: result.errors || {},
             message: result.message || ""
         });
-
     } catch (error) {
-
         next(error);
-
     }
-
 };
 
 
@@ -144,22 +150,30 @@ const loadEditProduct = async (req, res, next) => {
 };
 
 const editProduct = async (req, res, next) => {
-
     try {
-
         const result = await productService.updateProduct({
             id: req.params.id,
             body: req.body,
             files: req.files
         });
 
+        const isAjax = req.xhr || req.headers.accept?.includes("json");
+
         if (result.success) {
+            if (isAjax) {
+                return res.json({ success: true, message: result.message, redirect: "/admin/products" });
+            }
+            req.session.successMessage = result.message;
+            return res.redirect("/admin/products");
+        }
 
-    req.session.successMessage = result.message;
-
-    return res.redirect("/admin/products");
-
-}
+        if (isAjax) {
+            return res.status(400).json({
+                success: false,
+                message: result.message || "Validation failed",
+                errors: result.errors || {}
+            });
+        }
 
         const originalProduct = await productService.getProductById(req.params.id);
         
@@ -201,13 +215,9 @@ const editProduct = async (req, res, next) => {
             errors: result.errors || {},
             message: result.message || ""
         });
-
     } catch (error) {
-
         next(error);
-
     }
-
 };
 
 
@@ -249,7 +259,7 @@ const loadShop = async (req, res, next) => {
 
     try {
 
-        const result = await productService.getShopProducts(req.query);
+        const result = await productService.getShopProducts(req.query, req.session?.user?.id);
 
         res.render("user/shop", {
             layout: "layouts/user-layout",
@@ -267,7 +277,7 @@ const loadShop = async (req, res, next) => {
 
 const getShopProductsData = async (req, res, next) => {
     try {
-        const result = await productService.getShopProducts(req.query);
+        const result = await productService.getShopProducts(req.query, req.session?.user?.id);
         return res.status(200).json({
             success: true,
             products: result.products,
