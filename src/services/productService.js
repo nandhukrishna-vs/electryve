@@ -3,15 +3,16 @@ import slugify from "slugify";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import Brand from "../models/Brand.js";
+import Wishlist from "../models/Wishlist.js";
 import validateProduct from "../validators/productValidator.js";
 import { uploadImages, deleteImage } from "./imageService.js";
 import { getProductReviewsSummary } from "./reviewService.js";
 
 const ITEMS_PER_PAGE = 10;
 
-/* ===========================================================
+/* 
    Helpers
-=========================================================== */
+*/
 
 const normalizeVariants = (variants) => {
 
@@ -118,16 +119,18 @@ const validateDuplicateVariants = (variants) => {
 
 };
 
-/* ===========================================================
+/* 
    Product List
-=========================================================== */
+*/
 
 const getProducts = async ({
     page = 1,
     search = ""
 }) => {
 
-    page = Number(page);
+    const currentPage = Math.max(1, parseInt(page) || 1);
+    const limit = 6;
+    const skip = (currentPage - 1) * limit;
 
     const filter = {
         isDeleted: false
@@ -152,17 +155,22 @@ const getProducts = async ({
             .sort({
                 createdAt: -1
             })
-            .skip((page - 1) * ITEMS_PER_PAGE)
-            .limit(ITEMS_PER_PAGE);
+            .skip(skip)
+            .limit(limit);
+
+    const totalPages = Math.ceil(totalProducts / limit);
 
     return {
 
         products,
 
-        currentPage: page,
+        currentPage,
 
-        totalPages:
-            Math.ceil(totalProducts / ITEMS_PER_PAGE),
+        totalPages,
+
+        totalProducts,
+
+        limit,
 
         search
 
@@ -170,9 +178,9 @@ const getProducts = async ({
 
 };
 
-/* ===========================================================
+/* 
    Create Product
-=========================================================== */
+ */
 
 const createProduct = async ({
     body,
@@ -228,37 +236,63 @@ const createProduct = async ({
         await Category.findById(body.category);
 
     if (!category || category.isDeleted) {
-
         return {
-
             success: false,
-
-            message: "Category not found"
-
+            message: "Category not found",
+            errors: { category: "Category not found" }
         };
-
     }
 
     const brand =
         await Brand.findById(body.brand);
 
     if (!brand || brand.isDeleted) {
-
         return {
-
             success: false,
-
-            message: "Brand not found"
-
+            message: "Brand not found",
+            errors: { brand: "Brand not found" }
         };
-
     }
 
-    const variants =
-        normalizeVariants(body.variants);
-        validateDuplicateSkus(variants);
+    const variants = normalizeVariants(body.variants);
+    const skuDupCheck = validateDuplicateSkus(variants);
+    if (skuDupCheck) {
+        const errors = {};
+        const skuSet = new Set();
+        variants.forEach((v, index) => {
+            const sku = v.sku?.trim().toUpperCase();
+            if (sku) {
+                if (skuSet.has(sku)) {
+                    errors[`variants.${index}.sku`] = "Duplicate SKU";
+                }
+                skuSet.add(sku);
+            }
+        });
+        return {
+            success: false,
+            message: skuDupCheck.message,
+            errors
+        };
+    }
 
-validateDuplicateVariants(variants);
+    try {
+        validateDuplicateVariants(variants);
+    } catch (err) {
+        const errors = {};
+        const variantSet = new Set();
+        variants.forEach((v, index) => {
+            const key = `${v.color?.trim()}-${v.storage?.trim()}`.toLowerCase();
+            if (variantSet.has(key)) {
+                errors[`variants.${index}.storage`] = "Duplicate Color + Storage combination";
+            }
+            variantSet.add(key);
+        });
+        return {
+            success: false,
+            message: err.message,
+            errors
+        };
+    }
 
     const groupedFiles = groupVariantImages(files || []);
 
@@ -320,6 +354,45 @@ const variantData = variants.map((variant, index) => ({
                 console.error("Rollback failed for new image:", deleteError.message);
             }
         }
+        
+        if (error.code === 11000) {
+            const errors = {};
+            if (error.keyValue) {
+                if (error.keyValue.name) {
+                    errors.name = "Product name already exists";
+                } else if (error.keyValue.slug) {
+                    errors.name = "Product slug already exists";
+                } else if (error.keyValue["variants.sku"]) {
+                    const duplicatedSku = error.keyValue["variants.sku"];
+                    variants.forEach((v, index) => {
+                        if (v.sku?.trim().toUpperCase() === duplicatedSku.toUpperCase()) {
+                            errors[`variants.${index}.sku`] = "SKU already exists";
+                        }
+                    });
+                    if (Object.keys(errors).length === 0) {
+                        errors.sku = `SKU already exists: ${duplicatedSku}`;
+                    }
+                }
+            }
+            return {
+                success: false,
+                message: "Duplicate entry detected",
+                errors
+            };
+        }
+
+        if (error.name === "ValidationError") {
+            const errors = {};
+            for (const field of Object.keys(error.errors)) {
+                errors[field] = error.errors[field].message;
+            }
+            return {
+                success: false,
+                message: "Validation failed",
+                errors
+            };
+        }
+        
         throw error;
     }
 
@@ -406,30 +479,63 @@ const updateProduct = async ({
         await Category.findById(body.category);
 
     if (!category || category.isDeleted) {
-
         return {
             success: false,
-            message: "Category not found"
+            message: "Category not found",
+            errors: { category: "Category not found" }
         };
-
     }
 
     const brand =
         await Brand.findById(body.brand);
 
     if (!brand || brand.isDeleted) {
-
         return {
             success: false,
-            message: "Brand not found"
+            message: "Brand not found",
+            errors: { brand: "Brand not found" }
         };
-
     }
 
-    const variants =
-        normalizeVariants(body.variants);
-        validateDuplicateSkus(variants);
-validateDuplicateVariants(variants);
+    const variants = normalizeVariants(body.variants);
+    const skuDupCheck = validateDuplicateSkus(variants);
+    if (skuDupCheck) {
+        const errors = {};
+        const skuSet = new Set();
+        variants.forEach((v, index) => {
+            const sku = v.sku?.trim().toUpperCase();
+            if (sku) {
+                if (skuSet.has(sku)) {
+                    errors[`variants.${index}.sku`] = "Duplicate SKU";
+                }
+                skuSet.add(sku);
+            }
+        });
+        return {
+            success: false,
+            message: skuDupCheck.message,
+            errors
+        };
+    }
+
+    try {
+        validateDuplicateVariants(variants);
+    } catch (err) {
+        const errors = {};
+        const variantSet = new Set();
+        variants.forEach((v, index) => {
+            const key = `${v.color?.trim()}-${v.storage?.trim()}`.toLowerCase();
+            if (variantSet.has(key)) {
+                errors[`variants.${index}.storage`] = "Duplicate Color + Storage combination";
+            }
+            variantSet.add(key);
+        });
+        return {
+            success: false,
+            message: err.message,
+            errors
+        };
+    }
 
     const updatedVariants = [];
     const imagesToDelete = [];
@@ -552,6 +658,45 @@ validateDuplicateVariants(variants);
                 console.error("Rollback failed for new image:", deleteError.message);
             }
         }
+        
+        if (error.code === 11000) {
+            const errors = {};
+            if (error.keyValue) {
+                if (error.keyValue.name) {
+                    errors.name = "Product name already exists";
+                } else if (error.keyValue.slug) {
+                    errors.name = "Product slug already exists";
+                } else if (error.keyValue["variants.sku"]) {
+                    const duplicatedSku = error.keyValue["variants.sku"];
+                    variants.forEach((v, index) => {
+                        if (v.sku?.trim().toUpperCase() === duplicatedSku.toUpperCase()) {
+                            errors[`variants.${index}.sku`] = "SKU already exists";
+                        }
+                    });
+                    if (Object.keys(errors).length === 0) {
+                        errors.sku = `SKU already exists: ${duplicatedSku}`;
+                    }
+                }
+            }
+            return {
+                success: false,
+                message: "Duplicate entry detected",
+                errors
+            };
+        }
+
+        if (error.name === "ValidationError") {
+            const errors = {};
+            for (const field of Object.keys(error.errors)) {
+                errors[field] = error.errors[field].message;
+            }
+            return {
+                success: false,
+                message: "Validation failed",
+                errors
+            };
+        }
+        
         throw error;
     }
     
@@ -582,9 +727,9 @@ validateDuplicateVariants(variants);
 
 };
 
-/* ===========================================================
+/* 
    Toggle Product Status
-=========================================================== */
+*/
 
 const toggleProductStatus = async (id) => {
 
@@ -615,9 +760,9 @@ const toggleProductStatus = async (id) => {
 
 };
 
-/* ===========================================================
+/* 
    Delete Product
-=========================================================== */
+*/
 
 const deleteProduct = async (id) => {
 
@@ -649,10 +794,10 @@ const deleteProduct = async (id) => {
    Shop Products
 =========================================================== */
 
-const getShopProducts = async (query) => {
+const getShopProducts = async (query, userId) => {
 
     const page = Number(query.page) || 1;
-    const limit = 12;
+    const limit = 6;
     const skip = (page - 1) * limit;
 
     // Fetch active categories and brands in parallel for filtering and sidebar display
@@ -758,6 +903,18 @@ const getShopProducts = async (query) => {
         Product.countDocuments(filter)
     ]);
 
+    let wishlistVariantIds = [];
+    if (userId) {
+        try {
+            const wishlist = await Wishlist.findOne({ user: userId });
+            if (wishlist) {
+                wishlistVariantIds = wishlist.items.map(item => String(item.variantId));
+            }
+        } catch (err) {
+            console.error("Error reading wishlist for shop products:", err);
+        }
+    }
+
     // 6. Compute business logic details on the service layer
     const products = rawProducts.map(p => {
         // Find the first listed/active variant
@@ -784,11 +941,14 @@ const getShopProducts = async (query) => {
             }
         }
 
+        const isInWishlist = (defaultVariant && defaultVariant._id) ? wishlistVariantIds.includes(String(defaultVariant._id)) : false;
+
         return {
             ...p,
             defaultVariant,
             discountPercentage,
-            stockStatus
+            stockStatus,
+            isInWishlist
         };
     });
 

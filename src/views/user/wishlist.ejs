@@ -9,14 +9,19 @@
         border: 1px solid #e5e7eb;
         border-radius: 16px;
         transition: transform 0.2s, box-shadow 0.2s;
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr) 140px auto;
+        align-items: center;
+        gap: 24px;
+        padding: 20px;
     }
     .wishlist-item-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
     }
     .wishlist-image-wrapper {
-        width: 110px;
-        height: 110px;
+        width: 120px;
+        height: 120px;
         border-radius: 12px;
         border: 1px solid #e5e7eb;
         background-color: #ffffff;
@@ -38,15 +43,52 @@
         border-radius: 6px;
         padding: 3px 6px;
     }
+    
+    @media (max-width: 991px) {
+        .wishlist-item-card {
+            grid-template-columns: 100px minmax(0, 1fr) auto;
+            gap: 16px;
+            padding: 16px;
+        }
+        .wishlist-image-wrapper {
+            width: 100px;
+            height: 100px;
+        }
+        .wishlist-actions-area {
+            grid-column: 1 / -1;
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .wishlist-item-card {
+            grid-template-columns: 1fr;
+            text-align: center;
+            justify-items: center;
+            gap: 12px;
+        }
+        .wishlist-image-wrapper {
+            width: 120px;
+            height: 120px;
+        }
+        .wishlist-price-area {
+            text-align: center !important;
+        }
+        .wishlist-actions-area {
+            grid-column: auto;
+            justify-content: center;
+        }
+    }
 </style>
 
 <div class="wishlist-section-wrapper py-5">
-    <div class="container-xl" id="wishlistMainContainer">
+    <div class="container-xl" id="wishlistMainContainer" style="max-width: 1400px; margin: 0 auto; width: 100%;">
         <!-- Page Header -->
         <div class="mb-4 d-flex justify-content-between align-items-center">
             <div>
                 <h1 class="fw-bold text-dark mb-1">My Wishlist</h1>
-                <p class="text-secondary small">Keep track of your favorite products and move them to cart anytime.</p>
+                <p class="text-secondary small mb-0">Keep track of your favorite products and move them to cart anytime.</p>
             </div>
             <a href="/shop" class="btn btn-outline-dark rounded-3 px-4 py-2 fw-medium">
                 <i class="bi bi-arrow-left me-1"></i> Continue Shopping
@@ -62,75 +104,73 @@
                       const isOutOfStock = v && v.stock <= 0;
                     %>
                     <div class="col-12" id="wishlist-item-<%= item.productId %>-<%= item.variantId %>">
-                        <div class="wishlist-item-card p-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-4">
-                            <!-- Image and Details -->
-                            <div class="d-flex align-items-center gap-4 w-100">
-                                <div class="wishlist-image-wrapper flex-shrink-0">
-                                    <% if (v && v.images && v.images.length > 0) { %>
-                                        <img src="<%= v.images[0] %>" alt="<%= p ? p.name : 'Product' %>">
-                                    <% } else { %>
-                                        <div class="text-muted"><i class="bi bi-image fs-3"></i></div>
-                                    <% } %>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <% if (item.isAvailable && p && v) { %>
-                                        <span class="text-uppercase text-muted fw-bold small d-block mb-1"><%= p.brand %></span>
-                                        <h5 class="fw-bold text-dark mb-1"><%= p.name %></h5>
-                                        <div class="text-secondary small mb-2 d-flex flex-wrap align-items-center gap-2">
-                                            <span><%= p.category %></span>
-                                            <span>•</span>
-                                            <span>Color: <%= v.color %></span>
-                                            <span>•</span>
-                                            <span>Storage: <%= v.storage %></span>
-                                        </div>
-                                        <div>
-                                            <% if (v.stock > 10) { %>
-                                                <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium">🟢 In Stock</span>
-                                            <% } else if (v.stock > 0) { %>
-                                                <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-medium">🟡 Low Stock (<%= v.stock %> remaining)</span>
-                                            <% } else { %>
-                                                <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 fw-medium">🔴 Out of Stock</span>
-                                            <% } %>
-                                        </div>
-                                    <% } else { %>
-                                        <h5 class="fw-bold text-danger mb-2">This product is no longer available.</h5>
-                                        <p class="text-muted small mb-0">The product or selected variant has been unlisted or removed.</p>
-                                    <% } %>
-                                </div>
+                        <div class="wishlist-item-card">
+                            <!-- Image -->
+                            <div class="wishlist-image-wrapper">
+                                <% if (v && v.images && v.images.length > 0) { %>
+                                    <img src="<%= v.images[0] %>" alt="<%= p ? p.name : 'Product' %>">
+                                <% } else { %>
+                                    <div class="text-muted"><i class="bi bi-image fs-3"></i></div>
+                                <% } %>
                             </div>
 
-                            <!-- Price and Actions -->
-                            <div class="d-flex flex-row flex-md-column justify-content-between align-items-center align-items-md-end gap-3 w-100 w-md-auto flex-shrink-0">
-                                <!-- Price block -->
-                                <% if (item.isAvailable && v) { %>
-                                    <div class="text-start text-md-end">
-                                        <% if (v.salePrice && v.salePrice < v.regularPrice) { %>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="fs-4 fw-bold text-dark">₹<%= v.salePrice.toLocaleString() %></span>
-                                                <span class="badge-discount-percent"><%= Math.round(((v.regularPrice - v.salePrice)/v.regularPrice)*100) %>% OFF</span>
-                                            </div>
-                                            <div class="text-decoration-line-through text-muted small">₹<%= v.regularPrice.toLocaleString() %></div>
+                            <!-- Details -->
+                            <div class="min-w-0 w-100">
+                                <% if (item.isAvailable && p && v) { %>
+                                    <span class="text-uppercase text-muted fw-bold small d-block mb-1"><%= p.brand %></span>
+                                    <h5 class="fw-bold text-dark mb-1 text-truncate" title="<%= p.name %>"><%= p.name %></h5>
+                                    <div class="text-secondary small mb-2 d-flex flex-wrap align-items-center gap-2">
+                                        <span><%= p.category %></span>
+                                        <span>•</span>
+                                        <span>Color: <%= v.color %></span>
+                                        <span>•</span>
+                                        <span>Storage: <%= v.storage %></span>
+                                    </div>
+                                    <div>
+                                        <% if (v.stock > 10) { %>
+                                            <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium">🟢 In Stock</span>
+                                        <% } else if (v.stock > 0) { %>
+                                            <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-medium">🟡 Low Stock (<%= v.stock %> remaining)</span>
                                         <% } else { %>
-                                            <span class="fs-4 fw-bold text-dark">₹<%= v.regularPrice.toLocaleString() %></span>
+                                            <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 fw-medium">🔴 Out of Stock</span>
                                         <% } %>
                                     </div>
+                                <% } else { %>
+                                    <h5 class="fw-bold text-danger mb-2">This product is no longer available.</h5>
+                                    <p class="text-muted small mb-0">The product or selected variant has been unlisted or removed.</p>
                                 <% } %>
+                            </div>
 
-                                <!-- Action Buttons -->
-                                <div class="d-flex align-items-center gap-2.5 w-100 w-md-auto">
-                                    <button type="button" class="btn btn-outline-danger rounded-3 px-3 py-2 btn-remove-wishlist"
-                                            data-product-id="<%= item.productId %>" 
-                                            data-variant-id="<%= item.variantId %>"
-                                            title="Remove Item">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-dark rounded-3 px-4 py-2 w-100 text-nowrap btn-move-to-cart"
-                                            data-product-id="<%= item.productId %>" 
-                                            data-variant-id="<%= item.variantId %>"
-                                            <%= (!item.isAvailable || isOutOfStock) ? 'disabled' : '' %>>
-                                        <i class="bi bi-cart-plus me-1"></i> Add to Cart
-                                    </button>
-                                </div>
+                            <!-- Price -->
+                            <div class="wishlist-price-area text-start text-md-end w-100">
+                                <% if (item.isAvailable && v) { %>
+                                    <% if (v.salePrice && v.salePrice < v.regularPrice) { %>
+                                        <div class="d-flex align-items-center gap-2 justify-content-md-end flex-wrap">
+                                            <span class="fs-5 fw-bold text-dark">₹<%= v.salePrice.toLocaleString() %></span>
+                                            <span class="badge-discount-percent"><%= Math.round(((v.regularPrice - v.salePrice)/v.regularPrice)*100) %>% OFF</span>
+                                        </div>
+                                        <div class="text-decoration-line-through text-muted small">₹<%= v.regularPrice.toLocaleString() %></div>
+                                    <% } else { %>
+                                        <span class="fs-5 fw-bold text-dark">₹<%= v.regularPrice.toLocaleString() %></span>
+                                    <% } %>
+                                <% } %>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="wishlist-actions-area d-flex align-items-center gap-2 w-100 justify-content-md-end">
+                                <button type="button" class="btn btn-outline-danger rounded-3 px-3 py-2 btn-remove-wishlist"
+                                        data-product-id="<%= item.productId %>" 
+                                        data-variant-id="<%= item.variantId %>"
+                                        title="Remove Item">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <button type="button" class="btn btn-dark rounded-3 px-4 py-2 text-nowrap btn-move-to-cart"
+                                        style="max-width: 160px;"
+                                        data-product-id="<%= item.productId %>" 
+                                        data-variant-id="<%= item.variantId %>"
+                                        <%= (!item.isAvailable || isOutOfStock) ? 'disabled' : '' %>>
+                                    <i class="bi bi-cart-plus me-1"></i> Add to Cart
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -138,7 +178,7 @@
             </div>
         <% } else { %>
             <!-- Empty state -->
-            <div class="card border-0 shadow-sm rounded-4 text-center py-5 px-4 bg-white mt-4">
+            <div class="card border-0 shadow-sm rounded-4 text-center py-5 px-4 bg-white mt-4 mx-auto" style="max-width: 600px;">
                 <div class="text-muted mb-3">
                     <i class="bi bi-heartbreak display-3 text-secondary"></i>
                 </div>
@@ -191,7 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         // Check if wishlist is now empty
                         const grid = document.getElementById("wishlistGrid");
-                        if (grid && grid.querySelectorAll(".col-12").length === 0) {
+                        if (grid && grid.querySelectorAll(".wishlist-item-card").length === 0) {
                             location.reload();
                         }
 
@@ -237,7 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 // Check if wishlist is empty
                 const grid = document.getElementById("wishlistGrid");
-                if (grid && grid.querySelectorAll(".col-12").length === 0) {
+                if (grid && grid.querySelectorAll(".wishlist-item-card").length === 0) {
                     location.reload();
                 }
 
