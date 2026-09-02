@@ -1,0 +1,79 @@
+<style>
+    .success-section-wrapper {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #f8f9fa;
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+    }
+    .success-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+    }
+    .success-icon-box {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background-color: #f0fdf4;
+        color: #16a34a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        border: 1px solid #dcfce7;
+    }
+    .order-info-box {
+        background-color: #f9fafb;
+        border: 1px solid #f3f4f6;
+        border-radius: 12px;
+    }
+</style>
+
+<div class="success-section-wrapper py-5">
+    <div class="container" style="max-width: 1400px; margin: 0 auto; width: 100%;">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card success-card shadow-sm p-4.5 p-md-5 text-center mx-auto" style="max-width: 550px;">
+                    <!-- Success Icon -->
+                    <div class="success-icon-box shadow-sm">
+                        <i class="bi bi-check-circle-fill fs-2"></i>
+                    </div>
+
+                    <h3 class="fw-bold text-dark mb-2">Thank you for your order!</h3>
+                    <p class="text-secondary small mb-4">Your order has been placed successfully and will be delivered soon.</p>
+
+                    <!-- Order Details Summary Snapshot -->
+                    <div class="order-info-box p-3.5 text-start mb-4" style="font-size: 0.9rem;">
+                        <div class="row mb-2">
+                            <div class="col-6 text-secondary">Order Number</div>
+                            <div class="col-6 text-dark fw-bold text-end"><%= order.orderNumber %></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-secondary">Payable Amount</div>
+                            <div class="col-6 text-dark fw-bold text-end">₹<%= order.finalAmount.toLocaleString() %></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-secondary">Payment Method</div>
+                            <div class="col-6 text-dark fw-medium text-end">Cash on Delivery (COD)</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 text-secondary">Order Status</div>
+                            <div class="col-6 text-success fw-medium text-end">Placed</div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                        <a href="/order/<%= order._id %>" class="btn btn-dark rounded-3 px-4 py-2 fw-semibold shadow-sm flex-grow-1">
+                            <i class="bi bi-file-earmark-text me-1"></i> View Order Details
+                        </a>
+                        <a href="/shop" class="btn btn-outline-dark rounded-3 px-4 py-2 fw-semibold flex-grow-1">
+                            Continue Shopping <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

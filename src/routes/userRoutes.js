@@ -31,6 +31,8 @@ import * as productController from "../controllers/productController.js";
 import * as cartController from "../controllers/cartController.js";
 import * as wishlistController from "../controllers/wishlistController.js";
 import * as wishlistValidator from "../validators/wishlistValidator.js";
+import * as orderController from "../controllers/orderController.js";
+import * as addressValidator from "../validators/addressValidator.js";
 
 const router = express.Router();
 
@@ -46,7 +48,9 @@ router.get("/product/:id", productController.loadProductDetails);
 router.get("/cart", isLoggedIn, cartController.loadCart);
 router.get("/cart/count", cartController.getCartCount);
 router.post("/cart/add", cartController.addToCart);
+router.patch("/cart/update-qty", isLoggedIn, cartController.updateQuantity);
 router.post("/cart/update-quantity", isLoggedIn, cartController.updateQuantity);
+router.delete("/cart/remove", isLoggedIn, cartController.removeItem);
 router.post("/cart/remove", isLoggedIn, cartController.removeItem);
 
 router.get(
@@ -120,5 +124,14 @@ router.get("/wishlist/count", wishlistController.getWishlistCount);
 router.get("/wishlist/status", wishlistValidator.validateWishlistStatus, wishlistController.checkWishlistStatus);
 router.post("/wishlist/add", isLoggedIn, wishlistValidator.validateWishlist, wishlistController.addToWishlist);
 router.post("/wishlist/remove", isLoggedIn, wishlistValidator.validateWishlist, wishlistController.removeFromWishlist);
+
+// Checkout & Order Routes
+router.get("/checkout", isLoggedIn, orderController.loadCheckout);
+router.post("/checkout/address", isLoggedIn, addressValidator.validateCheckoutAddress, orderController.addCheckoutAddress);
+router.patch("/checkout/address/:id", isLoggedIn, addressValidator.validateCheckoutAddress, orderController.updateCheckoutAddress);
+router.post("/checkout/address/:id/default", isLoggedIn, orderController.setDefaultAddress);
+router.post("/checkout/place-order", isLoggedIn, orderController.placeCODOrder);
+router.get("/checkout/success", isLoggedIn, orderController.loadOrderSuccess);
+router.get("/order/:id", isLoggedIn, orderController.loadOrderDetails);
 
 export default router;

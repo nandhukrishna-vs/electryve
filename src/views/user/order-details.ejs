@@ -1,0 +1,159 @@
+<style>
+    .details-section-wrapper {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #f8f9fa;
+        min-height: 85vh;
+    }
+    .details-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+    }
+    .details-img-wrapper {
+        width: 60px;
+        height: 60px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background-color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .details-img-wrapper img {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+    }
+    
+    @media (max-width: 768px) {
+        .details-item-row {
+            flex-direction: column;
+            text-align: center;
+        }
+        .details-img-wrapper {
+            margin: 0 auto 8px;
+        }
+        .details-price-block {
+            text-align: center !important;
+            margin-top: 8px;
+        }
+    }
+</style>
+
+<div class="details-section-wrapper py-5">
+    <div class="container-xl" style="max-width: 1400px; margin: 0 auto; width: 100%;">
+        <!-- Back Navigation -->
+        <div class="mb-4">
+            <a href="/shop" class="text-decoration-none text-dark small fw-medium">
+                <i class="bi bi-arrow-left me-1"></i> Back to Shop
+            </a>
+        </div>
+
+        <!-- Page Header -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+            <div>
+                <h1 class="fw-bold text-dark mb-1 fs-3">Order details</h1>
+                <p class="text-secondary small mb-0">Order ID: <strong class="text-dark"><%= order.orderNumber %></strong> • Placed on <%= new Date(order.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) %></p>
+            </div>
+            <div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2 fw-bold text-uppercase" style="font-size: 0.75rem;">
+                    🟢 <%= order.orderStatus %>
+                </span>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Left Column: Order Items & Delivery Address -->
+            <div class="col-lg-8">
+                <div class="card details-card shadow-sm p-4 mb-4">
+                    <h5 class="fw-bold text-dark mb-3">Items Ordered</h5>
+                    <div class="d-flex flex-column gap-3">
+                        <% order.items.forEach(item => { %>
+                            <div class="d-flex align-items-center gap-3 py-2.5 border-bottom last-border-none details-item-row">
+                                <div class="details-img-wrapper flex-shrink-0">
+                                    <img src="<%= item.image %>" alt="<%= item.productName %>">
+                                </div>
+                                <div class="flex-grow-1 min-w-0 text-start">
+                                    <span class="text-uppercase text-muted fw-bold d-block mb-0.5" style="font-size: 0.65rem; letter-spacing: 0.5px;"><%= item.brandName %></span>
+                                    <h6 class="fw-bold text-dark text-truncate mb-1" style="font-size: 0.95rem;"><%= item.productName %></h6>
+                                    <div class="text-secondary small d-flex align-items-center gap-2 flex-wrap" style="font-size: 0.8rem;">
+                                        <span><%= item.variantDetails %></span>
+                                        <span>•</span>
+                                        <span>Qty: <%= item.quantity %></span>
+                                    </div>
+                                </div>
+                                <div class="text-dark fw-bold text-end flex-shrink-0 details-price-block small">
+                                    ₹<%= item.itemTotal.toLocaleString() %>
+                                    <div class="text-secondary small fw-normal" style="font-size: 0.75rem;">₹<%= item.salePrice.toLocaleString() %> each</div>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                </div>
+
+                <div class="card details-card shadow-sm p-4">
+                    <h5 class="fw-bold text-dark mb-3">Shipping Address</h5>
+                    <div class="text-dark" style="font-size: 0.9rem; line-height: 1.5;">
+                        <div class="fw-bold text-capitalize mb-1.5"><%= order.shippingAddress.fullName %></div>
+                        <div class="text-secondary mb-1">
+                            <%= order.shippingAddress.addressLine1 %>
+                            <% if (order.shippingAddress.addressLine2) { %>, <%= order.shippingAddress.addressLine2 %><% } %>
+                            <% if (order.shippingAddress.landmark) { %><br><span class="text-muted">Landmark: <%= order.shippingAddress.landmark %></span><% } %>
+                        </div>
+                        <div class="text-secondary mb-2">
+                            <%= order.shippingAddress.city %>, <%= order.shippingAddress.state %> - <strong class="text-dark"><%= order.shippingAddress.pinCode %></strong>
+                        </div>
+                        <div class="text-secondary">
+                            <i class="bi bi-telephone-fill me-1"></i> Phone: <%= order.shippingAddress.phone %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Payment & Cost Summary -->
+            <div class="col-lg-4">
+                <div class="card details-card shadow-sm p-4 mb-4">
+                    <h5 class="fw-bold text-dark mb-3">Payment Summary</h5>
+                    <div class="d-flex flex-column gap-2.5 mb-3" style="font-size: 0.85rem;">
+                        <div class="d-flex justify-content-between text-secondary">
+                            <span>Subtotal</span>
+                            <span class="text-dark fw-medium">₹<%= order.subtotal.toLocaleString() %></span>
+                        </div>
+                        <% if (order.discount > 0) { %>
+                            <div class="d-flex justify-content-between text-danger">
+                                <span>Discount</span>
+                                <span>-₹<%= order.discount.toLocaleString() %></span>
+                            </div>
+                        <% } %>
+                        <div class="d-flex justify-content-between text-secondary">
+                            <span>Shipping</span>
+                            <% if (order.shippingCharge === 0) { %>
+                                <span class="text-success fw-medium">FREE</span>
+                            <% } else { %>
+                                <span class="text-dark fw-medium">₹<%= order.shippingCharge.toLocaleString() %></span>
+                            <% } %>
+                        </div>
+                        <div class="d-flex justify-content-between text-secondary">
+                            <span>Tax</span>
+                            <span class="text-dark fw-medium">₹<%= order.tax.toLocaleString() %></span>
+                        </div>
+                    </div>
+
+                    <hr class="my-3 text-muted opacity-25">
+
+                    <div class="d-flex justify-content-between text-dark fs-6 fw-bold mb-4 align-items-center">
+                        <span>Total Paid</span>
+                        <span>₹<%= order.finalAmount.toLocaleString() %></span>
+                    </div>
+
+                    <div class="border rounded-3 p-3 bg-light text-center small">
+                        <span class="text-secondary d-block mb-1">Payment Method</span>
+                        <strong class="text-dark text-uppercase">Cash on Delivery (COD)</strong>
+                        <div class="text-warning-emphasis fw-bold mt-1.5">Status: <%= order.paymentStatus %></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
