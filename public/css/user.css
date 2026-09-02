@@ -2530,3 +2530,14 @@ body {
     color:#222;
 
 }
+
+/* UI/UX Redesign Helpers */
+.last-border-none:last-child {
+    border-bottom: none !important;
+}
+.max-vh-40 {
+    max-height: 40vh;
+}
+.max-vh-50 {
+    max-height: 50vh;
+}
