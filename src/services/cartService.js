@@ -110,12 +110,6 @@ const getCart = async (userId) => {
             isItemOutOfStock = true;
             hasOutOfStockItems = true;
             statusMessage = "Out of Stock";
-            if (itemQuantity !== 0) {
-                // Keep quantity at 0 when out of stock
-                itemQuantity = 0;
-                item.quantity = 0;
-                isModified = true;
-            }
         } else if (itemQuantity > variant.stock) {
             itemQuantity = variant.stock;
             item.quantity = variant.stock;
