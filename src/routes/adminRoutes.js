@@ -8,6 +8,7 @@ import {
   toggleUserStatus
 } from "../controllers/adminController.js";
 import * as adminOrderController from "../controllers/adminOrderController.js";
+import * as couponController from "../controllers/couponController.js";
 
 import { isAdmin } from "../middlewares/adminMiddleware.js";
 
@@ -39,6 +40,15 @@ router.patch("/orders/:id/items/:itemId/cancel", isAdmin, adminOrderController.c
 router.patch("/orders/:id/items/:itemId/return", isAdmin, adminOrderController.returnOrderItem);
 router.patch("/orders/:id/return", isAdmin, adminOrderController.returnOrder);
 router.get("/orders/:id/invoice", isAdmin, adminOrderController.downloadInvoice);
+
+// Coupon Management Routes
+router.get("/coupons", isAdmin, couponController.loadCoupons);
+router.get("/coupons/add", isAdmin, couponController.loadAddCoupon);
+router.post("/coupons", isAdmin, couponController.createCoupon);
+router.get("/coupons/:id/edit", isAdmin, couponController.loadEditCoupon);
+router.post("/coupons/:id/edit", isAdmin, couponController.updateCoupon);
+router.patch("/coupons/:id/status", isAdmin, couponController.toggleCouponStatus);
+router.patch("/coupons/:id/delete", isAdmin, couponController.deleteCoupon);
 
 router.get("/logout", isAdmin, adminLogout);
 

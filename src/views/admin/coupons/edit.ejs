@@ -1,0 +1,331 @@
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9 col-md-11">
+            <!-- Breadcrumbs / Top Nav -->
+            <div class="mb-3">
+                <a href="/admin/coupons" class="text-decoration-none text-muted small d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Back to Coupons</span>
+                </a>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h4 class="h5 fw-bold mb-0">Edit Coupon</h4>
+                        <p class="text-muted small mb-0">Update coupon parameters, discount values, or validity dates.</p>
+                    </div>
+                    <div>
+                        <span class="badge bg-light text-dark border">
+                            Used: <strong><%= coupon?.usedCount || 0 %></strong> <%= (coupon?.usedCount === 1) ? 'time' : 'times' %>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- Error Alert -->
+                    <% if (typeof errorMessage !== "undefined" && errorMessage) { %>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <%= errorMessage %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <% } %>
+
+                    <form action="/admin/coupons/<%= coupon._id %>/edit" method="POST" id="couponEditForm" novalidate>
+                        <!-- Row 1: Code & Status -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label for="code" class="form-label fw-semibold">
+                                    Coupon Code <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    class="form-control font-monospace text-uppercase <%= errors?.code ? 'is-invalid' : '' %>"
+                                    id="code"
+                                    name="code"
+                                    placeholder="e.g. WELCOME100, SUMMER25"
+                                    value="<%= coupon?.code || '' %>"
+                                    required
+                                >
+                                <% if (errors?.code) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.code %></div>
+                                <% } else { %>
+                                    <div class="form-text">Use 3-30 letters, numbers, hyphens, or underscores.</div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-4 d-flex flex-column justify-content-center pt-md-3">
+                                <div class="form-check form-switch mt-2">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        id="isActive"
+                                        name="isActive"
+                                        value="true"
+                                        <%= (coupon?.isActive !== false) ? 'checked' : '' %>
+                                    >
+                                    <label class="form-check-label fw-semibold" for="isActive">Coupon Active</label>
+                                </div>
+                                <div class="form-text">Enable or disable coupon redemption.</div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <!-- Row 2: Discount Type & Value -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="discountType" class="form-label fw-semibold">
+                                    Discount Type <span class="text-danger">*</span>
+                                </label>
+                                <select
+                                    class="form-select <%= errors?.discountType ? 'is-invalid' : '' %>"
+                                    id="discountType"
+                                    name="discountType"
+                                    required
+                                >
+                                    <option value="" disabled>Select type...</option>
+                                    <option value="PERCENTAGE" <%= coupon?.discountType === 'PERCENTAGE' ? 'selected' : '' %>>Percentage Discount (%)</option>
+                                    <option value="FIXED" <%= coupon?.discountType === 'FIXED' ? 'selected' : '' %>>Fixed Amount Discount (₹)</option>
+                                </select>
+                                <% if (errors?.discountType) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.discountType %></div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="discountValue" class="form-label fw-semibold">
+                                    Discount Value <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text" id="discountPrefix">₹ / %</span>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        min="1"
+                                        class="form-control <%= errors?.discountValue ? 'is-invalid' : '' %>"
+                                        id="discountValue"
+                                        name="discountValue"
+                                        placeholder="e.g. 10 or 250"
+                                        value="<%= coupon?.discountValue || '' %>"
+                                        required
+                                    >
+                                </div>
+                                <% if (errors?.discountValue) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.discountValue %></div>
+                                <% } else { %>
+                                    <div class="form-text" id="discountHint">Value must be &gt; 0 (and &le; 100 for percentage).</div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Min Purchase & Max Discount -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="minPurchaseAmount" class="form-label fw-semibold">
+                                    Minimum Purchase Amount (₹)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        class="form-control <%= errors?.minPurchaseAmount ? 'is-invalid' : '' %>"
+                                        id="minPurchaseAmount"
+                                        name="minPurchaseAmount"
+                                        placeholder="0"
+                                        value="<%= coupon?.minPurchaseAmount !== undefined ? coupon.minPurchaseAmount : 0 %>"
+                                    >
+                                </div>
+                                <% if (errors?.minPurchaseAmount) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.minPurchaseAmount %></div>
+                                <% } else { %>
+                                    <div class="form-text">Minimum subtotal required to use this coupon. Default is 0.</div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-6" id="maxDiscountContainer">
+                                <label for="maxDiscountAmount" class="form-label fw-semibold">
+                                    Maximum Discount Cap (₹)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        class="form-control <%= errors?.maxDiscountAmount ? 'is-invalid' : '' %>"
+                                        id="maxDiscountAmount"
+                                        name="maxDiscountAmount"
+                                        placeholder="No cap (leave empty)"
+                                        value="<%= coupon?.maxDiscountAmount || '' %>"
+                                    >
+                                </div>
+                                <% if (errors?.maxDiscountAmount) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.maxDiscountAmount %></div>
+                                <% } else { %>
+                                    <div class="form-text">Maximum discount amount for percentage coupons. Leave empty for no cap.</div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <!-- Row 4: Validity Dates -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="startDate" class="form-label fw-semibold">
+                                    Start Date <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    class="form-control <%= errors?.startDate ? 'is-invalid' : '' %>"
+                                    id="startDate"
+                                    name="startDate"
+                                    value="<%= coupon?.startDate || '' %>"
+                                    required
+                                >
+                                <% if (errors?.startDate) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.startDate %></div>
+                                <% } else { %>
+                                    <div class="form-text">Coupon becomes active on this date.</div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="expiryDate" class="form-label fw-semibold">
+                                    Expiry Date <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    class="form-control <%= errors?.expiryDate ? 'is-invalid' : '' %>"
+                                    id="expiryDate"
+                                    name="expiryDate"
+                                    value="<%= coupon?.expiryDate || '' %>"
+                                    required
+                                >
+                                <% if (errors?.expiryDate) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.expiryDate %></div>
+                                <% } else { %>
+                                    <div class="form-text">Must be later than the start date.</div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <!-- Row 5: Usage Limits -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="usageLimit" class="form-label fw-semibold">
+                                    Total Usage Limit
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    class="form-control <%= errors?.usageLimit ? 'is-invalid' : '' %>"
+                                    id="usageLimit"
+                                    name="usageLimit"
+                                    placeholder="Leave blank for unlimited"
+                                    value="<%= coupon?.usageLimit || '' %>"
+                                >
+                                <% if (errors?.usageLimit) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.usageLimit %></div>
+                                <% } else { %>
+                                    <div class="form-text">Total times this coupon can be redeemed across all users.</div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="perUserLimit" class="form-label fw-semibold">
+                                    Per-User Usage Limit
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    class="form-control <%= errors?.perUserLimit ? 'is-invalid' : '' %>"
+                                    id="perUserLimit"
+                                    name="perUserLimit"
+                                    placeholder="Leave blank for unlimited"
+                                    value="<%= coupon?.perUserLimit || '' %>"
+                                >
+                                <% if (errors?.perUserLimit) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.perUserLimit %></div>
+                                <% } else { %>
+                                    <div class="form-text">Maximum times a single customer can redeem this coupon.</div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="/admin/coupons" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4">Update Coupon</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const codeInput = document.getElementById("code");
+    const discountTypeSelect = document.getElementById("discountType");
+    const discountPrefix = document.getElementById("discountPrefix");
+    const discountValueInput = document.getElementById("discountValue");
+    const maxDiscountInput = document.getElementById("maxDiscountAmount");
+    const maxDiscountContainer = document.getElementById("maxDiscountContainer");
+    const startDateInput = document.getElementById("startDate");
+    const expiryDateInput = document.getElementById("expiryDate");
+
+    // Auto-uppercase coupon code
+    if (codeInput) {
+        codeInput.addEventListener("input", () => {
+            codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+        });
+    }
+
+    // Dynamic Discount Type helper
+    function handleDiscountTypeChange() {
+        const type = discountTypeSelect.value;
+        if (type === "PERCENTAGE") {
+            discountPrefix.textContent = "%";
+            discountValueInput.setAttribute("max", "100");
+            maxDiscountInput.removeAttribute("disabled");
+            maxDiscountContainer.style.opacity = "1";
+        } else if (type === "FIXED") {
+            discountPrefix.textContent = "₹";
+            discountValueInput.removeAttribute("max");
+            maxDiscountInput.value = "";
+            maxDiscountInput.setAttribute("disabled", "disabled");
+            maxDiscountContainer.style.opacity = "0.5";
+        } else {
+            discountPrefix.textContent = "₹ / %";
+        }
+    }
+
+    if (discountTypeSelect) {
+        discountTypeSelect.addEventListener("change", handleDiscountTypeChange);
+        handleDiscountTypeChange();
+    }
+
+    // Date constraint validation helper
+    if (startDateInput && expiryDateInput) {
+        startDateInput.addEventListener("change", () => {
+            if (startDateInput.value) {
+                expiryDateInput.setAttribute("min", startDateInput.value);
+                if (expiryDateInput.value && expiryDateInput.value <= startDateInput.value) {
+                    expiryDateInput.value = "";
+                }
+            }
+        });
+    }
+});
+</script>
