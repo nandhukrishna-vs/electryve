@@ -103,6 +103,32 @@ const shippingAddressSchema = new mongoose.Schema({
   }
 });
 
+const couponSnapshotSchema = new mongoose.Schema(
+  {
+    couponId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon"
+    },
+    code: {
+      type: String,
+      uppercase: true,
+      trim: true
+    },
+    discountType: {
+      type: String,
+      enum: ["PERCENTAGE", "FIXED"]
+    },
+    discountValue: {
+      type: Number
+    },
+    discountAmount: {
+      type: Number,
+      default: 0
+    }
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     user: {
@@ -124,6 +150,14 @@ const orderSchema = new mongoose.Schema(
     discount: {
       type: Number,
       required: true,
+      default: 0
+    },
+    coupon: {
+      type: couponSnapshotSchema,
+      default: null
+    },
+    couponDiscount: {
+      type: Number,
       default: 0
     },
     tax: {
@@ -179,6 +213,7 @@ const orderSchema = new mongoose.Schema(
 );
 
 orderSchema.index({ user: 1 });
+orderSchema.index({ user: 1, "coupon.couponId": 1 });
 
-const Order = mongoose.model("Order", orderSchema);
+const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 export default Order;

@@ -78,6 +78,8 @@ body {
 .admin-content {
   flex: 1;
   padding: 30px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .card {

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Coupon from "../models/Coupon.js";
+import Order from "../models/Order.js";
 import { validateCoupon } from "../validators/couponValidator.js";
 
 /**
@@ -211,3 +212,94 @@ export const deleteCoupon = async (id) => {
     message: "Coupon deleted successfully."
   };
 };
+
+/**
+ * Validate a coupon for user checkout and compute the server-side discount amount.
+ *
+ * @param {ObjectId|string} userId
+ * @param {string} couponCode
+ * @param {number} subtotal
+ * @returns {Promise<Object>} { success, coupon, discountAmount, subtotal, payableAmount, message }
+ */
+export const validateUserCoupon = async (userId, couponCode, subtotal) => {
+  if (!couponCode || !couponCode.trim()) {
+    return { success: false, message: "Coupon code is required." };
+  }
+
+  if (typeof subtotal !== "number" || subtotal <= 0) {
+    return { success: false, message: "Coupon cannot be applied to an empty cart." };
+  }
+
+  const normalizedCode = couponCode.trim().toUpperCase();
+  const coupon = await Coupon.findOne({ code: normalizedCode, isDeleted: false });
+
+  if (!coupon) {
+    return { success: false, message: "Invalid coupon code." };
+  }
+
+  if (!coupon.isActive) {
+    return { success: false, message: "Coupon is inactive." };
+  }
+
+  const now = new Date();
+  if (now < new Date(coupon.startDate)) {
+    return { success: false, message: "Coupon is not active yet." };
+  }
+
+  if (now > new Date(coupon.expiryDate)) {
+    return { success: false, message: "Coupon has expired." };
+  }
+
+  if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+    return { success: false, message: "Coupon usage limit has been reached." };
+  }
+
+  if (coupon.perUserLimit) {
+    // Count previous orders by this user using this coupon that are not completely cancelled
+    const userUsageCount = await Order.countDocuments({
+      user: userId,
+      $or: [
+        { "coupon.couponId": coupon._id },
+        { "coupon.code": coupon.code }
+      ],
+      orderStatus: { $ne: "CANCELLED" }
+    });
+
+    if (userUsageCount >= coupon.perUserLimit) {
+      return {
+        success: false,
+        message: "You have already used this coupon the maximum number of times."
+      };
+    }
+  }
+
+  if (coupon.minPurchaseAmount && subtotal < coupon.minPurchaseAmount) {
+    return {
+      success: false,
+      message: `Minimum purchase of ₹${coupon.minPurchaseAmount.toLocaleString("en-IN")} is required for this coupon.`
+    };
+  }
+
+  // Calculate discount based on server-verified subtotal
+  let discountAmount = 0;
+  if (coupon.discountType === "PERCENTAGE") {
+    discountAmount = Math.round((subtotal * coupon.discountValue) / 100);
+    if (coupon.maxDiscountAmount && discountAmount > coupon.maxDiscountAmount) {
+      discountAmount = coupon.maxDiscountAmount;
+    }
+  } else if (coupon.discountType === "FIXED") {
+    discountAmount = coupon.discountValue;
+  }
+
+  // Ensure discount never exceeds subtotal and is never negative
+  discountAmount = Math.max(0, Math.min(discountAmount, subtotal));
+
+  return {
+    success: true,
+    coupon,
+    discountAmount,
+    subtotal,
+    payableAmount: Math.max(0, subtotal - discountAmount)
+  };
+};
+

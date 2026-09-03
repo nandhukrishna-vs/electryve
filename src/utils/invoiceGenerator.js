@@ -223,6 +223,10 @@ export const generateInvoicePDF = (order, res) => {
     drawTotalLine("Discount:", `-INR ${order.discount.toLocaleString("en-IN")}`);
   }
 
+  if (order.coupon && order.coupon.discountAmount > 0) {
+    drawTotalLine(`Coupon (${order.coupon.code}):`, `-INR ${order.coupon.discountAmount.toLocaleString("en-IN")}`);
+  }
+
   const shippingText = order.shippingCharge === 0 ? "FREE" : `INR ${order.shippingCharge.toLocaleString("en-IN")}`;
   drawTotalLine("Shipping:", shippingText);
 

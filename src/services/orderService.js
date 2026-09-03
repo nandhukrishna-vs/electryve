@@ -4,7 +4,9 @@ import Product from "../models/Product.js";
 import Cart from "../models/Cart.js";
 import Address from "../models/Address.js";
 import User from "../models/User.js";
+import Coupon from "../models/Coupon.js";
 import { getCart } from "./cartService.js";
+import { validateUserCoupon } from "./couponService.js";
 
 const generateOrderNumber = async (opts = {}) => {
   const now = new Date();
@@ -42,10 +44,11 @@ const checkTransactionSupport = () => {
   }
 };
 
-const executeOrderCreation = async (userId, address, cartInfo, session) => {
+const executeOrderCreation = async (userId, address, cartInfo, session, couponCode = null) => {
   const opts = session ? { session } : {};
   const deductedItems = [];
   let createdOrderId = null;
+  let couponUsed = null;
 
   try {
     // 1. Stock deduction and check
@@ -78,15 +81,58 @@ const executeOrderCreation = async (userId, address, cartInfo, session) => {
 
     // 2. Calculate values on the server side using the database snapshot values we processed
     const subtotal = cartInfo.items.reduce((sum, item) => sum + (item.priceSnapshot * item.quantity), 0);
-    const discount = cartInfo.items.reduce((sum, item) => sum + ((item.regularPrice - item.priceSnapshot) * item.quantity), 0);
+    const catalogDiscount = cartInfo.items.reduce((sum, item) => sum + ((item.regularPrice - item.priceSnapshot) * item.quantity), 0);
     const shippingCharge = cartInfo.cartSummary.shipping;
-    const finalAmount = subtotal + shippingCharge;
     const tax = 0; // Tax is ₹0
 
-    // 3. Generate order number
+    // 3. Process coupon if provided
+    let couponSnapshot = null;
+    let couponDiscount = 0;
+
+    if (couponCode) {
+      const couponValidation = await validateUserCoupon(userId, couponCode, subtotal);
+      if (!couponValidation.success) {
+        throw new Error(couponValidation.message);
+      }
+
+      // Concurrency-safe atomic conditional increment of usedCount
+      const couponFilter = {
+        _id: couponValidation.coupon._id,
+        isDeleted: false,
+        isActive: true
+      };
+
+      if (couponValidation.coupon.usageLimit) {
+        couponFilter.usedCount = { $lt: couponValidation.coupon.usageLimit };
+      }
+
+      const couponUpdateResult = await Coupon.updateOne(
+        couponFilter,
+        { $inc: { usedCount: 1 } },
+        opts
+      );
+
+      if (couponUpdateResult.modifiedCount !== 1) {
+        throw new Error("Coupon usage limit has been reached.");
+      }
+
+      couponUsed = couponValidation.coupon;
+      couponDiscount = couponValidation.discountAmount;
+      couponSnapshot = {
+        couponId: couponValidation.coupon._id,
+        code: couponValidation.coupon.code,
+        discountType: couponValidation.coupon.discountType,
+        discountValue: couponValidation.coupon.discountValue,
+        discountAmount: couponDiscount
+      };
+    }
+
+    const finalAmount = Math.max(0, subtotal - couponDiscount) + shippingCharge + tax;
+
+    // 4. Generate order number
     const orderNumber = await generateOrderNumber(opts);
 
-    // 4. Build shipping address snapshot
+    // 5. Build shipping address snapshot
     const shippingAddress = {
       fullName: address.fullName,
       phone: address.phone,
@@ -98,7 +144,7 @@ const executeOrderCreation = async (userId, address, cartInfo, session) => {
       pinCode: address.pinCode
     };
 
-    // 5. Build items snapshot
+    // 6. Build items snapshot
     const orderItems = cartInfo.items.map(item => {
       const brandName = item.product.brand?.name || item.product.brand || "Brand";
       return {
@@ -117,14 +163,16 @@ const executeOrderCreation = async (userId, address, cartInfo, session) => {
       };
     });
 
-    // 6. Create the Order
+    // 7. Create the Order
     const newOrder = new Order({
       user: userId,
       orderNumber,
       items: orderItems,
       shippingAddress,
       subtotal,
-      discount,
+      discount: catalogDiscount,
+      coupon: couponSnapshot,
+      couponDiscount: couponDiscount,
       tax,
       shippingCharge,
       finalAmount,
@@ -136,7 +184,7 @@ const executeOrderCreation = async (userId, address, cartInfo, session) => {
     await newOrder.save(opts);
     createdOrderId = newOrder._id;
 
-    // 7. Clear the Cart
+    // 8. Clear the Cart
     await Cart.updateOne(
       { user: userId },
       { $set: { items: [] } },
@@ -151,6 +199,16 @@ const executeOrderCreation = async (userId, address, cartInfo, session) => {
     };
   } catch (error) {
     if (!session) {
+      // Manually rollback coupon usage if it was incremented
+      if (couponUsed) {
+        await Coupon.updateOne(
+          { _id: couponUsed._id },
+          { $inc: { usedCount: -1 } }
+        ).catch(err => {
+          console.error("Coupon usage rollback failed:", err);
+        });
+      }
+
       // Manually rollback already deducted stock since there is no session transaction
       for (const roll of deductedItems) {
         await Product.updateOne(
@@ -170,7 +228,7 @@ const executeOrderCreation = async (userId, address, cartInfo, session) => {
   }
 };
 
-const createCODOrder = async (userId, addressId) => {
+const createCODOrder = async (userId, addressId, couponCode = null) => {
   // A. Validate shipping address
   const address = await Address.findOne({ _id: addressId, userId });
   if (!address) {
@@ -192,7 +250,7 @@ const createCODOrder = async (userId, addressId) => {
     try {
       session = await mongoose.connection.startSession();
       session.startTransaction();
-      const orderResult = await executeOrderCreation(userId, address, cartInfo, session);
+      const orderResult = await executeOrderCreation(userId, address, cartInfo, session, couponCode);
       await session.commitTransaction();
       session.endSession();
       return orderResult;
@@ -213,7 +271,7 @@ const createCODOrder = async (userId, addressId) => {
       if (isTxnNotSupported) {
         // Fall back gracefully to standalone atomic rollback path
         try {
-          return await executeOrderCreation(userId, address, cartInfo, null);
+          return await executeOrderCreation(userId, address, cartInfo, null, couponCode);
         } catch (fallbackErr) {
           console.error("Fallback order creation failed, rollback executed:", fallbackErr.message);
           return { success: false, message: fallbackErr.message };
@@ -225,7 +283,7 @@ const createCODOrder = async (userId, addressId) => {
   } else {
     // Standalone deployment path: Safe atomic stock reduction + rollback fallback
     try {
-      const orderResult = await executeOrderCreation(userId, address, cartInfo, null);
+      const orderResult = await executeOrderCreation(userId, address, cartInfo, null, couponCode);
       return orderResult;
     } catch (err) {
       console.error("Standalone order creation failed, rollback executed:", err.message);

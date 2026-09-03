@@ -173,25 +173,86 @@
 
                     <hr class="my-3 text-muted opacity-25">
 
+                    <!-- Coupon Application Section -->
+                    <div class="mb-3">
+                        <label for="couponCodeInput" class="form-label small fw-bold text-secondary mb-1.5">Apply Coupon</label>
+                        
+                        <!-- Input Group (shown when no coupon applied) -->
+                        <div id="couponInputGroup" class="input-group" style="<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? 'display: none !important;' : '' %>">
+                            <input
+                                type="text"
+                                id="couponCodeInput"
+                                class="form-control text-uppercase font-monospace"
+                                placeholder="ENTER COUPON CODE"
+                                style="text-transform: uppercase;"
+                                maxlength="30"
+                            >
+                            <button
+                                type="button"
+                                id="btnApplyCoupon"
+                                class="btn btn-outline-dark fw-bold px-3"
+                                onclick="applyCoupon()"
+                            >
+                                Apply
+                            </button>
+                        </div>
+
+                        <!-- Applied Coupon Badge (shown when coupon applied) -->
+                        <div id="appliedCouponBadge" class="p-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25" style="<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? '' : 'display: none !important;' %>">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-success small fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.3px; text-transform: uppercase;">
+                                    Available coupon applied:
+                                </span>
+                                <button
+                                    type="button"
+                                    id="btnRemoveCoupon"
+                                    class="btn btn-sm btn-link text-danger text-decoration-none p-0 fw-semibold small"
+                                    onclick="removeCoupon()"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-baseline gap-2">
+                                <span id="appliedCouponCode" class="fw-bold font-monospace text-dark fs-6">
+                                    <%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? appliedCoupon.code : '' %>
+                                </span>
+                                <span id="appliedCouponSavings" class="text-success small fw-medium">
+                                    You saved ₹<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? appliedCoupon.discountAmount.toLocaleString() : '0' %>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-3 text-muted opacity-25">
+
                     <!-- Price Details -->
                     <h6 class="fw-bold text-dark mb-3">Price Details</h6>
                     <div class="d-flex flex-column gap-2 mb-3" style="font-size: 0.85rem;">
                         <div class="d-flex justify-content-between text-secondary">
                             <span>Subtotal</span>
-                            <span class="text-dark fw-medium">₹<%= cart.cartSummary.subtotal.toLocaleString() %></span>
+                            <span class="text-dark fw-medium" id="summarySubtotal">₹<%= cart.cartSummary.subtotal.toLocaleString() %></span>
                         </div>
                         <% if (cart.cartSummary.discount > 0) { %>
                             <div class="d-flex justify-content-between text-danger">
-                                <span>Discount</span>
+                                <span>Catalog Discount</span>
                                 <span>-₹<%= cart.cartSummary.discount.toLocaleString() %></span>
                             </div>
                         <% } %>
+                        <!-- Coupon Discount Row -->
+                        <div class="d-flex justify-content-between <%= (typeof appliedCoupon !== 'undefined' && appliedCoupon && appliedCoupon.discountAmount > 0) ? 'text-success fw-medium' : 'text-secondary' %>" id="couponDiscountRow">
+                            <span>Coupon Discount <span id="summaryCouponCodeWrapper" style="<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon && appliedCoupon.code) ? '' : 'display: none;' %>">(<span id="summaryCouponCode"><%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? appliedCoupon.code : '' %></span>)</span></span>
+                            <span id="summaryCouponDiscount"><%= (typeof appliedCoupon !== 'undefined' && appliedCoupon && appliedCoupon.discountAmount > 0) ? ('-₹' + appliedCoupon.discountAmount.toLocaleString()) : '₹0' %></span>
+                        </div>
                         <div class="d-flex justify-content-between text-secondary">
-                            <span>Shipping Charge</span>
+                            <span>Tax</span>
+                            <span class="text-dark fw-medium">₹0</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-secondary">
+                            <span>Shipping</span>
                             <% if (cart.cartSummary.shipping === 0) { %>
-                                <span class="text-success fw-medium">FREE</span>
+                                <span class="text-success fw-medium" id="summaryShipping">FREE</span>
                             <% } else { %>
-                                <span class="text-dark fw-medium">₹<%= cart.cartSummary.shipping.toLocaleString() %></span>
+                                <span class="text-dark fw-medium" id="summaryShipping">₹<%= cart.cartSummary.shipping.toLocaleString() %></span>
                             <% } %>
                         </div>
                     </div>
@@ -199,8 +260,8 @@
                     <hr class="my-3 text-muted opacity-25">
 
                     <div class="d-flex justify-content-between text-dark fs-6 fw-bold mb-4 align-items-center">
-                        <span>Total Payable</span>
-                        <span>₹<%= cart.cartSummary.grandTotal.toLocaleString() %></span>
+                        <span>Grand Total</span>
+                        <span id="summaryGrandTotal">₹<%= ((typeof appliedCoupon !== 'undefined' && appliedCoupon) ? Math.max(0, cart.cartSummary.grandTotal - appliedCoupon.discountAmount) : cart.cartSummary.grandTotal).toLocaleString() %></span>
                     </div>
 
                     <button type="button" class="btn btn-dark w-100 rounded-3 py-2.5 fw-bold shadow-sm"
@@ -437,6 +498,140 @@ function setDefaultAddress(addressId) {
             icon: 'error',
             title: 'Error',
             text: 'An error occurred while setting default address.'
+        });
+    });
+}
+
+function applyCoupon() {
+    const input = document.getElementById("couponCodeInput");
+    const couponCode = input.value.trim().toUpperCase();
+
+    if (!couponCode) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Coupon Code Required',
+            text: 'Please enter a coupon code.'
+        });
+        return;
+    }
+
+    const btn = document.getElementById("btnApplyCoupon");
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Applying...';
+
+    fetch("/checkout/apply-coupon", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ couponCode })
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+
+        if (data.success) {
+            // Update UI state
+            document.getElementById("couponInputGroup").style.setProperty("display", "none", "important");
+            const badge = document.getElementById("appliedCouponBadge");
+            badge.style.setProperty("display", "block", "important");
+            document.getElementById("appliedCouponCode").textContent = data.couponCode;
+            document.getElementById("appliedCouponSavings").textContent = `You saved ₹${data.discountAmount.toLocaleString()}`;
+
+            // Update Price Details
+            const discountRow = document.getElementById("couponDiscountRow");
+            discountRow.className = "d-flex justify-content-between text-success fw-medium";
+            document.getElementById("summaryCouponCodeWrapper").style.display = "inline";
+            document.getElementById("summaryCouponCode").textContent = data.couponCode;
+            document.getElementById("summaryCouponDiscount").textContent = `-₹${data.discountAmount.toLocaleString()}`;
+            document.getElementById("summaryGrandTotal").textContent = `₹${data.finalAmount.toLocaleString()}`;
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Coupon Applied!',
+                text: data.message,
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Cannot Apply Coupon',
+                text: data.message || 'Failed to apply coupon.'
+            });
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        console.error("Apply Coupon Error:", err);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred while applying the coupon.'
+        });
+    });
+}
+
+function removeCoupon() {
+    const btn = document.getElementById("btnRemoveCoupon");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Removing...';
+    }
+
+    fetch("/checkout/remove-coupon", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = "Remove";
+        }
+        if (data.success) {
+            // Reset UI state
+            document.getElementById("couponCodeInput").value = "";
+            document.getElementById("couponInputGroup").style.setProperty("display", "flex", "important");
+            document.getElementById("appliedCouponBadge").style.setProperty("display", "none", "important");
+
+            // Reset Price Details to ₹0
+            const discountRow = document.getElementById("couponDiscountRow");
+            discountRow.className = "d-flex justify-content-between text-secondary";
+            document.getElementById("summaryCouponCodeWrapper").style.display = "none";
+            document.getElementById("summaryCouponDiscount").textContent = "₹0";
+            document.getElementById("summaryGrandTotal").textContent = `₹${data.finalAmount.toLocaleString()}`;
+
+            Swal.fire({
+                icon: 'info',
+                title: 'Coupon Removed',
+                text: data.message,
+                timer: 1200,
+                showConfirmButton: false
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.message || 'Failed to remove coupon.'
+            });
+        }
+    })
+    .catch(err => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = "Remove";
+        }
+        console.error("Remove Coupon Error:", err);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred while removing the coupon.'
         });
     });
 }

@@ -1,5 +1,6 @@
 import * as cartService from "../services/cartService.js";
 import * as orderService from "../services/orderService.js";
+import { validateUserCoupon } from "../services/couponService.js";
 import Address from "../models/Address.js";
 import Order from "../models/Order.js";
 
@@ -28,12 +29,29 @@ const loadCheckout = async (req, res, next) => {
       defaultAddress = addresses[0];
     }
 
+    // Revalidate session-applied coupon against current cart
+    let appliedCoupon = null;
+    if (req.session.appliedCoupon?.code) {
+      const subtotal = cart.cartSummary.subtotal;
+      const couponValidation = await validateUserCoupon(userId, req.session.appliedCoupon.code, subtotal);
+      if (couponValidation.success) {
+        appliedCoupon = {
+          code: couponValidation.coupon.code,
+          discountAmount: couponValidation.discountAmount
+        };
+      } else {
+        // Silently clear invalidated coupon (e.g. subtotal fell below minPurchase)
+        delete req.session.appliedCoupon;
+      }
+    }
+
     res.render("user/checkout", {
       layout: "layouts/user-layout",
       title: "Checkout",
       cart,
       addresses,
-      defaultAddress
+      defaultAddress,
+      appliedCoupon
     });
   } catch (error) {
     next(error);
@@ -165,6 +183,96 @@ const setDefaultAddress = async (req, res, next) => {
   }
 };
 
+const applyCoupon = async (req, res, next) => {
+  try {
+    const userId = req.session.user.id;
+    const { couponCode } = req.body;
+
+    if (!couponCode || !couponCode.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Coupon code is required."
+      });
+    }
+
+    const cart = await cartService.getCart(userId);
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Coupon cannot be applied to an empty cart."
+      });
+    }
+
+    if (!cart.canCheckout) {
+      return res.status(400).json({
+        success: false,
+        message: "Your cart contains unavailable or out-of-stock items."
+      });
+    }
+
+    const subtotal = cart.cartSummary.subtotal;
+    const result = await validateUserCoupon(userId, couponCode, subtotal);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    // Store minimal identifying information in session
+    req.session.appliedCoupon = {
+      code: result.coupon.code,
+      couponId: result.coupon._id
+    };
+
+    const shippingCharge = cart.cartSummary.shipping;
+    const finalAmount = Math.max(0, subtotal - result.discountAmount) + shippingCharge;
+
+    return res.json({
+      success: true,
+      message: `Coupon "${result.coupon.code}" applied successfully! You saved ₹${result.discountAmount.toLocaleString("en-IN")}.`,
+      couponCode: result.coupon.code,
+      discountAmount: result.discountAmount,
+      subtotal,
+      shippingCharge,
+      finalAmount
+    });
+  } catch (error) {
+    console.error("Apply Coupon Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred while applying the coupon."
+    });
+  }
+};
+
+const removeCoupon = async (req, res, next) => {
+  try {
+    const userId = req.session.user.id;
+    delete req.session.appliedCoupon;
+
+    const cart = await cartService.getCart(userId);
+    const subtotal = cart?.cartSummary?.subtotal || 0;
+    const shippingCharge = cart?.cartSummary?.shipping || 0;
+    const finalAmount = cart?.cartSummary?.grandTotal || (subtotal + shippingCharge);
+
+    return res.json({
+      success: true,
+      message: "Coupon removed successfully.",
+      subtotal,
+      shippingCharge,
+      finalAmount
+    });
+  } catch (error) {
+    console.error("Remove Coupon Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to remove coupon."
+    });
+  }
+};
+
 const placeCODOrder = async (req, res, next) => {
   try {
     const userId = req.session.user.id;
@@ -174,10 +282,14 @@ const placeCODOrder = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Please select a delivery address." });
     }
 
-    const result = await orderService.createCODOrder(userId, addressId);
+    const couponCode = req.session.appliedCoupon?.code || null;
+    const result = await orderService.createCODOrder(userId, addressId, couponCode);
     if (!result.success) {
       return res.status(400).json(result);
     }
+
+    // Clear applied coupon on successful order placement
+    delete req.session.appliedCoupon;
 
     res.json(result);
   } catch (error) {
@@ -235,6 +347,8 @@ export {
   addCheckoutAddress,
   updateCheckoutAddress,
   setDefaultAddress,
+  applyCoupon,
+  removeCoupon,
   placeCODOrder,
   loadOrderSuccess,
   loadOrderDetails
