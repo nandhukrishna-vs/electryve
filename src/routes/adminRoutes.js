@@ -9,6 +9,7 @@ import {
 } from "../controllers/adminController.js";
 import * as adminOrderController from "../controllers/adminOrderController.js";
 import * as couponController from "../controllers/couponController.js";
+import * as inventoryController from "../controllers/inventoryController.js";
 
 import { isAdmin } from "../middlewares/adminMiddleware.js";
 
@@ -40,6 +41,10 @@ router.patch("/orders/:id/items/:itemId/cancel", isAdmin, adminOrderController.c
 router.patch("/orders/:id/items/:itemId/return", isAdmin, adminOrderController.returnOrderItem);
 router.patch("/orders/:id/return", isAdmin, adminOrderController.returnOrder);
 router.get("/orders/:id/invoice", isAdmin, adminOrderController.downloadInvoice);
+
+// Inventory Management Routes
+router.get("/inventory", isAdmin, inventoryController.loadInventory);
+router.patch("/inventory/:productId/:variantId", isAdmin, inventoryController.updateStock);
 
 // Coupon Management Routes
 router.get("/coupons", isAdmin, couponController.loadCoupons);

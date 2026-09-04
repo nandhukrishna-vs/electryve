@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import * as cartService from "../services/cartService.js";
 import * as orderService from "../services/orderService.js";
 import { validateUserCoupon } from "../services/couponService.js";
@@ -321,6 +322,26 @@ const loadOrderSuccess = async (req, res, next) => {
   }
 };
 
+const loadUserOrders = async (req, res, next) => {
+  try {
+    const userId = req.session.user.id;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = 10;
+
+    const orderData = await orderService.getUserOrders(userId, { page, limit });
+
+    res.render("user/orders", {
+      layout: "layouts/user-layout",
+      title: "My Orders",
+      ...orderData,
+      query: req.query
+    });
+  } catch (error) {
+    console.error("Load User Orders Error:", error);
+    next(error);
+  }
+};
+
 const loadOrderDetails = async (req, res, next) => {
   try {
     const userId = req.session.user.id;
@@ -329,7 +350,7 @@ const loadOrderDetails = async (req, res, next) => {
     const order = await orderService.getOrderById(userId, orderId);
     if (!order) {
       req.session.errorMessage = "Order not found.";
-      return res.redirect("/");
+      return res.redirect("/orders");
     }
 
     res.render("user/order-details", {
@@ -342,6 +363,75 @@ const loadOrderDetails = async (req, res, next) => {
   }
 };
 
+const returnOrder = async (req, res, next) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "You must be logged in to return an order."
+      });
+    }
+
+    const userId = req.session.user.id;
+    const { id: orderId } = req.params;
+    const { reason } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID."
+      });
+    }
+
+    if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid return reason (at least 3 characters) is mandatory."
+      });
+    }
+
+    // IMPORTANT SECURITY REQUIREMENT:
+    // Strictly verify ownership by matching BOTH order ID and user ID
+    const order = await Order.findOne({
+      _id: orderId,
+      user: userId
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found."
+      });
+    }
+
+    if (order.orderStatus !== "DELIVERED") {
+      return res.status(400).json({
+        success: false,
+        message: `Return is only allowed for delivered orders (current status: "${order.orderStatus}").`
+      });
+    }
+
+    // Call the shared orderService.returnOrder
+    const result = await orderService.returnOrder(orderId, reason.trim());
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.json({
+      success: true,
+      message: result.message || "Order returned successfully.",
+      order: result.order
+    });
+  } catch (error) {
+    console.error("User Return Order Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred while processing your return request."
+    });
+  }
+};
+
 export {
   loadCheckout,
   addCheckoutAddress,
@@ -351,5 +441,7 @@ export {
   removeCoupon,
   placeCODOrder,
   loadOrderSuccess,
-  loadOrderDetails
+  loadUserOrders,
+  loadOrderDetails,
+  returnOrder
 };

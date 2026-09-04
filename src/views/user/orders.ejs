@@ -1,0 +1,292 @@
+<style>
+    .orders-section-wrapper {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #f8f9fa;
+        min-height: 80vh;
+    }
+    .order-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .order-card:hover {
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
+    }
+    .order-thumb-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background-color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .order-thumb-wrapper img {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+    }
+    @media (max-width: 767.98px) {
+        .orders-table-view {
+            display: none !important;
+        }
+        .orders-mobile-view {
+            display: flex !important;
+        }
+    }
+    @media (min-width: 768px) {
+        .orders-table-view {
+            display: block !important;
+        }
+        .orders-mobile-view {
+            display: none !important;
+        }
+    }
+</style>
+
+<div class="orders-section-wrapper py-5">
+    <div class="container-xl" style="max-width: 1300px; margin: 0 auto; width: 100%;">
+
+        <!-- Breadcrumb & Back Link -->
+        <div class="mb-4">
+            <a href="/shop" class="text-decoration-none text-secondary small fw-medium d-inline-flex align-items-center gap-1.5">
+                <i class="bi bi-arrow-left"></i> Back to Shop
+            </a>
+        </div>
+
+        <!-- Page Header -->
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
+            <div>
+                <h1 class="fw-bold text-dark mb-1 fs-3">My Orders</h1>
+                <p class="text-secondary small mb-0">
+                    Track, manage, and review your order history.
+                </p>
+            </div>
+            <% if (typeof totalOrders !== 'undefined' && totalOrders > 0) { %>
+                <div>
+                    <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill fw-medium shadow-sm">
+                        Total Orders: <strong class="text-dark ms-1"><%= totalOrders %></strong>
+                    </span>
+                </div>
+            <% } %>
+        </div>
+
+        <% if (orders && orders.length > 0) { %>
+            <!-- Desktop / Tablet Table View -->
+            <div class="orders-table-view card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                <div class="table-responsive" style="overflow-x: auto;">
+                    <table class="table align-middle mb-0" style="min-width: 760px;">
+                        <thead class="bg-light text-secondary border-bottom" style="font-size: 0.78rem; letter-spacing: 0.5px; text-transform: uppercase;">
+                            <tr>
+                                <th class="ps-4 py-3 fw-semibold">Order ID</th>
+                                <th class="py-3 fw-semibold">Date</th>
+                                <th class="py-3 fw-semibold">Items</th>
+                                <th class="py-3 fw-semibold">Total</th>
+                                <th class="py-3 fw-semibold text-center">Status</th>
+                                <th class="pe-4 py-3 fw-semibold text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-dark" style="font-size: 0.88rem;">
+                            <% orders.forEach(order => { %>
+                                <tr class="hover-bg-light">
+                                    <!-- Order ID -->
+                                    <td class="ps-4 py-3.5">
+                                        <a href="/order/<%= order._id %>" class="text-decoration-none font-monospace fw-bold text-dark d-block">
+                                            <%= order.orderNumber %>
+                                        </a>
+                                        <span class="text-secondary" style="font-size: 0.75rem;">
+                                            <%= order.paymentMethod %> • <%= order.paymentStatus %>
+                                        </span>
+                                    </td>
+
+                                    <!-- Date -->
+                                    <td class="py-3.5 text-secondary">
+                                        <%= new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) %>
+                                    </td>
+
+                                    <!-- Items Preview -->
+                                    <td class="py-3.5">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="d-flex align-items-center gap-1">
+                                                <% (order.items || []).slice(0, 2).forEach(item => { %>
+                                                    <div class="order-thumb-wrapper" title="<%= item.productName %>">
+                                                        <img src="<%= item.image %>" alt="<%= item.productName %>">
+                                                    </div>
+                                                <% }) %>
+                                            </div>
+                                            <span class="text-secondary small">
+                                                <%= order.items.length %> <%= order.items.length === 1 ? 'item' : 'items' %>
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Total Amount -->
+                                    <td class="py-3.5 fw-bold text-dark font-monospace">
+                                        ₹<%= order.finalAmount.toLocaleString('en-IN') %>
+                                    </td>
+
+                                    <!-- Status Badge -->
+                                    <td class="py-3.5 text-center">
+                                        <% if (order.orderStatus === 'PLACED') { %>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                                PLACED
+                                            </span>
+                                        <% } else if (order.orderStatus === 'SHIPPED') { %>
+                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2.5 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                                SHIPPED
+                                            </span>
+                                        <% } else if (order.orderStatus === 'OUT_FOR_DELIVERY') { %>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                                OUT FOR DELIVERY
+                                            </span>
+                                        <% } else if (order.orderStatus === 'DELIVERED') { %>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                                DELIVERED
+                                            </span>
+                                        <% } else if (order.orderStatus === 'CANCELLED') { %>
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                                CANCELLED
+                                            </span>
+                                        <% } else if (order.orderStatus === 'RETURNED') { %>
+                                            <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2.5 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                                RETURNED
+                                            </span>
+                                        <% } %>
+                                    </td>
+
+                                    <!-- Action -->
+                                    <td class="pe-4 py-3.5 text-end">
+                                        <a href="/order/<%= order._id %>" class="btn btn-sm btn-dark rounded-3 px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5">
+                                            <span>View</span>
+                                            <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div class="orders-mobile-view flex-column gap-3 mb-4">
+                <% orders.forEach(order => { %>
+                    <div class="order-card p-3 shadow-sm">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <a href="/order/<%= order._id %>" class="text-decoration-none font-monospace fw-bold text-dark fs-6 d-block">
+                                    <%= order.orderNumber %>
+                                </a>
+                                <span class="text-secondary small">
+                                    <%= new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) %>
+                                </span>
+                            </div>
+                            <!-- Status Badge -->
+                            <div>
+                                <% if (order.orderStatus === 'PLACED') { %>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.72rem;">
+                                        PLACED
+                                    </span>
+                                <% } else if (order.orderStatus === 'SHIPPED') { %>
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.72rem;">
+                                        SHIPPED
+                                    </span>
+                                <% } else if (order.orderStatus === 'OUT_FOR_DELIVERY') { %>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.72rem;">
+                                        OUT FOR DELIVERY
+                                    </span>
+                                <% } else if (order.orderStatus === 'DELIVERED') { %>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.72rem;">
+                                        DELIVERED
+                                    </span>
+                                <% } else if (order.orderStatus === 'CANCELLED') { %>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.72rem;">
+                                        CANCELLED
+                                    </span>
+                                <% } else if (order.orderStatus === 'RETURNED') { %>
+                                    <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.72rem;">
+                                        RETURNED
+                                    </span>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <!-- Items summary -->
+                        <div class="d-flex align-items-center gap-2 my-2 py-2 border-top border-bottom">
+                            <div class="d-flex align-items-center gap-1">
+                                <% (order.items || []).slice(0, 3).forEach(item => { %>
+                                    <div class="order-thumb-wrapper" title="<%= item.productName %>">
+                                        <img src="<%= item.image %>" alt="<%= item.productName %>">
+                                    </div>
+                                <% }) %>
+                            </div>
+                            <span class="text-secondary small ms-auto">
+                                <%= order.items.length %> <%= order.items.length === 1 ? 'item' : 'items' %>
+                            </span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-1">
+                            <div>
+                                <span class="text-secondary small d-block" style="font-size: 0.72rem;">Total Amount</span>
+                                <span class="fw-bold font-monospace text-dark fs-6">₹<%= order.finalAmount.toLocaleString('en-IN') %></span>
+                            </div>
+                            <a href="/order/<%= order._id %>" class="btn btn-sm btn-dark rounded-3 px-3 py-1.5 fw-semibold">
+                                View Details <i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+
+            <!-- Pagination -->
+            <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+                <nav aria-label="Order pagination" class="mt-4">
+                    <ul class="pagination justify-content-center gap-1 mb-0">
+                        <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                            <a class="page-link rounded-3 border px-3 py-2 text-dark" href="/orders?page=<%= currentPage - 1 %>">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        <% for (let p = 1; p <= totalPages; p++) { %>
+                            <li class="page-item <%= currentPage === p ? 'active' : '' %>">
+                                <a class="page-link rounded-3 border px-3 py-2 <%= currentPage === p ? 'bg-dark border-dark text-white' : 'text-dark' %>" href="/orders?page=<%= p %>">
+                                    <%= p %>
+                                </a>
+                            </li>
+                        <% } %>
+                        <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                            <a class="page-link rounded-3 border px-3 py-2 text-dark" href="/orders?page=<%= currentPage + 1 %>">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            <% } %>
+
+        <% } else { %>
+            <!-- Empty State -->
+            <div class="card border-0 shadow-sm rounded-4 text-center py-5 px-4 bg-white">
+                <div class="mb-3">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle" style="width: 80px; height: 80px;">
+                        <i class="bi bi-bag-x text-muted fs-1"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold text-dark mb-1">No Orders Yet</h4>
+                <p class="text-secondary small mb-4" style="max-width: 420px; margin: 0 auto;">
+                    You haven't placed any orders with Electryve yet. Browse our cutting-edge electronics and accessories!
+                </p>
+                <div>
+                    <a href="/shop" class="btn btn-dark rounded-3 px-4 py-2.5 fw-semibold shadow-sm d-inline-flex align-items-center gap-2">
+                        <i class="bi bi-shop"></i>
+                        <span>Start Shopping</span>
+                    </a>
+                </div>
+            </div>
+        <% } %>
+
+    </div>
+</div>

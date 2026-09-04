@@ -292,6 +292,37 @@ const createCODOrder = async (userId, addressId, couponCode = null) => {
   }
 };
 
+const getUserOrders = async (userId, { page = 1, limit = 10 } = {}) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return {
+      orders: [],
+      totalOrders: 0,
+      totalPages: 1,
+      currentPage: 1,
+      limit: 10
+    };
+  }
+
+  const parsedLimit = Math.max(1, parseInt(limit, 10) || 10);
+  const totalOrders = await Order.countDocuments({ user: userId });
+  const totalPages = Math.ceil(totalOrders / parsedLimit) || 1;
+  const currentPage = Math.max(1, Math.min(parseInt(page, 10) || 1, totalPages));
+  const skip = (currentPage - 1) * parsedLimit;
+
+  const orders = await Order.find({ user: userId })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parsedLimit);
+
+  return {
+    orders,
+    totalOrders,
+    totalPages,
+    currentPage,
+    limit: parsedLimit
+  };
+};
+
 const getOrderById = async (userId, orderId) => {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     return null;
@@ -323,7 +354,7 @@ const getAdminOrders = async ({ search = "", page = 1, limit = 10, status = "" }
     ];
   }
 
-  if (status && ["PLACED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED"].includes(status)) {
+  if (status && ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"].includes(status)) {
     query.orderStatus = status;
   }
 
@@ -363,7 +394,7 @@ const updateOrderStatus = async (orderId, nextStatus) => {
     return { success: false, message: "Invalid order ID." };
   }
 
-  const validStatuses = ["PLACED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED"];
+  const validStatuses = ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"];
   if (!validStatuses.includes(nextStatus)) {
     return { success: false, message: `Invalid order status "${nextStatus}".` };
   }
@@ -380,7 +411,8 @@ const updateOrderStatus = async (orderId, nextStatus) => {
 
   const allowedTransitions = {
     PLACED: ["SHIPPED", "CANCELLED"],
-    SHIPPED: ["DELIVERED", "CANCELLED"],
+    SHIPPED: ["OUT_FOR_DELIVERY", "CANCELLED"],
+    OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
     DELIVERED: ["RETURNED"],
     CANCELLED: [],
     RETURNED: []
@@ -658,6 +690,7 @@ const returnOrderItem = async (orderId, itemId, reason) => {
 
 export {
   createCODOrder,
+  getUserOrders,
   getOrderById,
   getAdminOrders,
   getAdminOrderById,

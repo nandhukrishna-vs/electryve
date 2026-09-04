@@ -37,6 +37,7 @@
                         <option value="">All Statuses</option>
                         <option value="PLACED" <%= status === 'PLACED' ? 'selected' : '' %>>PLACED</option>
                         <option value="SHIPPED" <%= status === 'SHIPPED' ? 'selected' : '' %>>SHIPPED</option>
+                        <option value="OUT_FOR_DELIVERY" <%= status === 'OUT_FOR_DELIVERY' ? 'selected' : '' %>>OUT FOR DELIVERY</option>
                         <option value="DELIVERED" <%= status === 'DELIVERED' ? 'selected' : '' %>>DELIVERED</option>
                         <option value="CANCELLED" <%= status === 'CANCELLED' ? 'selected' : '' %>>CANCELLED</option>
                         <option value="RETURNED" <%= status === 'RETURNED' ? 'selected' : '' %>>RETURNED</option>
@@ -130,6 +131,10 @@
                                 <% } else if (order.orderStatus === 'SHIPPED') { %>
                                     <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2.5 py-1 fw-semibold">
                                         SHIPPED
+                                    </span>
+                                <% } else if (order.orderStatus === 'OUT_FOR_DELIVERY') { %>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1 fw-semibold">
+                                        OUT FOR DELIVERY
                                     </span>
                                 <% } else if (order.orderStatus === 'DELIVERED') { %>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-semibold">

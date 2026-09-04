@@ -134,6 +134,8 @@ router.post("/checkout/apply-coupon", isLoggedIn, orderController.applyCoupon);
 router.post("/checkout/remove-coupon", isLoggedIn, orderController.removeCoupon);
 router.post("/checkout/place-order", isLoggedIn, orderController.placeCODOrder);
 router.get("/checkout/success", isLoggedIn, orderController.loadOrderSuccess);
+router.get("/orders", isLoggedIn, orderController.loadUserOrders);
 router.get("/order/:id", isLoggedIn, orderController.loadOrderDetails);
+router.patch("/order/:id/return", isLoggedIn, orderController.returnOrder);
 
 export default router;
