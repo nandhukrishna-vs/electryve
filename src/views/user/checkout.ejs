@@ -57,6 +57,24 @@
         margin-bottom: 0;
     }
     
+    .invalid-feedback {
+        font-size: 0.78rem;
+        font-weight: 500;
+        margin-top: 4px;
+    }
+    .form-control.is-invalid, .form-select.is-invalid {
+        border-color: #dc3545 !important;
+        background-image: none !important;
+    }
+    .form-control:focus, .form-select:focus {
+        box-shadow: none;
+        border-color: #111827;
+    }
+    .form-control.is-invalid:focus, .form-select.is-invalid:focus {
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
+        border-color: #dc3545 !important;
+    }
+
     @media (max-width: 768px) {
         .address-grid {
             grid-template-columns: 1fr;
@@ -284,64 +302,91 @@
                 <h5 class="modal-title fw-bold text-dark" id="addressModalLabel">Add Shipping Address</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <form id="addressForm">
+            <div class="modal-body pt-3">
+                <form id="addressForm" novalidate>
                     <input type="hidden" id="editAddressId">
+
+                    <!-- Full Name -->
                     <div class="mb-3">
-                        <label for="modalFullName" class="form-label small fw-bold text-secondary">Full Name</label>
-                        <input type="text" class="form-control rounded-3" id="modalFullName" placeholder="e.g. John Doe" required>
+                        <label for="modalFullName" class="form-label small fw-bold text-secondary">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control rounded-3" id="modalFullName" placeholder="e.g. John Doe" maxlength="50" autocomplete="name" aria-describedby="fullNameFeedback">
+                        <div class="invalid-feedback" id="fullNameFeedback"></div>
                     </div>
+
+                    <!-- Phone Number and Address Type -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="modalPhone" class="form-label small fw-bold text-secondary">Phone Number</label>
-                            <input type="tel" class="form-control rounded-3" id="modalPhone" placeholder="10-digit number" required>
+                            <label for="modalPhone" class="form-label small fw-bold text-secondary">Phone Number <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control rounded-3" id="modalPhone" placeholder="10-digit number" inputmode="numeric" maxlength="10" autocomplete="tel" aria-describedby="phoneFeedback">
+                            <div class="invalid-feedback" id="phoneFeedback"></div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 mt-3 mt-md-0">
                             <label for="modalAddressType" class="form-label small fw-bold text-secondary">Address Type</label>
-                            <select class="form-select rounded-3" id="modalAddressType">
+                            <select class="form-select rounded-3" id="modalAddressType" aria-describedby="addressTypeFeedback">
                                 <option value="HOME">HOME</option>
                                 <option value="OFFICE">OFFICE</option>
                                 <option value="OTHER">OTHER</option>
                             </select>
+                            <div class="invalid-feedback" id="addressTypeFeedback"></div>
                         </div>
                     </div>
+
+                    <!-- Address Line 1 -->
                     <div class="mb-3">
-                        <label for="modalAddressLine1" class="form-label small fw-bold text-secondary">Address Line 1</label>
-                        <input type="text" class="form-control rounded-3" id="modalAddressLine1" placeholder="Flat, House no., Building, Company" required>
+                        <label for="modalAddressLine1" class="form-label small fw-bold text-secondary">Address Line 1 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control rounded-3" id="modalAddressLine1" placeholder="Flat, House no., Building, Company" maxlength="150" autocomplete="address-line1" aria-describedby="addressLine1Feedback">
+                        <div class="invalid-feedback" id="addressLine1Feedback"></div>
                     </div>
+
+                    <!-- Address Line 2 (Optional) -->
                     <div class="mb-3">
                         <label for="modalAddressLine2" class="form-label small fw-bold text-secondary">Address Line 2 (Optional)</label>
-                        <input type="text" class="form-control rounded-3" id="modalAddressLine2" placeholder="Area, Street, Sector, Village">
+                        <input type="text" class="form-control rounded-3" id="modalAddressLine2" placeholder="Area, Street, Sector, Village" maxlength="150" autocomplete="address-line2" aria-describedby="addressLine2Feedback">
+                        <div class="invalid-feedback" id="addressLine2Feedback"></div>
                     </div>
+
+                    <!-- Landmark (Optional) -->
                     <div class="mb-3">
                         <label for="modalLandmark" class="form-label small fw-bold text-secondary">Landmark (Optional)</label>
-                        <input type="text" class="form-control rounded-3" id="modalLandmark" placeholder="e.g. Near Apollo Hospital">
+                        <input type="text" class="form-control rounded-3" id="modalLandmark" placeholder="e.g. Near Apollo Hospital" maxlength="100" aria-describedby="landmarkFeedback">
+                        <div class="invalid-feedback" id="landmarkFeedback"></div>
                     </div>
+
+                    <!-- City and State -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="modalCity" class="form-label small fw-bold text-secondary">City</label>
-                            <input type="text" class="form-control rounded-3" id="modalCity" required>
+                            <label for="modalCity" class="form-label small fw-bold text-secondary">City <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control rounded-3" id="modalCity" placeholder="e.g. Kochi" maxlength="50" autocomplete="address-level2" aria-describedby="cityFeedback">
+                            <div class="invalid-feedback" id="cityFeedback"></div>
                         </div>
-                        <div class="col-md-6">
-                            <label for="modalState" class="form-label small fw-bold text-secondary">State</label>
-                            <input type="text" class="form-control rounded-3" id="modalState" required>
+                        <div class="col-md-6 mt-3 mt-md-0">
+                            <label for="modalState" class="form-label small fw-bold text-secondary">State <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control rounded-3" id="modalState" placeholder="e.g. Kerala" maxlength="50" autocomplete="address-level1" aria-describedby="stateFeedback">
+                            <div class="invalid-feedback" id="stateFeedback"></div>
                         </div>
                     </div>
+
+                    <!-- Pin Code -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="modalPinCode" class="form-label small fw-bold text-secondary">Pin Code</label>
-                            <input type="number" class="form-control rounded-3" id="modalPinCode" placeholder="6-digit number" required>
+                            <label for="modalPinCode" class="form-label small fw-bold text-secondary">Pin Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control rounded-3 font-monospace" id="modalPinCode" placeholder="6-digit number" inputmode="numeric" maxlength="6" autocomplete="postal-code" aria-describedby="pinCodeFeedback">
+                            <div class="invalid-feedback" id="pinCodeFeedback"></div>
                         </div>
                     </div>
+
+                    <!-- Set as default checkbox -->
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="modalIsDefault">
                         <label class="form-check-label small text-secondary" for="modalIsDefault">
                             Set as default address
                         </label>
                     </div>
+
+                    <!-- Action Buttons -->
                     <div class="d-flex gap-2 justify-content-end mt-4">
                         <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-dark rounded-3 px-4">Save Address</button>
+                        <button type="submit" class="btn btn-dark rounded-3 px-4" id="btnSaveAddress">Save Address</button>
                     </div>
                 </form>
             </div>
@@ -351,9 +396,166 @@
 
 <script>
 let addressModalInstance = null;
+let addressFormSubmitted = false;
+const addressFieldTouched = {};
+
+// Field mapping for address modal inputs and feedback containers
+const addressFieldMap = {
+    fullName: { inputId: "modalFullName", errorId: "fullNameFeedback" },
+    phone: { inputId: "modalPhone", errorId: "phoneFeedback" },
+    addressLine1: { inputId: "modalAddressLine1", errorId: "addressLine1Feedback" },
+    addressLine2: { inputId: "modalAddressLine2", errorId: "addressLine2Feedback" },
+    landmark: { inputId: "modalLandmark", errorId: "landmarkFeedback" },
+    city: { inputId: "modalCity", errorId: "cityFeedback" },
+    state: { inputId: "modalState", errorId: "stateFeedback" },
+    pinCode: { inputId: "modalPinCode", errorId: "pinCodeFeedback" },
+    pincode: { inputId: "modalPinCode", errorId: "pinCodeFeedback" }
+};
+
+// Client-side field validation rules matching backend specifications
+const addressFieldValidators = {
+    fullName: (value) => {
+        const v = (value || "").trim();
+        if (!v) return "Full name is required.";
+        if (v.length < 3 || v.length > 50) return "Full name must be between 3 and 50 characters.";
+        if (!/^[a-zA-Z\s.'-]+$/.test(v)) return "Full name can only contain letters and spaces.";
+        return "";
+    },
+    phone: (value) => {
+        const v = (value || "").trim();
+        if (!v) return "Phone number is required.";
+        if (!/^[0-9]{10}$/.test(v)) return "Phone number must be exactly 10 digits.";
+        return "";
+    },
+    addressLine1: (value) => {
+        const v = (value || "").trim();
+        if (!v) return "Address Line 1 is required.";
+        if (v.length < 5) return "Address Line 1 must be at least 5 characters.";
+        if (v.length > 150) return "Address Line 1 cannot exceed 150 characters.";
+        return "";
+    },
+    addressLine2: (value) => {
+        const v = (value || "").trim();
+        if (v.length > 150) return "Address Line 2 cannot exceed 150 characters.";
+        return "";
+    },
+    landmark: (value) => {
+        const v = (value || "").trim();
+        if (v.length > 100) return "Landmark cannot exceed 100 characters.";
+        return "";
+    },
+    city: (value) => {
+        const v = (value || "").trim();
+        if (!v) return "City is required.";
+        if (v.length < 2) return "City must be at least 2 characters.";
+        if (!/^[a-zA-Z\s.-]+$/.test(v)) return "City can only contain letters and spaces.";
+        return "";
+    },
+    state: (value) => {
+        const v = (value || "").trim();
+        if (!v) return "State is required.";
+        if (v.length < 2) return "State must be at least 2 characters.";
+        if (!/^[a-zA-Z\s.-]+$/.test(v)) return "State can only contain letters and spaces.";
+        return "";
+    },
+    pinCode: (value) => {
+        const v = (value || "").trim();
+        if (!v) return "Pin Code is required.";
+        if (!/^[0-9]{6}$/.test(v)) return "Pin Code must be a 6-digit number.";
+        return "";
+    }
+};
+
+function setAddressFieldError(fieldName, errorMessage) {
+    const config = addressFieldMap[fieldName];
+    if (!config) return;
+    const input = document.getElementById(config.inputId);
+    const feedback = document.getElementById(config.errorId);
+    if (!input || !feedback) return;
+
+    input.classList.add("is-invalid");
+    input.classList.remove("is-valid");
+    input.setAttribute("aria-invalid", "true");
+    feedback.textContent = errorMessage;
+    feedback.style.display = "block";
+}
+
+function clearAddressFieldError(fieldName) {
+    const config = addressFieldMap[fieldName];
+    if (!config) return;
+    const input = document.getElementById(config.inputId);
+    const feedback = document.getElementById(config.errorId);
+    if (!input || !feedback) return;
+
+    input.classList.remove("is-invalid");
+    input.removeAttribute("aria-invalid");
+    feedback.textContent = "";
+    feedback.style.display = "";
+}
+
+function clearAllAddressErrors() {
+    Object.keys(addressFieldMap).forEach(key => {
+        clearAddressFieldError(key);
+    });
+}
+
+function validateSingleAddressField(field) {
+    const validator = addressFieldValidators[field];
+    const config = addressFieldMap[field];
+    if (!validator || !config) return "";
+    const input = document.getElementById(config.inputId);
+    if (!input) return "";
+
+    const error = validator(input.value);
+    if (error) {
+        setAddressFieldError(field, error);
+    } else {
+        clearAddressFieldError(field);
+    }
+    return error;
+}
+
+function initAddressValidationListeners() {
+    Object.keys(addressFieldValidators).forEach(field => {
+        const config = addressFieldMap[field];
+        if (!config) return;
+        const input = document.getElementById(config.inputId);
+        if (!input) return;
+
+        // Auto-sanitize numeric fields on typing
+        if (field === "phone") {
+            input.addEventListener("input", () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 10);
+            });
+        } else if (field === "pinCode") {
+            input.addEventListener("input", () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 6);
+            });
+        }
+
+        // Live blur validation
+        input.addEventListener("blur", () => {
+            addressFieldTouched[field] = true;
+            validateSingleAddressField(field);
+        });
+
+        // Live input validation: remove error immediately when user corrects value
+        input.addEventListener("input", () => {
+            if (input.classList.contains("is-invalid") || addressFormSubmitted || addressFieldTouched[field]) {
+                const error = addressFieldValidators[field](input.value);
+                if (!error) {
+                    clearAddressFieldError(field);
+                } else if (addressFormSubmitted || input.classList.contains("is-invalid")) {
+                    setAddressFieldError(field, error);
+                }
+            }
+        });
+    });
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     addressModalInstance = new bootstrap.Modal(document.getElementById('addressModal'));
+    initAddressValidationListeners();
 
     // Form submit listener
     const form = document.getElementById("addressForm");
@@ -391,44 +593,99 @@ function openAddAddressModal() {
     document.getElementById("modalAddressType").value = "HOME";
     document.getElementById("modalIsDefault").checked = false;
 
+    addressFormSubmitted = false;
+    Object.keys(addressFieldTouched).forEach(k => delete addressFieldTouched[k]);
+    clearAllAddressErrors();
+
+    const btn = document.getElementById("btnSaveAddress");
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = "Save Address";
+    }
+
     addressModalInstance.show();
 }
 
 function openEditAddressModal(addrJson) {
-    const addr = JSON.parse(addrJson);
+    const addr = typeof addrJson === "string" ? JSON.parse(addrJson) : addrJson;
     document.getElementById("addressModalLabel").textContent = "Edit Shipping Address";
     document.getElementById("editAddressId").value = addr._id;
-    document.getElementById("modalFullName").value = addr.fullName;
-    document.getElementById("modalPhone").value = addr.phone;
-    document.getElementById("modalAddressLine1").value = addr.addressLine1;
+    document.getElementById("modalFullName").value = addr.fullName || "";
+    document.getElementById("modalPhone").value = addr.phone || "";
+    document.getElementById("modalAddressLine1").value = addr.addressLine1 || "";
     document.getElementById("modalAddressLine2").value = addr.addressLine2 || "";
     document.getElementById("modalLandmark").value = addr.landmark || "";
-    document.getElementById("modalCity").value = addr.city;
-    document.getElementById("modalState").value = addr.state;
-    document.getElementById("modalPinCode").value = addr.pinCode;
-    document.getElementById("modalAddressType").value = addr.addressType;
-    document.getElementById("modalIsDefault").checked = addr.isDefault;
+    document.getElementById("modalCity").value = addr.city || "";
+    document.getElementById("modalState").value = addr.state || "";
+    document.getElementById("modalPinCode").value = addr.pinCode || "";
+    document.getElementById("modalAddressType").value = addr.addressType || "HOME";
+    document.getElementById("modalIsDefault").checked = !!addr.isDefault;
+
+    addressFormSubmitted = false;
+    Object.keys(addressFieldTouched).forEach(k => delete addressFieldTouched[k]);
+    clearAllAddressErrors();
+
+    const btn = document.getElementById("btnSaveAddress");
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = "Save Address";
+    }
 
     addressModalInstance.show();
 }
 
 function saveAddress() {
+    addressFormSubmitted = true;
+    clearAllAddressErrors();
+
+    // Validate all fields client-side
+    let hasError = false;
+    let firstInvalidInput = null;
+
+    Object.keys(addressFieldValidators).forEach(field => {
+        const config = addressFieldMap[field];
+        if (!config) return;
+        const input = document.getElementById(config.inputId);
+        if (!input) return;
+
+        const error = addressFieldValidators[field](input.value);
+        if (error) {
+            setAddressFieldError(field, error);
+            hasError = true;
+            if (!firstInvalidInput) {
+                firstInvalidInput = input;
+            }
+        }
+    });
+
+    if (hasError) {
+        if (firstInvalidInput) {
+            firstInvalidInput.focus();
+        }
+        return; // Halt: do not send AJAX, do not show SweetAlert popup
+    }
+
     const editId = document.getElementById("editAddressId").value;
     const body = {
-        fullName: document.getElementById("modalFullName").value,
-        phone: document.getElementById("modalPhone").value,
-        addressLine1: document.getElementById("modalAddressLine1").value,
-        addressLine2: document.getElementById("modalAddressLine2").value,
-        landmark: document.getElementById("modalLandmark").value,
-        city: document.getElementById("modalCity").value,
-        state: document.getElementById("modalState").value,
-        pinCode: document.getElementById("modalPinCode").value,
+        fullName: document.getElementById("modalFullName").value.trim(),
+        phone: document.getElementById("modalPhone").value.trim(),
+        addressLine1: document.getElementById("modalAddressLine1").value.trim(),
+        addressLine2: document.getElementById("modalAddressLine2").value.trim(),
+        landmark: document.getElementById("modalLandmark").value.trim(),
+        city: document.getElementById("modalCity").value.trim(),
+        state: document.getElementById("modalState").value.trim(),
+        pinCode: document.getElementById("modalPinCode").value.trim(),
         addressType: document.getElementById("modalAddressType").value,
         isDefault: document.getElementById("modalIsDefault").checked
     };
 
     const url = editId ? `/checkout/address/${editId}` : "/checkout/address";
     const method = editId ? "PATCH" : "POST";
+
+    const btn = document.getElementById("btnSaveAddress");
+    const originalBtnText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
 
     fetch(url, {
         method: method,
@@ -439,27 +696,49 @@ function saveAddress() {
     })
     .then(res => res.json())
     .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
+
         if (data.success) {
             addressModalInstance.hide();
             Swal.fire({
                 icon: 'success',
                 title: 'Success',
-                text: data.message,
+                text: data.message || "Address saved successfully.",
                 timer: 1500,
                 showConfirmButton: false
             }).then(() => {
                 location.reload(); // Reload to refresh list and defaults
             });
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: data.message || "Failed to save address."
-            });
+            // Check if server returned field-level errors
+            if (data.errors && typeof data.errors === "object" && Object.keys(data.errors).length > 0) {
+                let firstServerInvalidInput = null;
+                for (const [key, msg] of Object.entries(data.errors)) {
+                    setAddressFieldError(key, msg);
+                    const config = addressFieldMap[key];
+                    if (config && !firstServerInvalidInput) {
+                        firstServerInvalidInput = document.getElementById(config.inputId);
+                    }
+                }
+                if (firstServerInvalidInput) {
+                    firstServerInvalidInput.focus();
+                }
+                // NO SweetAlert popup for normal field-level validation errors!
+            } else {
+                // Non-field / system / server error
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message || "Failed to save address."
+                });
+            }
         }
     })
     .catch(err => {
         console.error("Save Address Error:", err);
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
         Swal.fire({
             icon: 'error',
             title: 'Error',
