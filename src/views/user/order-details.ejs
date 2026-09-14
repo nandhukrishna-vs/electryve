@@ -26,6 +26,24 @@
         object-fit: contain;
     }
     
+    .order-status-badge {
+        font-size: 0.72rem;
+        letter-spacing: 0.3px;
+        user-select: none;
+        pointer-events: none;
+    }
+    .order-header-actions .btn {
+        white-space: nowrap;
+    }
+    @media (max-width: 575.98px) {
+        .order-header-actions {
+            width: 100%;
+        }
+        .order-header-actions .btn,
+        .order-header-actions .badge {
+            width: 100%;
+        }
+    }
     @media (max-width: 768px) {
         .details-item-row {
             flex-direction: column;
@@ -50,55 +68,131 @@
             </a>
         </div>
 
-        <!-- Page Header -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <!-- Page Header: Separates Order Information (Left) and Actions (Right) -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
             <div>
                 <h1 class="fw-bold text-dark mb-1 fs-3">Order details</h1>
-                <p class="text-secondary small mb-0">Order ID: <strong class="text-dark"><%= order.orderNumber %></strong> • Placed on <%= new Date(order.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) %></p>
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                    <span class="text-secondary small">Order ID: <strong class="text-dark"><%= order.orderNumber %></strong></span>
+                    <% if (order.orderStatus === 'PLACED') { %>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 fw-bold text-uppercase order-status-badge">
+                            🔵 PLACED
+                        </span>
+                    <% } else if (order.orderStatus === 'SHIPPED') { %>
+                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2.5 py-1 fw-bold text-uppercase order-status-badge">
+                            ✈️ SHIPPED
+                        </span>
+                    <% } else if (order.orderStatus === 'OUT_FOR_DELIVERY') { %>
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1 fw-bold text-uppercase order-status-badge">
+                            🚚 OUT FOR DELIVERY
+                        </span>
+                    <% } else if (order.orderStatus === 'DELIVERED') { %>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-bold text-uppercase order-status-badge">
+                            🟢 DELIVERED
+                        </span>
+                    <% } else if (order.orderStatus === 'CANCELLED') { %>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1 fw-bold text-uppercase order-status-badge">
+                            ✕ CANCELLED
+                        </span>
+                    <% } else if (order.orderStatus === 'RETURNED' || (order.returnRequest && order.returnRequest.status === 'APPROVED')) { %>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2.5 py-1 fw-bold text-uppercase order-status-badge">
+                            ↩️ RETURNED
+                        </span>
+                    <% } %>
+                </div>
+                <p class="text-secondary small mb-0">
+                    Placed on <%= new Date(order.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) %>
+                </p>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <% if (order.orderStatus === 'PLACED') { %>
-                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-bold text-uppercase" style="font-size: 0.75rem;">
-                        🔵 PLACED
-                    </span>
-                <% } else if (order.orderStatus === 'SHIPPED') { %>
-                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-3 py-2 fw-bold text-uppercase" style="font-size: 0.75rem;">
-                        ✈️ SHIPPED
-                    </span>
-                <% } else if (order.orderStatus === 'OUT_FOR_DELIVERY') { %>
-                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 fw-bold text-uppercase" style="font-size: 0.75rem;">
-                        🚚 OUT FOR DELIVERY
-                    </span>
-                <% } else if (order.orderStatus === 'DELIVERED') { %>
-                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2 fw-bold text-uppercase" style="font-size: 0.75rem;">
-                        🟢 DELIVERED
-                    </span>
-                    <button type="button" class="btn btn-outline-danger btn-sm rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm" onclick="promptReturnOrder('<%= order._id %>')">
-                        <i class="bi bi-arrow-return-left"></i>
-                        <span>Return Order</span>
+
+            <!-- Action Buttons Group -->
+            <div class="order-header-actions d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 mt-2 mt-md-0">
+                <!-- Download Invoice -->
+                <a href="/order/<%= order._id %>/invoice" class="btn btn-outline-dark btn-sm rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm">
+                    <i class="bi bi-file-earmark-arrow-down"></i>
+                    <span>Download Invoice</span>
+                </a>
+
+                <!-- Pre-Delivery Order Cancellation -->
+                <% if (order.orderStatus === 'PLACED' || order.orderStatus === 'SHIPPED' || order.orderStatus === 'OUT_FOR_DELIVERY') { %>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm" onclick="promptCancelOrder('<%= order._id %>')">
+                        <i class="bi bi-x-circle"></i>
+                        <span>Cancel Order</span>
                     </button>
-                <% } else if (order.orderStatus === 'CANCELLED') { %>
-                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2 fw-bold text-uppercase" style="font-size: 0.75rem;">
-                        🔴 CANCELLED
-                    </span>
-                <% } else if (order.orderStatus === 'RETURNED') { %>
-                    <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-3 py-2 fw-bold text-uppercase" style="font-size: 0.75rem;">
-                        ↩️ RETURNED
-                    </span>
+                <% } %>
+
+                <!-- Post-Delivery Return Actions -->
+                <% if (order.orderStatus === 'DELIVERED') { %>
+                    <% if (!order.returnRequest || order.returnRequest.status === 'NONE') { %>
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm" onclick="promptReturnOrder('<%= order._id %>')">
+                            <i class="bi bi-arrow-return-left"></i>
+                            <span>Request Return</span>
+                        </button>
+                    <% } else if (order.returnRequest.status === 'PENDING') { %>
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm" style="font-size: 0.78rem;">
+                            <i class="bi bi-clock-history"></i>
+                            <span>Return Request Pending</span>
+                        </span>
+                    <% } else if (order.returnRequest.status === 'REJECTED') { %>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm" style="font-size: 0.78rem;">
+                            <i class="bi bi-x-circle"></i>
+                            <span>Return Request Rejected</span>
+                        </span>
+                    <% } %>
                 <% } %>
             </div>
         </div>
 
-        <!-- Returned Notice (shown when order has been returned) -->
-        <% if (order.orderStatus === 'RETURNED') { %>
+        <!-- Return Notices (Returned, Pending Request, or Rejected Request) -->
+        <% if (order.orderStatus === 'RETURNED' || (order.returnRequest && order.returnRequest.status === 'APPROVED')) { %>
             <div class="alert alert-secondary border rounded-3 p-3 mb-4 d-flex align-items-start gap-2.5">
                 <i class="bi bi-info-circle-fill fs-5 text-secondary flex-shrink-0 mt-0.5"></i>
                 <div>
                     <strong class="d-block text-dark small">Order Returned</strong>
                     <span class="text-secondary small">
-                        Reason: "<%= order.returnReason || 'No reason specified' %>"
+                        Reason: "<%= order.returnReason || (order.returnRequest && order.returnRequest.reason) || 'No reason specified' %>"
                         <% if (order.returnedAt) { %>
                             • Returned on <%= new Date(order.returnedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+                        <% } %>
+                    </span>
+                </div>
+            </div>
+        <% } else if (order.orderStatus === 'DELIVERED' && order.returnRequest && order.returnRequest.status === 'PENDING') { %>
+            <div class="alert alert-warning border-warning-subtle rounded-3 p-3 mb-4 d-flex align-items-start gap-2.5">
+                <i class="bi bi-clock-history fs-5 text-warning flex-shrink-0 mt-0.5"></i>
+                <div>
+                    <strong class="d-block text-dark small">Return Request Under Review</strong>
+                    <span class="text-secondary small">
+                        You submitted a return request on <%= order.returnRequest.requestedAt ? new Date(order.returnRequest.requestedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %>.
+                        <br>Reason provided: "<%= order.returnRequest.reason %>". Our team is currently reviewing your request.
+                    </span>
+                </div>
+            </div>
+        <% } else if (order.orderStatus === 'DELIVERED' && order.returnRequest && order.returnRequest.status === 'REJECTED') { %>
+            <div class="alert alert-danger border-danger-subtle rounded-3 p-3 mb-4 d-flex align-items-start gap-2.5">
+                <i class="bi bi-exclamation-octagon-fill fs-5 text-danger flex-shrink-0 mt-0.5"></i>
+                <div>
+                    <strong class="d-block text-dark small">Return Request Rejected</strong>
+                    <span class="text-secondary small">
+                        Your return request was reviewed and rejected.
+                        <% if (order.returnRequest.rejectionReason) { %>
+                            <br>Reason: "<%= order.returnRequest.rejectionReason %>".
+                        <% } %>
+                        <% if (order.returnRequest.reviewedAt) { %>
+                            • Reviewed on <%= new Date(order.returnRequest.reviewedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+                        <% } %>
+                    </span>
+                </div>
+            </div>
+        <% } else if (order.orderStatus === 'CANCELLED') { %>
+            <div class="alert alert-danger border-danger-subtle rounded-3 p-3 mb-4 d-flex align-items-start gap-2.5">
+                <i class="bi bi-x-circle-fill fs-5 text-danger flex-shrink-0 mt-0.5"></i>
+                <div>
+                    <strong class="d-block text-dark small">Order Cancelled</strong>
+                    <span class="text-secondary small">
+                        Reason: "<%= order.cancellationReason || 'No reason specified' %>"
+                        <% if (order.cancelledAt) { %>
+                            • Cancelled on <%= new Date(order.cancelledAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
                         <% } %>
                     </span>
                 </div>
@@ -191,18 +285,9 @@
 
                     <div class="border rounded-3 p-3 bg-light text-center small">
                         <span class="text-secondary d-block mb-1">Payment Method</span>
-                        <strong class="text-dark text-uppercase">Cash on Delivery (COD)</strong>
+                        <strong class="text-dark text-uppercase"><%= order.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : order.paymentMethod %></strong>
                         <div class="text-warning-emphasis fw-bold mt-1.5">Status: <%= order.paymentStatus %></div>
                     </div>
-
-                    <% if (order.orderStatus === 'DELIVERED') { %>
-                        <div class="mt-3">
-                            <button type="button" class="btn btn-outline-danger w-100 rounded-3 py-2.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm" onclick="promptReturnOrder('<%= order._id %>')">
-                                <i class="bi bi-arrow-return-left"></i>
-                                <span>Return Order</span>
-                            </button>
-                        </div>
-                    <% } %>
                 </div>
             </div>
         </div>
@@ -211,12 +296,12 @@
 
 <script>
 /**
- * Prompt for return reason and submit AJAX PATCH request to return delivered order
+ * Prompt for return reason and submit AJAX PATCH request to submit a return request
  */
 async function promptReturnOrder(orderId) {
     const { value: reason, isConfirmed } = await Swal.fire({
-        title: "Return Order",
-        text: "Please provide a reason for returning this delivered order:",
+        title: "Request Return",
+        text: "Please provide a reason for returning this delivered order. Your request will be submitted for admin review:",
         input: "textarea",
         inputPlaceholder: "Please provide a reason for returning this order.",
         inputAttributes: {
@@ -227,7 +312,7 @@ async function promptReturnOrder(orderId) {
         showCancelButton: true,
         confirmButtonColor: "#dc3545",
         cancelButtonColor: "#6c757d",
-        confirmButtonText: "Confirm Return",
+        confirmButtonText: "Submit Return Request",
         cancelButtonText: "Cancel",
         inputValidator: (value) => {
             if (!value || value.trim().length < 3) {
@@ -240,8 +325,8 @@ async function promptReturnOrder(orderId) {
 
     try {
         Swal.fire({
-            title: "Processing Return...",
-            text: "Submitting your return request, please wait.",
+            title: "Submitting Request...",
+            text: "Sending your return request for review, please wait.",
             allowOutsideClick: false,
             didOpen: () => {
                 Swal.showLoading();
@@ -261,8 +346,78 @@ async function promptReturnOrder(orderId) {
         if (data.success) {
             await Swal.fire({
                 icon: "success",
-                title: "Order Returned",
-                text: data.message || "Order returned successfully.",
+                title: "Return Request Submitted",
+                text: data.message || "Your return request has been submitted for review.",
+                timer: 2000,
+                showConfirmButton: false
+            });
+            window.location.reload();
+        } else {
+            Swal.fire({
+                icon: "error",
+                title: "Request Failed",
+                text: data.message || "Could not submit your return request."
+            });
+        }
+    } catch (err) {
+        console.error("Return order error:", err);
+        Swal.fire({
+            icon: "error",
+            title: "Network Error",
+            text: "Failed to communicate with server. Please try again."
+        });
+    }
+}
+
+/**
+ * Prompt for optional cancellation reason and submit AJAX PATCH request to cancel order
+ */
+async function promptCancelOrder(orderId) {
+    const { value: reason, isConfirmed } = await Swal.fire({
+        title: "Cancel Order?",
+        text: "Are you sure you want to cancel this order? This action cannot be undone.",
+        input: "textarea",
+        inputPlaceholder: "Reason for cancellation (optional)...",
+        inputAttributes: {
+            "aria-label": "Reason for cancellation (optional)",
+            maxlength: 500,
+            rows: 3
+        },
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Confirm Cancellation",
+        cancelButtonText: "Keep Order"
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+        Swal.fire({
+            title: "Cancelling Order...",
+            text: "Processing cancellation and restoring stock, please wait.",
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const res = await fetch(`/order/${orderId}/cancel`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ reason: (reason || "").trim() })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Order Cancelled",
+                text: data.message || "Order cancelled successfully.",
                 timer: 1800,
                 showConfirmButton: false
             });
@@ -270,12 +425,12 @@ async function promptReturnOrder(orderId) {
         } else {
             Swal.fire({
                 icon: "error",
-                title: "Return Failed",
-                text: data.message || "Could not process your return request."
+                title: "Cancellation Failed",
+                text: data.message || "Could not cancel your order."
             });
         }
     } catch (err) {
-        console.error("Return order error:", err);
+        console.error("Cancel order error:", err);
         Swal.fire({
             icon: "error",
             title: "Network Error",

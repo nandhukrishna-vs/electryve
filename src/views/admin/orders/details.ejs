@@ -47,21 +47,10 @@
 
         <!-- Action Header Buttons -->
         <div class="d-flex gap-2 align-items-center flex-wrap">
-            <a href="/admin/orders/<%= order._id %>/invoice" class="btn btn-outline-dark rounded-3 px-3 py-2 fw-medium d-inline-flex align-items-center gap-2 shadow-sm">
-                <i class="bi bi-file-earmark-pdf"></i>
-                Download Invoice
+            <a href="/admin/orders" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-medium d-inline-flex align-items-center gap-1.5 shadow-sm">
+                <i class="bi bi-arrow-left"></i>
+                Back to Orders
             </a>
-            <% if (order.orderStatus === 'PLACED' || order.orderStatus === 'SHIPPED' || order.orderStatus === 'OUT_FOR_DELIVERY') { %>
-                <button type="button" class="btn btn-outline-danger rounded-3 px-3 py-2 fw-medium d-inline-flex align-items-center gap-1.5" onclick="promptCancelOrder('<%= order._id %>')">
-                    <i class="bi bi-x-circle"></i>
-                    Cancel Order
-                </button>
-            <% } else if (order.orderStatus === 'DELIVERED') { %>
-                <button type="button" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-medium d-inline-flex align-items-center gap-1.5" onclick="promptReturnOrder('<%= order._id %>')">
-                    <i class="bi bi-arrow-return-left"></i>
-                    Return Order
-                </button>
-            <% } %>
         </div>
     </div>
 
@@ -70,15 +59,85 @@
         <!-- Left Column: Order Items & Status Management -->
         <div class="col-lg-8">
             
+            <!-- Pending Return Request Review Card -->
+            <% if (order.returnRequest && order.returnRequest.status === 'PENDING') { %>
+            <div class="card shadow-sm border-warning border-2 rounded-3 mb-4 overflow-hidden">
+                <div class="card-header bg-warning-subtle py-3 border-bottom border-warning-subtle d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill text-warning-emphasis fs-5"></i>
+                        <h5 class="fw-bold text-dark mb-0 fs-6">Customer Return Request (Pending Review)</h5>
+                    </div>
+                    <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1 fw-bold">ACTION REQUIRED</span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <p class="text-muted small mb-1 fw-semibold text-uppercase" style="letter-spacing: 0.5px;">Return Reason Provided</p>
+                            <div class="p-3 bg-light rounded-3 border text-dark font-monospace small">
+                                "<%= order.returnRequest.reason %>"
+                            </div>
+                            <p class="text-muted small mt-2 mb-0">
+                                Requested on: <strong class="text-dark"><%= order.returnRequest.requestedAt ? new Date(order.returnRequest.requestedAt).toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A' %></strong>
+                            </p>
+                        </div>
+                        <div class="col-md-4 d-flex flex-column justify-content-center gap-2 pt-2">
+                            <button type="button" class="btn btn-success rounded-3 py-2.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm" onclick="acceptReturnRequest('<%= order._id %>')">
+                                <i class="bi bi-check-circle-fill"></i>
+                                Accept Return
+                            </button>
+                            <button type="button" class="btn btn-outline-danger rounded-3 py-2.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm" onclick="rejectReturnRequest('<%= order._id %>')">
+                                <i class="bi bi-x-circle-fill"></i>
+                                Reject Return
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <% } %>
+
+            <!-- Reviewed Return Request Alerts (Approved or Rejected) -->
+            <% if (order.returnRequest && order.returnRequest.status === 'APPROVED') { %>
+            <div class="alert alert-secondary border rounded-3 p-3 mb-4 d-flex align-items-start gap-2.5">
+                <i class="bi bi-check-circle-fill fs-5 text-success flex-shrink-0 mt-0.5"></i>
+                <div>
+                    <strong class="d-block text-dark small">Return Request Approved</strong>
+                    <span class="text-secondary small">
+                        Approved on <%= order.returnRequest.reviewedAt ? new Date(order.returnRequest.reviewedAt).toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %>
+                        • Reason: "<%= order.returnRequest.reason %>" • Inventory has been restored.
+                    </span>
+                </div>
+            </div>
+            <% } else if (order.returnRequest && order.returnRequest.status === 'REJECTED') { %>
+            <div class="alert alert-danger border-danger-subtle rounded-3 p-3 mb-4 d-flex align-items-start gap-2.5">
+                <i class="bi bi-x-circle-fill fs-5 text-danger flex-shrink-0 mt-0.5"></i>
+                <div>
+                    <strong class="d-block text-dark small">Return Request Rejected</strong>
+                    <span class="text-secondary small">
+                        Rejected on <%= order.returnRequest.reviewedAt ? new Date(order.returnRequest.reviewedAt).toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %>
+                        <% if (order.returnRequest.rejectionReason) { %>
+                            • Reason: "<%= order.returnRequest.rejectionReason %>"
+                        <% } %>
+                    </span>
+                </div>
+            </div>
+            <% } %>
+
             <!-- Order Lifecycle & Status Control Card -->
-            <% if (order.orderStatus !== 'CANCELLED' && order.orderStatus !== 'RETURNED') { %>
             <div class="card shadow-sm border-0 rounded-3 mb-4">
-                <div class="card-header bg-white py-3 border-bottom">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold text-dark mb-0 fs-6">
-                        <i class="bi bi-arrow-repeat me-2 text-muted"></i>Update Order Lifecycle
+                        <i class="bi bi-arrow-repeat me-2 text-muted"></i>Order Lifecycle
                     </h5>
+                    <% if (order.orderStatus === 'DELIVERED') { %>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">DELIVERED</span>
+                    <% } else if (order.orderStatus === 'CANCELLED') { %>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">CANCELLED</span>
+                    <% } else if (order.orderStatus === 'RETURNED') { %>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">RETURNED</span>
+                    <% } %>
                 </div>
                 <div class="card-body py-3">
+                    <% if (['PLACED', 'SHIPPED', 'OUT_FOR_DELIVERY'].includes(order.orderStatus)) { %>
                     <div class="row g-3 align-items-center">
                         <div class="col-md-7">
                             <label for="nextStatusSelect" class="form-label small text-muted mb-1 fw-semibold">Next Allowed Status</label>
@@ -101,9 +160,45 @@
                             </button>
                         </div>
                     </div>
+                    <% } else if (order.orderStatus === 'DELIVERED') { %>
+                    <div class="d-flex align-items-center justify-content-between p-2">
+                        <div>
+                            <span class="text-muted small d-block mb-1">Current Status</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1.5 fw-bold fs-7">
+                                🟢 DELIVERED
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-0 text-end">
+                            This order is delivered.<br>No further lifecycle transitions permitted from this selector.
+                        </p>
+                    </div>
+                    <% } else if (order.orderStatus === 'RETURNED') { %>
+                    <div class="d-flex align-items-center justify-content-between p-2">
+                        <div>
+                            <span class="text-muted small d-block mb-1">Current Status</span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-3 py-1.5 fw-bold fs-7">
+                                ↩️ RETURNED
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-0 text-end">
+                            This order was returned and inventory has been restored.<br>No further lifecycle transitions permitted.
+                        </p>
+                    </div>
+                    <% } else if (order.orderStatus === 'CANCELLED') { %>
+                    <div class="d-flex align-items-center justify-content-between p-2">
+                        <div>
+                            <span class="text-muted small d-block mb-1">Current Status</span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1.5 fw-bold fs-7">
+                                🔴 CANCELLED
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-0 text-end">
+                            This order is cancelled.<br>No further lifecycle transitions permitted.
+                        </p>
+                    </div>
+                    <% } %>
                 </div>
             </div>
-            <% } %>
 
             <!-- Ordered Items Table Card -->
             <div class="card shadow-sm border-0 rounded-3 mb-4 overflow-hidden">
@@ -194,10 +289,6 @@
                                         <% if (isItemActive && (order.orderStatus === 'PLACED' || order.orderStatus === 'SHIPPED' || order.orderStatus === 'OUT_FOR_DELIVERY')) { %>
                                             <button type="button" class="btn btn-sm btn-outline-danger rounded-3 py-1 px-2" style="font-size: 0.72rem;" onclick="promptCancelItem('<%= order._id %>', '<%= item._id %>', '<%= item.productName %>')">
                                                 Cancel
-                                            </button>
-                                        <% } else if (isItemActive && order.orderStatus === 'DELIVERED') { %>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-3 py-1 px-2" style="font-size: 0.72rem;" onclick="promptReturnItem('<%= order._id %>', '<%= item._id %>', '<%= item.productName %>')">
-                                                Return
                                             </button>
                                         <% } else { %>
                                             <span class="text-muted small" style="font-size: 0.75rem;">—</span>
@@ -403,43 +494,104 @@ async function submitStatusUpdate(orderId) {
     }
 }
 
-// 2. Cancel Entire Order with Optional Reason
-async function promptCancelOrder(orderId) {
-    const { value: reason, isConfirmed } = await Swal.fire({
-        title: "Cancel Entire Order?",
-        text: "This will restore variant stock for all active items. You may provide an optional cancellation reason.",
-        input: "textarea",
-        inputPlaceholder: "Enter optional cancellation reason...",
-        icon: "warning",
+// 2. Accept Customer Return Request
+async function acceptReturnRequest(orderId) {
+    const result = await Swal.fire({
+        title: "Approve Return Request?",
+        text: "This will approve the customer's return request, change the order status to RETURNED, and restore stock for all active items.",
+        icon: "question",
         showCancelButton: true,
-        confirmButtonColor: "#dc3545",
+        confirmButtonColor: "#198754",
         cancelButtonColor: "#6c757d",
-        confirmButtonText: "Yes, Cancel Order"
+        confirmButtonText: "Yes, Approve Return"
     });
 
-    if (!isConfirmed) return;
+    if (!result.isConfirmed) return;
 
     try {
-        const res = await fetch(`/admin/orders/${orderId}/cancel`, {
+        Swal.fire({
+            title: "Approving Return...",
+            text: "Restoring inventory and updating order, please wait.",
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const res = await fetch(`/admin/orders/${orderId}/return/approve`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason: reason || "" })
+            headers: { "Content-Type": "application/json" }
         });
         const data = await res.json();
         if (data.success) {
             await Swal.fire({
                 icon: "success",
-                title: "Order Cancelled",
+                title: "Return Approved",
                 text: data.message,
-                timer: 1500,
+                timer: 1800,
                 showConfirmButton: false
             });
             window.location.reload();
         } else {
-            Swal.fire({ icon: "error", title: "Cancellation Failed", text: data.message || "Could not cancel order." });
+            Swal.fire({ icon: "error", title: "Approval Failed", text: data.message || "Failed to approve return request." });
         }
     } catch (err) {
-        console.error("Cancel order error:", err);
+        console.error("Approve return error:", err);
+        Swal.fire({ icon: "error", title: "Error", text: "Network or server error." });
+    }
+}
+
+// 3. Reject Customer Return Request
+async function rejectReturnRequest(orderId) {
+    const { value: reason, isConfirmed } = await Swal.fire({
+        title: "Reject Return Request?",
+        text: "Please provide a reason for rejecting this return request (visible to the customer):",
+        input: "textarea",
+        inputPlaceholder: "Enter rejection reason...",
+        inputValidator: (value) => {
+            if (!value || value.trim().length < 3) {
+                return "A valid rejection reason (at least 3 characters) is required!";
+            }
+        },
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Reject Request"
+    });
+
+    if (!isConfirmed || !reason) return;
+
+    try {
+        Swal.fire({
+            title: "Rejecting Request...",
+            text: "Updating order status, please wait.",
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const res = await fetch(`/admin/orders/${orderId}/return/reject`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rejectionReason: reason.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Return Request Rejected",
+                text: data.message,
+                timer: 1800,
+                showConfirmButton: false
+            });
+            window.location.reload();
+        } else {
+            Swal.fire({ icon: "error", title: "Rejection Failed", text: data.message || "Failed to reject return request." });
+        }
+    } catch (err) {
+        console.error("Reject return error:", err);
         Swal.fire({ icon: "error", title: "Error", text: "Network or server error." });
     }
 }
@@ -484,96 +636,5 @@ async function promptCancelItem(orderId, itemId, productName) {
         Swal.fire({ icon: "error", title: "Error", text: "Network or server error." });
     }
 }
-
-// 4. Return Entire Order (Mandatory Reason)
-async function promptReturnOrder(orderId) {
-    const { value: reason, isConfirmed } = await Swal.fire({
-        title: "Return Entire Order?",
-        text: "Return is only permitted on delivered orders. A return reason is mandatory:",
-        input: "textarea",
-        inputPlaceholder: "Please enter the reason for return (mandatory)...",
-        inputValidator: (value) => {
-            if (!value || value.trim().length < 3) {
-                return "A valid return reason (at least 3 characters) is mandatory!";
-            }
-        },
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#6c757d",
-        cancelButtonColor: "#111827",
-        confirmButtonText: "Mark as Returned"
-    });
-
-    if (!isConfirmed || !reason) return;
-
-    try {
-        const res = await fetch(`/admin/orders/${orderId}/return`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason: reason.trim() })
-        });
-        const data = await res.json();
-        if (data.success) {
-            await Swal.fire({
-                icon: "success",
-                title: "Order Returned",
-                text: data.message,
-                timer: 1500,
-                showConfirmButton: false
-            });
-            window.location.reload();
-        } else {
-            Swal.fire({ icon: "error", title: "Return Failed", text: data.message || "Could not process return." });
-        }
-    } catch (err) {
-        console.error("Return order error:", err);
-        Swal.fire({ icon: "error", title: "Error", text: "Network or server error." });
-    }
-}
-
-// 5. Return Specific Item (Mandatory Reason)
-async function promptReturnItem(orderId, itemId, productName) {
-    const { value: reason, isConfirmed } = await Swal.fire({
-        title: "Return This Item?",
-        text: `Return "${productName}". A return reason is mandatory:`,
-        input: "text",
-        inputPlaceholder: "Reason for return...",
-        inputValidator: (value) => {
-            if (!value || value.trim().length < 3) {
-                return "A valid return reason is mandatory!";
-            }
-        },
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#6c757d",
-        cancelButtonColor: "#111827",
-        confirmButtonText: "Mark Item Returned"
-    });
-
-    if (!isConfirmed || !reason) return;
-
-    try {
-        const res = await fetch(`/admin/orders/${orderId}/items/${itemId}/return`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason: reason.trim() })
-        });
-        const data = await res.json();
-        if (data.success) {
-            await Swal.fire({
-                icon: "success",
-                title: "Item Returned",
-                text: data.message,
-                timer: 1500,
-                showConfirmButton: false
-            });
-            window.location.reload();
-        } else {
-            Swal.fire({ icon: "error", title: "Action Failed", text: data.message || "Could not process return." });
-        }
-    } catch (err) {
-        console.error("Return item error:", err);
-        Swal.fire({ icon: "error", title: "Error", text: "Network or server error." });
-    }
-}
 </script>
+

@@ -413,7 +413,7 @@ const updateOrderStatus = async (orderId, nextStatus) => {
     PLACED: ["SHIPPED", "CANCELLED"],
     SHIPPED: ["OUT_FOR_DELIVERY", "CANCELLED"],
     OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
-    DELIVERED: ["RETURNED"],
+    DELIVERED: [],
     CANCELLED: [],
     RETURNED: []
   };
@@ -428,13 +428,6 @@ const updateOrderStatus = async (orderId, nextStatus) => {
 
   if (nextStatus === "CANCELLED") {
     return await cancelOrder(orderId, "Cancelled by Admin");
-  }
-
-  if (nextStatus === "RETURNED") {
-    return {
-      success: false,
-      message: "Return requires a mandatory return reason. Please use the Return Order action."
-    };
   }
 
   if (nextStatus === "DELIVERED" && order.paymentMethod === "COD") {
@@ -499,15 +492,16 @@ const cancelOrder = async (orderId, reason = "") => {
   }
 
   const now = new Date();
+  const appliedReason = (typeof reason === "string" && reason.trim().length > 0) ? reason.trim() : "Order cancelled";
   itemsToRestore.forEach((item) => {
     item.isStockRestored = true;
     item.itemStatus = "CANCELLED";
-    item.cancellationReason = reason || "Order cancelled by Admin";
+    item.cancellationReason = appliedReason;
     item.cancelledAt = now;
   });
 
   order.orderStatus = "CANCELLED";
-  order.cancellationReason = reason || "Order cancelled by Admin";
+  order.cancellationReason = appliedReason;
   order.cancelledAt = now;
 
   await order.save();
@@ -567,24 +561,7 @@ const cancelOrderItem = async (orderId, itemId, reason = "") => {
   return { success: true, message: "Item cancelled and stock restored successfully.", order };
 };
 
-const returnOrder = async (orderId, reason) => {
-  if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    return { success: false, message: "Invalid order ID." };
-  }
-
-  if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
-    return { success: false, message: "A valid return reason (at least 3 characters) is mandatory." };
-  }
-
-  const order = await Order.findById(orderId);
-  if (!order) {
-    return { success: false, message: "Order not found." };
-  }
-
-  if (order.orderStatus !== "DELIVERED") {
-    return { success: false, message: `Return is only allowed for delivered orders (current status: "${order.orderStatus}").` };
-  }
-
+const restoreOrderReturnStock = async (order, reason) => {
   const itemsToReturn = order.items.filter(
     (item) => item.itemStatus === "ACTIVE" && !item.isStockRestored
   );
@@ -622,21 +599,53 @@ const returnOrder = async (orderId, reason) => {
     item.returnedAt = now;
   });
 
-  order.orderStatus = "RETURNED";
-  order.returnReason = reason.trim();
-  order.returnedAt = now;
-
-  await order.save();
-  return { success: true, message: "Order marked as returned and stock restored successfully.", order };
+  return { success: true, restoredItems };
 };
 
-const returnOrderItem = async (orderId, itemId, reason) => {
-  if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(itemId)) {
-    return { success: false, message: "Invalid order or item ID." };
+const requestReturn = async (orderId, userId, reason) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return { success: false, message: "Invalid order ID." };
   }
 
   if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
     return { success: false, message: "A valid return reason (at least 3 characters) is mandatory." };
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
+    return { success: false, message: "Order not found." };
+  }
+
+  if (order.orderStatus !== "DELIVERED") {
+    return { success: false, message: `Return request is only allowed for delivered orders (current status: "${order.orderStatus}").` };
+  }
+
+  const currentReturnStatus = order.returnRequest?.status || "NONE";
+  if (currentReturnStatus === "PENDING") {
+    return { success: false, message: "A return request is already pending review for this order." };
+  }
+  if (currentReturnStatus === "APPROVED" || order.orderStatus === "RETURNED") {
+    return { success: false, message: "This order has already been returned." };
+  }
+  if (currentReturnStatus === "REJECTED") {
+    return { success: false, message: "The return request for this order was previously rejected." };
+  }
+
+  order.returnRequest = {
+    status: "PENDING",
+    reason: reason.trim(),
+    requestedAt: new Date(),
+    reviewedAt: null,
+    rejectionReason: null
+  };
+
+  await order.save();
+  return { success: true, message: "Return request submitted successfully.", order };
+};
+
+const approveReturnRequest = async (orderId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return { success: false, message: "Invalid order ID." };
   }
 
   const order = await Order.findById(orderId);
@@ -645,47 +654,55 @@ const returnOrderItem = async (orderId, itemId, reason) => {
   }
 
   if (order.orderStatus !== "DELIVERED") {
-    return { success: false, message: `Items can only be returned from delivered orders (current status: "${order.orderStatus}").` };
+    return { success: false, message: `Only delivered orders can have returns approved (current status: "${order.orderStatus}").` };
   }
 
-  const item = order.items.id(itemId);
-  if (!item) {
-    return { success: false, message: "Item not found in this order." };
+  if (!order.returnRequest || order.returnRequest.status !== "PENDING") {
+    return { success: false, message: `No pending return request found for this order (current request status: "${order.returnRequest?.status || "NONE"}").` };
   }
 
-  if (item.itemStatus !== "ACTIVE" || item.isStockRestored) {
-    return { success: false, message: `Item cannot be returned (current item status: "${item.itemStatus}").` };
-  }
-
-  try {
-    const updateRes = await Product.updateOne(
-      { _id: item.product, "variants._id": item.variantId },
-      { $inc: { "variants.$.stock": item.quantity } }
-    );
-    if (updateRes.modifiedCount !== 1) {
-      return { success: false, message: `Failed to restore stock for "${item.productName}".` };
-    }
-  } catch (err) {
-    return { success: false, message: `Stock update failed: ${err.message}` };
+  const returnReason = order.returnRequest.reason || "Return approved by admin";
+  const stockRes = await restoreOrderReturnStock(order, returnReason);
+  if (!stockRes.success) {
+    return stockRes;
   }
 
   const now = new Date();
-  item.isStockRestored = true;
-  item.itemStatus = "RETURNED";
-  item.returnReason = reason.trim();
-  item.returnedAt = now;
+  order.orderStatus = "RETURNED";
+  order.returnReason = returnReason;
+  order.returnedAt = now;
 
-  // Check if all non-cancelled items are now RETURNED
-  const nonCancelled = order.items.filter((it) => it.itemStatus !== "CANCELLED");
-  const allReturned = nonCancelled.length > 0 && nonCancelled.every((it) => it.itemStatus === "RETURNED");
-  if (allReturned) {
-    order.orderStatus = "RETURNED";
-    order.returnReason = reason.trim();
-    order.returnedAt = now;
-  }
+  order.returnRequest.status = "APPROVED";
+  order.returnRequest.reviewedAt = now;
 
   await order.save();
-  return { success: true, message: "Item marked as returned and stock restored successfully.", order };
+  return { success: true, message: "Return request approved, order marked as returned, and stock restored.", order };
+};
+
+const rejectReturnRequest = async (orderId, rejectionReason) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return { success: false, message: "Invalid order ID." };
+  }
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    return { success: false, message: "Order not found." };
+  }
+
+  if (!order.returnRequest || order.returnRequest.status !== "PENDING") {
+    return { success: false, message: `No pending return request found for this order (current request status: "${order.returnRequest?.status || "NONE"}").` };
+  }
+
+  const reason = (typeof rejectionReason === "string" && rejectionReason.trim().length > 0)
+    ? rejectionReason.trim()
+    : "Return policy criteria not met.";
+
+  order.returnRequest.status = "REJECTED";
+  order.returnRequest.reviewedAt = new Date();
+  order.returnRequest.rejectionReason = reason;
+
+  await order.save();
+  return { success: true, message: "Return request rejected successfully.", order };
 };
 
 export {
@@ -697,6 +714,7 @@ export {
   updateOrderStatus,
   cancelOrder,
   cancelOrderItem,
-  returnOrder,
-  returnOrderItem
+  requestReturn,
+  approveReturnRequest,
+  rejectReturnRequest
 };

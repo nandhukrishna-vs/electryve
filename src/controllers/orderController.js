@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import * as cartService from "../services/cartService.js";
 import * as orderService from "../services/orderService.js";
 import { validateUserCoupon } from "../services/couponService.js";
+import { generateInvoicePDF } from "../utils/invoiceGenerator.js";
 import Address from "../models/Address.js";
 import Order from "../models/Order.js";
 
@@ -390,7 +391,78 @@ const returnOrder = async (req, res, next) => {
       });
     }
 
-    // IMPORTANT SECURITY REQUIREMENT:
+    // Call orderService.requestReturn which verifies ownership and DELIVERED status
+    const result = await orderService.requestReturn(orderId, userId, reason.trim());
+
+    if (!result.success) {
+      const statusCode = result.message === "Order not found." ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json({
+      success: true,
+      message: result.message || "Return request submitted successfully.",
+      order: result.order
+    });
+  } catch (error) {
+    console.error("User Return Order Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred while processing your return request."
+    });
+  }
+};
+
+const downloadInvoice = async (req, res, next) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).send("You must be logged in to download an invoice.");
+    }
+
+    const userId = req.session.user.id;
+    const { id: orderId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).send("Invalid order ID.");
+    }
+
+    // Strictly verify ownership by matching BOTH order ID and user ID
+    const order = await Order.findOne({
+      _id: orderId,
+      user: userId
+    }).populate("user", "fullName email phone");
+
+    if (!order) {
+      return res.status(404).send("Order not found or access denied.");
+    }
+
+    generateInvoicePDF(order, res);
+  } catch (error) {
+    console.error("User Download Invoice Error:", error);
+    res.status(500).send("Error generating invoice PDF.");
+  }
+};
+
+const cancelOrder = async (req, res, next) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "You must be logged in to cancel an order."
+      });
+    }
+
+    const userId = req.session.user.id;
+    const { id: orderId } = req.params;
+    const { reason } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID."
+      });
+    }
+
     // Strictly verify ownership by matching BOTH order ID and user ID
     const order = await Order.findOne({
       _id: orderId,
@@ -404,15 +476,21 @@ const returnOrder = async (req, res, next) => {
       });
     }
 
-    if (order.orderStatus !== "DELIVERED") {
+    // User can cancel only before delivery
+    const cancellableStatuses = ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY"];
+    if (!cancellableStatuses.includes(order.orderStatus)) {
       return res.status(400).json({
         success: false,
-        message: `Return is only allowed for delivered orders (current status: "${order.orderStatus}").`
+        message: `Cannot cancel an order with status "${order.orderStatus}". Orders can only be cancelled before delivery.`
       });
     }
 
-    // Call the shared orderService.returnOrder
-    const result = await orderService.returnOrder(orderId, reason.trim());
+    const cancellationReason = (typeof reason === "string" && reason.trim().length > 0)
+      ? reason.trim()
+      : "Cancelled by User";
+
+    // Call shared cancellation service logic
+    const result = await orderService.cancelOrder(orderId, cancellationReason);
 
     if (!result.success) {
       return res.status(400).json(result);
@@ -420,14 +498,14 @@ const returnOrder = async (req, res, next) => {
 
     return res.json({
       success: true,
-      message: result.message || "Order returned successfully.",
+      message: result.message || "Order cancelled successfully.",
       order: result.order
     });
   } catch (error) {
-    console.error("User Return Order Controller Error:", error);
+    console.error("User Cancel Order Controller Error:", error);
     return res.status(500).json({
       success: false,
-      message: "An unexpected error occurred while processing your return request."
+      message: "An unexpected error occurred while cancelling your order."
     });
   }
 };
@@ -443,5 +521,7 @@ export {
   loadOrderSuccess,
   loadUserOrders,
   loadOrderDetails,
-  returnOrder
+  returnOrder,
+  downloadInvoice,
+  cancelOrder
 };

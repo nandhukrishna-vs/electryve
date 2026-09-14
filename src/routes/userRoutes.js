@@ -136,6 +136,8 @@ router.post("/checkout/place-order", isLoggedIn, orderController.placeCODOrder);
 router.get("/checkout/success", isLoggedIn, orderController.loadOrderSuccess);
 router.get("/orders", isLoggedIn, orderController.loadUserOrders);
 router.get("/order/:id", isLoggedIn, orderController.loadOrderDetails);
+router.get("/order/:id/invoice", isLoggedIn, orderController.downloadInvoice);
+router.patch("/order/:id/cancel", isLoggedIn, orderController.cancelOrder);
 router.patch("/order/:id/return", isLoggedIn, orderController.returnOrder);
 
 export default router;

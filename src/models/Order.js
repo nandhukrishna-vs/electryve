@@ -205,6 +205,31 @@ const orderSchema = new mongoose.Schema(
     },
     returnedAt: {
       type: Date
+    },
+    returnRequest: {
+      status: {
+        type: String,
+        enum: ["NONE", "PENDING", "APPROVED", "REJECTED"],
+        default: "NONE"
+      },
+      reason: {
+        type: String,
+        trim: true,
+        default: null
+      },
+      requestedAt: {
+        type: Date,
+        default: null
+      },
+      reviewedAt: {
+        type: Date,
+        default: null
+      },
+      rejectionReason: {
+        type: String,
+        trim: true,
+        default: null
+      }
     }
   },
   {

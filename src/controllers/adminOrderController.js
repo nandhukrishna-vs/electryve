@@ -1,5 +1,4 @@
 import * as orderService from "../services/orderService.js";
-import { generateInvoicePDF } from "../utils/invoiceGenerator.js";
 
 const loadAdminOrders = async (req, res, next) => {
   try {
@@ -99,67 +98,36 @@ const cancelOrderItem = async (req, res, next) => {
   }
 };
 
-const returnOrder = async (req, res, next) => {
+const approveReturnRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const result = await orderService.approveReturnRequest(id);
 
-    if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid return reason (at least 3 characters) is mandatory."
-      });
-    }
-
-    const result = await orderService.returnOrder(id, reason);
     if (!result.success) {
       return res.status(400).json(result);
     }
 
     res.json(result);
   } catch (error) {
-    console.error("Admin Return Order Error:", error);
-    res.status(500).json({ success: false, message: error.message || "Failed to return order." });
+    console.error("Admin Approve Return Request Error:", error);
+    res.status(500).json({ success: false, message: error.message || "Failed to approve return request." });
   }
 };
 
-const returnOrderItem = async (req, res, next) => {
+const rejectReturnRequest = async (req, res, next) => {
   try {
-    const { id, itemId } = req.params;
-    const { reason } = req.body;
+    const { id } = req.params;
+    const { rejectionReason } = req.body;
+    const result = await orderService.rejectReturnRequest(id, rejectionReason);
 
-    if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid return reason (at least 3 characters) is mandatory."
-      });
-    }
-
-    const result = await orderService.returnOrderItem(id, itemId, reason);
     if (!result.success) {
       return res.status(400).json(result);
     }
 
     res.json(result);
   } catch (error) {
-    console.error("Admin Return Order Item Error:", error);
-    res.status(500).json({ success: false, message: error.message || "Failed to return item." });
-  }
-};
-
-const downloadInvoice = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const order = await orderService.getAdminOrderById(id);
-
-    if (!order) {
-      return res.status(404).send("Order not found.");
-    }
-
-    generateInvoicePDF(order, res);
-  } catch (error) {
-    console.error("Admin Download Invoice Error:", error);
-    res.status(500).send("Error generating invoice PDF.");
+    console.error("Admin Reject Return Request Error:", error);
+    res.status(500).json({ success: false, message: error.message || "Failed to reject return request." });
   }
 };
 
@@ -169,7 +137,6 @@ export {
   updateOrderStatus,
   cancelOrder,
   cancelOrderItem,
-  returnOrder,
-  returnOrderItem,
-  downloadInvoice
+  approveReturnRequest,
+  rejectReturnRequest
 };
