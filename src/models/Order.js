@@ -10,6 +10,12 @@ const orderItemSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true
   },
+  sku: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ""
+  },
   productName: {
     type: String,
     required: true
@@ -39,6 +45,10 @@ const orderItemSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  offerDiscount: {
+    type: Number,
+    default: 0
+  },
   itemTotal: {
     type: Number,
     required: true
@@ -65,6 +75,31 @@ const orderItemSchema = new mongoose.Schema({
   isStockRestored: {
     type: Boolean,
     default: false
+  },
+  returnRequest: {
+    status: {
+      type: String,
+      enum: ["NONE", "PENDING", "APPROVED", "REJECTED"],
+      default: "NONE"
+    },
+    reason: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    requestedAt: {
+      type: Date,
+      default: null
+    },
+    reviewedAt: {
+      type: Date,
+      default: null
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      default: null
+    }
   }
 });
 
@@ -140,6 +175,12 @@ const orderSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true
+    },
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true
     },
     items: [orderItemSchema],
     shippingAddress: shippingAddressSchema,

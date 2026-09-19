@@ -427,6 +427,11 @@ async function adjustCartQtyAjax(productId, variantId, change) {
         // Update summary fields
         updateCartSummary(data.cartSummary, data.count);
 
+        // Update checkout eligibility
+        if (typeof data.canCheckout === "boolean") {
+            updateCheckoutEligibility(data.canCheckout, data.count);
+        }
+
         // Toast Alert
         if (window.showSuccess) {
             window.showSuccess('Quantity updated successfully!');
@@ -510,6 +515,14 @@ async function removeCartItemAjax(productId, variantId) {
             throw new Error(data.message || "Failed to remove item.");
         }
 
+        // Update summary fields
+        updateCartSummary(data.cartSummary, data.count);
+
+        // Update checkout eligibility immediately
+        if (typeof data.canCheckout === "boolean") {
+            updateCheckoutEligibility(data.canCheckout, data.count);
+        }
+
         // Remove the product card element from the DOM
         const rowEl = document.getElementById(`cart-row-${productId}-${variantId}`);
         if (rowEl) {
@@ -518,12 +531,9 @@ async function removeCartItemAjax(productId, variantId) {
             rowEl.style.transform = 'translateY(10px)';
             setTimeout(() => {
                 rowEl.remove();
-                checkEmptyCartState();
+                checkEmptyCartState(data.canCheckout);
             }, 250);
         }
-
-        // Update summary fields
-        updateCartSummary(data.cartSummary, data.count);
 
         if (window.showSuccess) {
             window.showSuccess('Item removed from cart!');
@@ -577,16 +587,49 @@ function updateCartSummary(summary, totalCount) {
 }
 
 /**
+ * Update checkout button and warning message based on eligibility
+ */
+function updateCheckoutEligibility(canCheckout, totalCount) {
+    if (totalCount === 0) {
+        displayEmptyCartLayout();
+        return;
+    }
+
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    const checkoutWarning = document.getElementById('checkoutWarning');
+
+    if (checkoutBtn) {
+        if (canCheckout) {
+            checkoutBtn.removeAttribute('disabled');
+        } else {
+            checkoutBtn.setAttribute('disabled', 'disabled');
+        }
+    }
+
+    if (checkoutWarning) {
+        checkoutWarning.style.display = canCheckout ? 'none' : 'block';
+    }
+}
+
+/**
  * Check checkout viability based on remaining cards
  */
-function checkEmptyCartState() {
+function checkEmptyCartState(canCheckoutFromServer) {
     const remainingCards = document.querySelectorAll(".cart-item-modern-card");
     if (remainingCards.length === 0) {
         displayEmptyCartLayout();
+        return;
+    }
+
+    if (typeof canCheckoutFromServer === "boolean") {
+        updateCheckoutEligibility(canCheckoutFromServer, remainingCards.length);
     } else {
-        // Also check if any card is out of stock or unlisted to disable/enable checkout trigger
-        // Just reload the page once as a backup, or let the server EJS render handle it cleanly
-        // Better: let EJS handle the layout refresh
+        // Check if any remaining card in DOM has unavailable or out-of-stock badge
+        const hasBlockers = Array.from(remainingCards).some(card => {
+            const dangerBadges = card.querySelectorAll(".badge.bg-danger-subtle");
+            return dangerBadges.length > 0;
+        });
+        updateCheckoutEligibility(!hasBlockers, remainingCards.length);
     }
 }
 

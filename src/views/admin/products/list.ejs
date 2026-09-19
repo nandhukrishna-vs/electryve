@@ -337,7 +337,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         // If a server-side search was active, submit form to clear it
-        if ('<%= search %>' !== '') {
+        if (<%- JSON.stringify(search || '') %> !== '') {
             document.getElementById('searchForm').submit();
         }
     });

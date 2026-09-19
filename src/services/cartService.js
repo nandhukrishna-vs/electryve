@@ -144,6 +144,7 @@ const getCart = async (userId) => {
                 brand: product.brand
             },
             variantId: variant._id,
+            sku: variant.sku || "",
             nameSnapshot: product.name,
             imageSnapshot: (Array.isArray(variant.images) && variant.images.length > 0) ? variant.images[0] : fallbackSvg,
             variantSnapshot: `${variant.color} / ${variant.storage}`,
@@ -191,8 +192,9 @@ const getCart = async (userId) => {
  */
 const addToCart = async (userId, productId, variantId, quantity = 1) => {
     try {
-        if (quantity < 1 || quantity > MAX_CART_QUANTITY) {
-            return { success: false, message: `Quantity must be between 1 and ${MAX_CART_QUANTITY}.` };
+        const parsedQty = Number(quantity);
+        if (!Number.isInteger(parsedQty) || parsedQty < 1 || parsedQty > MAX_CART_QUANTITY) {
+            return { success: false, message: `Quantity must be an integer between 1 and ${MAX_CART_QUANTITY}.` };
         }
 
         // 1. Run centralized validation checks
@@ -208,7 +210,7 @@ const addToCart = async (userId, productId, variantId, quantity = 1) => {
             return { success: false, message: "This product variant is out of stock." };
         }
 
-        if (quantity > variant.stock) {
+        if (parsedQty > variant.stock) {
             return { success: false, message: `Only ${variant.stock} items are available in stock.` };
         }
 
@@ -226,7 +228,7 @@ const addToCart = async (userId, productId, variantId, quantity = 1) => {
         const variantImg = (Array.isArray(variant.images) && variant.images.length > 0) ? variant.images[0] : fallbackSvg;
 
         if (existingItem) {
-            const newQty = existingItem.quantity + quantity;
+            const newQty = existingItem.quantity + parsedQty;
             
             // Stock limits checks
             if (newQty > variant.stock) {
@@ -244,14 +246,14 @@ const addToCart = async (userId, productId, variantId, quantity = 1) => {
             existingItem.imageSnapshot = variantImg;
             existingItem.variantSnapshot = variantName;
         } else {
-            if (quantity > MAX_CART_QUANTITY) {
+            if (parsedQty > MAX_CART_QUANTITY) {
                 return { success: false, message: `You can only add a maximum of ${MAX_CART_QUANTITY} units of this item to your cart.` };
             }
             
             cart.items.push({
                 product: productId,
                 variantId: variantId,
-                quantity: quantity,
+                quantity: parsedQty,
                 priceSnapshot: variant.salePrice,
                 nameSnapshot: product.name,
                 imageSnapshot: variantImg,
@@ -281,8 +283,9 @@ const addToCart = async (userId, productId, variantId, quantity = 1) => {
  */
 const updateQuantity = async (userId, productId, variantId, quantity) => {
     try {
-        if (quantity < 1 || quantity > MAX_CART_QUANTITY) {
-            return { success: false, message: `Quantity must be between 1 and ${MAX_CART_QUANTITY}.` };
+        const parsedQty = Number(quantity);
+        if (!Number.isInteger(parsedQty) || parsedQty < 1 || parsedQty > MAX_CART_QUANTITY) {
+            return { success: false, message: `Quantity must be an integer between 1 and ${MAX_CART_QUANTITY}.` };
         }
 
         // 1. Run centralized validation checks
@@ -298,7 +301,7 @@ const updateQuantity = async (userId, productId, variantId, quantity) => {
             return { success: false, message: "This variant is currently out of stock." };
         }
 
-        if (quantity > variant.stock) {
+        if (parsedQty > variant.stock) {
             return { success: false, message: `Only ${variant.stock} items are available in stock.` };
         }
 
@@ -315,7 +318,7 @@ const updateQuantity = async (userId, productId, variantId, quantity) => {
             return { success: false, message: "Cart item not found." };
         }
 
-        item.quantity = quantity;
+        item.quantity = parsedQty;
         item.priceSnapshot = variant.salePrice; // Sync current price snapshot
         await cart.save();
 
@@ -325,8 +328,9 @@ const updateQuantity = async (userId, productId, variantId, quantity) => {
         return {
             success: true,
             count,
+            canCheckout: refreshedCart.canCheckout,
             cartSummary: refreshedCart.cartSummary,
-            itemTotal: quantity * variant.salePrice
+            itemTotal: parsedQty * variant.salePrice
         };
     } catch (error) {
         console.error("Cart Update Error:", error);
@@ -356,6 +360,7 @@ const removeItem = async (userId, productId, variantId) => {
         return {
             success: true,
             count,
+            canCheckout: refreshedCart.canCheckout,
             cartSummary: refreshedCart.cartSummary
         };
     } catch (error) {

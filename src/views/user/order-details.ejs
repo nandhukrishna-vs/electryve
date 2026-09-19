@@ -113,8 +113,8 @@
                     <span>Download Invoice</span>
                 </a>
 
-                <!-- Pre-Delivery Order Cancellation -->
-                <% if (order.orderStatus === 'PLACED' || order.orderStatus === 'SHIPPED' || order.orderStatus === 'OUT_FOR_DELIVERY') { %>
+                <!-- Pre-Delivery Order Cancellation: Allowed ONLY while PLACED -->
+                <% if (order.orderStatus === 'PLACED') { %>
                     <button type="button" class="btn btn-outline-danger btn-sm rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm" onclick="promptCancelOrder('<%= order._id %>')">
                         <i class="bi bi-x-circle"></i>
                         <span>Cancel Order</span>
@@ -217,11 +217,55 @@
                                         <span><%= item.variantDetails %></span>
                                         <span>•</span>
                                         <span>Qty: <%= item.quantity %></span>
+                                        <% if (item.itemStatus === 'CANCELLED') { %>
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">CANCELLED</span>
+                                        <% } else if (item.itemStatus === 'RETURNED') { %>
+                                            <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">RETURNED</span>
+                                        <% } else if (item.returnRequest && item.returnRequest.status === 'PENDING') { %>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">
+                                                <i class="bi bi-clock-history me-0.5"></i>Return Requested
+                                            </span>
+                                        <% } else if (item.returnRequest && item.returnRequest.status === 'REJECTED') { %>
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">
+                                                <i class="bi bi-x-circle me-0.5"></i>Return Rejected
+                                            </span>
+                                        <% } %>
                                     </div>
+                                    <% if (item.returnRequest && item.returnRequest.status === 'REJECTED' && item.returnRequest.rejectionReason) { %>
+                                        <div class="text-danger small mt-1" style="font-size: 0.72rem;">
+                                            <i class="bi bi-info-circle me-1"></i>Rejection reason: "<%= item.returnRequest.rejectionReason %>"
+                                        </div>
+                                    <% } %>
+                                    <% if (item.cancellationReason) { %>
+                                        <div class="text-secondary small mt-0.5" style="font-size: 0.72rem;">
+                                            <i class="bi bi-info-circle me-1"></i>Cancelled: <%= item.cancellationReason %>
+                                        </div>
+                                    <% } %>
                                 </div>
                                 <div class="text-dark fw-bold text-end flex-shrink-0 details-price-block small">
                                     ₹<%= item.itemTotal.toLocaleString() %>
-                                    <div class="text-secondary small fw-normal" style="font-size: 0.75rem;">₹<%= item.salePrice.toLocaleString() %> each</div>
+                                    <div class="text-secondary small fw-normal mb-2" style="font-size: 0.75rem;">₹<%= item.salePrice.toLocaleString() %> each</div>
+
+                                    <!-- Item-level Actions -->
+                                    <% if (order.orderStatus === 'PLACED' && item.itemStatus === 'ACTIVE') { %>
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-danger btn-sm rounded-3 py-1 px-2 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                                            style="font-size: 0.75rem;"
+                                            onclick='promptCancelItem("<%= order._id %>", "<%= item._id %>", <%- JSON.stringify(item.productName) %>)'>
+                                            Cancel Item
+                                        </button>
+                                    <% } else if (order.orderStatus === 'DELIVERED' && item.itemStatus === 'ACTIVE') { %>
+                                        <% if (!item.returnRequest || item.returnRequest.status === 'NONE') { %>
+                                            <button
+                                                type="button"
+                                                class="btn btn-outline-warning btn-sm rounded-3 py-1 px-2 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                                                style="font-size: 0.75rem;"
+                                                onclick='promptReturnItem("<%= order._id %>", "<%= item._id %>", <%- JSON.stringify(item.productName) %>)'>
+                                                Request Return
+                                            </button>
+                                        <% } %>
+                                    <% } %>
                                 </div>
                             </div>
                         <% }) %>
@@ -431,6 +475,150 @@ async function promptCancelOrder(orderId) {
         }
     } catch (err) {
         console.error("Cancel order error:", err);
+        Swal.fire({
+            icon: "error",
+            title: "Network Error",
+            text: "Failed to communicate with server. Please try again."
+        });
+    }
+}
+
+/**
+ * Prompt for optional cancellation reason and submit AJAX PATCH request to cancel a single item
+ */
+async function promptCancelItem(orderId, itemId, productName) {
+    const { value: reason, isConfirmed } = await Swal.fire({
+        title: "Cancel Item?",
+        text: `Are you sure you want to cancel "${productName}" from this order? This action cannot be undone.`,
+        input: "textarea",
+        inputPlaceholder: "Reason for item cancellation (optional)...",
+        inputAttributes: {
+            "aria-label": "Reason for cancellation (optional)",
+            maxlength: 500,
+            rows: 3
+        },
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Confirm Cancellation",
+        cancelButtonText: "Keep Item"
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+        Swal.fire({
+            title: "Cancelling Item...",
+            text: "Processing cancellation and restoring stock, please wait.",
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const res = await fetch(`/order/${orderId}/items/${itemId}/cancel`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ reason: (reason || "").trim() })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Item Cancelled",
+                text: data.message || "Item cancelled successfully.",
+                timer: 1800,
+                showConfirmButton: false
+            });
+            window.location.reload();
+        } else {
+            Swal.fire({
+                icon: "error",
+                title: "Cancellation Failed",
+                text: data.message || "Could not cancel item."
+            });
+        }
+    } catch (err) {
+        console.error("Cancel item error:", err);
+        Swal.fire({
+            icon: "error",
+            title: "Network Error",
+            text: "Failed to communicate with server. Please try again."
+        });
+    }
+}
+
+/**
+ * Prompt for return reason and submit AJAX PATCH request to submit an item return request
+ */
+async function promptReturnItem(orderId, itemId, productName) {
+    const { value: reason, isConfirmed } = await Swal.fire({
+        title: "Request Item Return",
+        text: `Please provide a reason for returning "${productName}". Your request will be submitted for admin review:`,
+        input: "textarea",
+        inputPlaceholder: "Please provide a reason for returning this item.",
+        inputAttributes: {
+            "aria-label": "Please provide a reason for returning this item",
+            maxlength: 500,
+            rows: 3
+        },
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Submit Return Request",
+        cancelButtonText: "Cancel",
+        inputValidator: (value) => {
+            if (!value || value.trim().length < 3) {
+                return "A valid return reason (at least 3 characters) is required!";
+            }
+        }
+    });
+
+    if (!isConfirmed || !reason) return;
+
+    try {
+        Swal.fire({
+            title: "Submitting Request...",
+            text: "Sending your return request for review, please wait.",
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const res = await fetch(`/order/${orderId}/items/${itemId}/return`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ reason: reason.trim() })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Return Request Submitted",
+                text: data.message || "Your return request has been submitted for review.",
+                timer: 2000,
+                showConfirmButton: false
+            });
+            window.location.reload();
+        } else {
+            Swal.fire({
+                icon: "error",
+                title: "Request Failed",
+                text: data.message || "Could not submit your return request."
+            });
+        }
+    } catch (err) {
+        console.error("Return item error:", err);
         Swal.fire({
             icon: "error",
             title: "Network Error",

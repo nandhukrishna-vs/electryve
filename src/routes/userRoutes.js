@@ -40,9 +40,9 @@ router.get("/", loadHome);
 
 router.get("/profile", isLoggedIn, loadProfile);
 
-router.get("/shop", productController.loadShop);
-router.get("/shop/data", productController.getShopProductsData);
-router.get("/product/:id", productController.loadProductDetails);
+router.get("/shop",productController.loadShop);
+router.get("/shop/data",isLoggedIn, productController.getShopProductsData);
+router.get("/product/:id",isLoggedIn, productController.loadProductDetails);
 
 // Cart Routes
 router.get("/cart", isLoggedIn, cartController.loadCart);
@@ -138,6 +138,8 @@ router.get("/orders", isLoggedIn, orderController.loadUserOrders);
 router.get("/order/:id", isLoggedIn, orderController.loadOrderDetails);
 router.get("/order/:id/invoice", isLoggedIn, orderController.downloadInvoice);
 router.patch("/order/:id/cancel", isLoggedIn, orderController.cancelOrder);
+router.patch("/order/:id/items/:itemId/cancel", isLoggedIn, orderController.cancelOrderItem);
 router.patch("/order/:id/return", isLoggedIn, orderController.returnOrder);
+router.patch("/order/:id/items/:itemId/return", isLoggedIn, orderController.requestReturnItem);
 
 export default router;

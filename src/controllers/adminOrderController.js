@@ -118,7 +118,15 @@ const rejectReturnRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { rejectionReason } = req.body;
-    const result = await orderService.rejectReturnRequest(id, rejectionReason);
+
+    if (!rejectionReason || typeof rejectionReason !== "string" || rejectionReason.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid rejection reason (at least 3 characters) is required."
+      });
+    }
+
+    const result = await orderService.rejectReturnRequest(id, rejectionReason.trim());
 
     if (!result.success) {
       return res.status(400).json(result);
@@ -131,6 +139,47 @@ const rejectReturnRequest = async (req, res, next) => {
   }
 };
 
+const approveReturnItemRequest = async (req, res, next) => {
+  try {
+    const { id, itemId } = req.params;
+    const result = await orderService.approveReturnItemRequest(id, itemId);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Admin Approve Return Item Request Error:", error);
+    res.status(500).json({ success: false, message: error.message || "Failed to approve return request." });
+  }
+};
+
+const rejectReturnItemRequest = async (req, res, next) => {
+  try {
+    const { id, itemId } = req.params;
+    const { rejectionReason } = req.body;
+
+    if (!rejectionReason || typeof rejectionReason !== "string" || rejectionReason.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid rejection reason (at least 3 characters) is required."
+      });
+    }
+
+    const result = await orderService.rejectReturnItemRequest(id, itemId, rejectionReason.trim());
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Admin Reject Return Item Request Error:", error);
+    res.status(500).json({ success: false, message: error.message || "Failed to reject return request." });
+  }
+};
+
 export {
   loadAdminOrders,
   loadAdminOrderDetails,
@@ -138,5 +187,7 @@ export {
   cancelOrder,
   cancelOrderItem,
   approveReturnRequest,
-  rejectReturnRequest
+  rejectReturnRequest,
+  approveReturnItemRequest,
+  rejectReturnItemRequest
 };

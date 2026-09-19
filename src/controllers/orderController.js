@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import mongoose from "mongoose";
 import * as cartService from "../services/cartService.js";
 import * as orderService from "../services/orderService.js";
@@ -5,6 +6,8 @@ import { validateUserCoupon } from "../services/couponService.js";
 import { generateInvoicePDF } from "../utils/invoiceGenerator.js";
 import Address from "../models/Address.js";
 import Order from "../models/Order.js";
+
+const activeOrderPlacements = new Set();
 
 const loadCheckout = async (req, res, next) => {
   try {
@@ -47,13 +50,17 @@ const loadCheckout = async (req, res, next) => {
       }
     }
 
+    // Generate unique checkout attempt ID for this initialization
+    const checkoutAttemptId = crypto.randomUUID();
+
     res.render("user/checkout", {
       layout: "layouts/user-layout",
       title: "Checkout",
       cart,
       addresses,
       defaultAddress,
-      appliedCoupon
+      appliedCoupon,
+      checkoutAttemptId
     });
   } catch (error) {
     next(error);
@@ -276,16 +283,27 @@ const removeCoupon = async (req, res, next) => {
 };
 
 const placeCODOrder = async (req, res, next) => {
+  const userId = req.session.user.id;
+  const { addressId, checkoutAttemptId, idempotencyKey } = req.body;
+
+  if (!addressId) {
+    return res.status(400).json({ success: false, message: "Please select a delivery address." });
+  }
+
+  const effectiveIdempotencyKey = checkoutAttemptId || idempotencyKey || req.headers["idempotency-key"] || null;
+  const lockKey = `${userId.toString()}_${effectiveIdempotencyKey || "default"}`;
+
+  if (activeOrderPlacements.has(lockKey)) {
+    return res.status(409).json({
+      success: false,
+      message: "An order placement request is already being processed. Please wait."
+    });
+  }
+
+  activeOrderPlacements.add(lockKey);
   try {
-    const userId = req.session.user.id;
-    const { addressId } = req.body;
-
-    if (!addressId) {
-      return res.status(400).json({ success: false, message: "Please select a delivery address." });
-    }
-
     const couponCode = req.session.appliedCoupon?.code || null;
-    const result = await orderService.createCODOrder(userId, addressId, couponCode);
+    const result = await orderService.createCODOrder(userId, addressId, couponCode, effectiveIdempotencyKey);
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -296,6 +314,8 @@ const placeCODOrder = async (req, res, next) => {
     res.json(result);
   } catch (error) {
     next(error);
+  } finally {
+    activeOrderPlacements.delete(lockKey);
   }
 };
 
@@ -476,12 +496,11 @@ const cancelOrder = async (req, res, next) => {
       });
     }
 
-    // User can cancel only before delivery
-    const cancellableStatuses = ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY"];
-    if (!cancellableStatuses.includes(order.orderStatus)) {
+    // User can cancel only while PLACED
+    if (order.orderStatus !== "PLACED") {
       return res.status(400).json({
         success: false,
-        message: `Cannot cancel an order with status "${order.orderStatus}". Orders can only be cancelled before delivery.`
+        message: `Cannot cancel an order with status "${order.orderStatus}". Orders can only be cancelled while PLACED.`
       });
     }
 
@@ -510,6 +529,131 @@ const cancelOrder = async (req, res, next) => {
   }
 };
 
+const cancelOrderItem = async (req, res, next) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "You must be logged in to cancel an order item."
+      });
+    }
+
+    const userId = req.session.user.id;
+    const { id: orderId, itemId } = req.params;
+    const { reason } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order or item ID."
+      });
+    }
+
+    // Strictly verify ownership by matching BOTH order ID and user ID
+    const order = await Order.findOne({
+      _id: orderId,
+      user: userId
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found."
+      });
+    }
+
+    if (order.orderStatus !== "PLACED") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel an item from an order with status "${order.orderStatus}". Items can only be cancelled while the order is PLACED.`
+      });
+    }
+
+    const item = order.items.id(itemId);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found in this order."
+      });
+    }
+
+    if (item.itemStatus !== "ACTIVE" || item.isStockRestored) {
+      return res.status(400).json({
+        success: false,
+        message: `Item is already ${item.itemStatus.toLowerCase()}.`
+      });
+    }
+
+    const cancellationReason = (typeof reason === "string" && reason.trim().length > 0)
+      ? reason.trim()
+      : "Cancelled by User";
+
+    const result = await orderService.cancelOrderItem(orderId, itemId, cancellationReason);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.json({
+      success: true,
+      message: result.message || "Item cancelled successfully.",
+      order: result.order
+    });
+  } catch (error) {
+    console.error("User Cancel Order Item Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred while cancelling your item."
+    });
+  }
+};
+
+const requestReturnItem = async (req, res, next) => {
+  try {
+    if (!req.session?.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "You must be logged in to request an item return."
+      });
+    }
+
+    const userId = req.session.user.id;
+    const { id: orderId, itemId } = req.params;
+    const { reason } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order or item ID."
+      });
+    }
+
+    if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid return reason (at least 3 characters) is mandatory."
+      });
+    }
+
+    const result = await orderService.requestReturnItem(orderId, userId, itemId, reason.trim());
+    if (!result.success) {
+      const statusCode = result.message === "Order not found." || result.message === "Item not found in this order." ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json({
+      success: true,
+      message: result.message || "Item return request submitted successfully.",
+      order: result.order
+    });
+  } catch (error) {
+    console.error("User Request Return Item Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred while submitting your return request."
+    });
+  }
+};
+
 export {
   loadCheckout,
   addCheckoutAddress,
@@ -523,5 +667,7 @@ export {
   loadOrderDetails,
   returnOrder,
   downloadInvoice,
-  cancelOrder
+  cancelOrder,
+  cancelOrderItem,
+  requestReturnItem
 };

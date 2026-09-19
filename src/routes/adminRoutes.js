@@ -40,6 +40,8 @@ router.patch("/orders/:id/cancel", isAdmin, adminOrderController.cancelOrder);
 router.patch("/orders/:id/items/:itemId/cancel", isAdmin, adminOrderController.cancelOrderItem);
 router.patch("/orders/:id/return/approve", isAdmin, adminOrderController.approveReturnRequest);
 router.patch("/orders/:id/return/reject", isAdmin, adminOrderController.rejectReturnRequest);
+router.patch("/orders/:id/items/:itemId/return/approve", isAdmin, adminOrderController.approveReturnItemRequest);
+router.patch("/orders/:id/items/:itemId/return/reject", isAdmin, adminOrderController.rejectReturnItemRequest);
 
 // Inventory Management Routes
 router.get("/inventory", isAdmin, inventoryController.loadInventory);

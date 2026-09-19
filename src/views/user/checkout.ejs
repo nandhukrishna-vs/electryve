@@ -132,7 +132,8 @@
                                         <span class="text-secondary small" style="font-size: 0.75rem;"><i class="bi bi-telephone-fill"></i> <%= addr.phone %></span>
                                         <div class="d-flex gap-2">
                                             <button type="button" class="btn btn-link text-decoration-none text-dark p-0 small fw-semibold" style="font-size: 0.75rem;"
-                                                    onclick="event.stopPropagation(); openEditAddressModal('<%= JSON.stringify(addr) %>')">
+                                                    data-address="<%- JSON.stringify(addr).replace(/"/g, '&quot;') %>"
+                                                    onclick="event.stopPropagation(); openEditAddressModal(this.dataset.address)">
                                                 Edit
                                             </button>
                                             <% if (!addr.isDefault) { %>
@@ -282,6 +283,7 @@
                         <span id="summaryGrandTotal">₹<%= ((typeof appliedCoupon !== 'undefined' && appliedCoupon) ? Math.max(0, cart.cartSummary.grandTotal - appliedCoupon.discountAmount) : cart.cartSummary.grandTotal).toLocaleString() %></span>
                     </div>
 
+                    <input type="hidden" id="checkoutAttemptId" value="<%= typeof checkoutAttemptId !== 'undefined' ? checkoutAttemptId : '' %>">
                     <button type="button" class="btn btn-dark w-100 rounded-3 py-2.5 fw-bold shadow-sm"
                             id="btnPlaceCODOrder"
                             <%= (!addresses || addresses.length === 0) ? 'disabled' : '' %>
@@ -927,15 +929,16 @@ function placeOrder() {
     }
 
     const addressId = radio.value;
+    const checkoutAttemptId = document.getElementById("checkoutAttemptId")?.value || "";
     const btn = document.getElementById("btnPlaceCODOrder");
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
 
     fetch("/checkout/place-order", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({ addressId })
+        body: JSON.stringify({ addressId, checkoutAttemptId })
     })
     .then(res => res.json())
     .then(data => {

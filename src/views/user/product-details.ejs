@@ -773,13 +773,13 @@ document.addEventListener("DOMContentLoaded", function() {
                     `Storage configuration: ${variant.storage || 'Standard'}`
                 ];
                 <% if (product.specifications?.display) { %>
-                    lists.push(`Display parameters: <%= product.specifications.display %>`);
+                    lists.push("Display parameters: " + <%- JSON.stringify(product.specifications.display) %>);
                 <% } %>
                 <% if (product.specifications?.camera) { %>
-                    lists.push(`Camera configuration: <%= product.specifications.camera %>`);
+                    lists.push("Camera configuration: " + <%- JSON.stringify(product.specifications.camera) %>);
                 <% } %>
                 <% if (product.specifications?.battery) { %>
-                    lists.push(`Battery details: <%= product.specifications.battery %>`);
+                    lists.push("Battery details: " + <%- JSON.stringify(product.specifications.battery) %>);
                 <% } %>
 
                 lists.forEach(item => {
