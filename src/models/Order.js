@@ -218,7 +218,7 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["COD"],
+      enum: ["COD", "RAZORPAY"],
       default: "COD"
     },
     paymentStatus: {
@@ -226,6 +226,28 @@ const orderSchema = new mongoose.Schema(
       required: true,
       enum: ["PENDING", "COMPLETED", "FAILED"],
       default: "PENDING"
+    },
+    razorpayOrderId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true
+    },
+    razorpayPaymentId: {
+      type: String,
+      trim: true,
+      sparse: true
+    },
+    razorpaySignature: {
+      type: String,
+      trim: true
+    },
+    paymentVerifiedAt: {
+      type: Date
+    },
+    paymentFailureReason: {
+      type: String,
+      default: ""
     },
     orderStatus: {
       type: String,

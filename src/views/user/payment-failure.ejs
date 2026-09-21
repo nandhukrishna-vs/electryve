@@ -1,0 +1,106 @@
+<style>
+    .failure-section-wrapper {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #f8f9fa;
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+    }
+    .failure-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+    }
+    .failure-icon-box {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+    }
+    .failure-icon-box.declined {
+        background-color: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fee2e2;
+    }
+    .failure-icon-box.blocked {
+        background-color: #fffbeb;
+        color: #d97706;
+        border: 1px solid #fef3c7;
+    }
+    .info-box {
+        background-color: #f9fafb;
+        border: 1px solid #f3f4f6;
+        border-radius: 12px;
+    }
+</style>
+
+<div class="failure-section-wrapper py-5">
+    <div class="container" style="max-width: 1400px; margin: 0 auto; width: 100%;">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card failure-card shadow-sm p-4.5 p-md-5 text-center mx-auto" style="max-width: 550px;">
+                    <% if (isFulfillmentBlocked) { %>
+                        <!-- Blocked / Requires Reconciliation Icon -->
+                        <div class="failure-icon-box blocked shadow-sm">
+                            <i class="bi bi-exclamation-triangle-fill fs-2"></i>
+                        </div>
+                        <h3 class="fw-bold text-dark mb-2">Order Fulfillment Notice</h3>
+                        <p class="text-secondary small mb-4">
+                            Your payment was authorized and captured, but the requested product could not be fulfilled (e.g. stock ran out).
+                        </p>
+                    <% } else { %>
+                        <!-- Failure / Declined Icon -->
+                        <div class="failure-icon-box declined shadow-sm">
+                            <i class="bi bi-x-circle-fill fs-2"></i>
+                        </div>
+                        <h3 class="fw-bold text-dark mb-2">Payment Incomplete</h3>
+                        <p class="text-secondary small mb-4">
+                            We could not complete your online transaction. Your card/account was not charged, or the payment was cancelled.
+                        </p>
+                    <% } %>
+
+                    <!-- Summary Box -->
+                    <div class="info-box p-3.5 text-start mb-4" style="font-size: 0.9rem;">
+                        <% if (razorpayOrderId) { %>
+                            <div class="row mb-2">
+                                <div class="col-6 text-secondary">Gateway Reference</div>
+                                <div class="col-6 text-dark fw-bold text-end"><%= razorpayOrderId %></div>
+                            </div>
+                        <% } %>
+                        <% if (isFulfillmentBlocked && capturedAmount) { %>
+                            <div class="row mb-2">
+                                <div class="col-6 text-secondary">Captured Amount</div>
+                                <div class="col-6 text-dark fw-bold text-end">₹<%= (capturedAmount / 100).toFixed(2) %></div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6 text-secondary">Refund Status</div>
+                                <div class="col-6 text-warning-emphasis fw-bold text-end">Scheduled for Refund</div>
+                            </div>
+                        <% } %>
+                        <div class="row mb-2">
+                            <div class="col-6 text-secondary">Reason</div>
+                            <div class="col-6 text-danger small text-end"><%= failureReason %></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 text-secondary">Cart Status</div>
+                            <div class="col-6 text-success fw-medium text-end">Items Preserved in Cart</div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                        <a href="/checkout" class="btn btn-dark rounded-3 px-4 py-2 fw-semibold shadow-sm flex-grow-1">
+                            <i class="bi bi-arrow-repeat me-1"></i> Retry Checkout
+                        </a>
+                        <a href="/shop" class="btn btn-outline-dark rounded-3 px-4 py-2 fw-semibold flex-grow-1">
+                            Continue Shopping <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -158,12 +158,21 @@
 
                 <div class="card checkout-card shadow-sm p-4">
                     <h5 class="fw-bold text-dark mb-3">2. Payment Method</h5>
-                    <div class="border rounded-3 p-3 bg-light d-flex align-items-center gap-3">
-                        <input type="radio" class="form-check-input" checked disabled>
-                        <div>
-                            <span class="fw-bold text-dark d-block small">Cash on Delivery (COD)</span>
-                            <span class="text-secondary small" style="font-size: 0.75rem;">Pay with cash upon package receipt.</span>
-                        </div>
+                    <div class="d-flex flex-column gap-2.5">
+                        <label class="border rounded-3 p-3 bg-light d-flex align-items-center gap-3 cursor-pointer" for="paymentMethodCOD" style="cursor: pointer;">
+                            <input type="radio" class="form-check-input mt-0" id="paymentMethodCOD" name="paymentMethodRadio" value="COD" checked onchange="handlePaymentMethodChange('COD')">
+                            <div>
+                                <span class="fw-bold text-dark d-block small">Cash on Delivery (COD)</span>
+                                <span class="text-secondary small" style="font-size: 0.75rem;">Pay with cash upon package receipt.</span>
+                            </div>
+                        </label>
+                        <label class="border rounded-3 p-3 bg-light d-flex align-items-center gap-3 cursor-pointer" for="paymentMethodOnline" style="cursor: pointer;">
+                            <input type="radio" class="form-check-input mt-0" id="paymentMethodOnline" name="paymentMethodRadio" value="RAZORPAY" onchange="handlePaymentMethodChange('RAZORPAY')">
+                            <div>
+                                <span class="fw-bold text-dark d-block small">Online Payment (Razorpay)</span>
+                                <span class="text-secondary small" style="font-size: 0.75rem;">Pay securely using UPI, Cards, NetBanking, or Wallets.</span>
+                            </div>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -287,7 +296,7 @@
                     <button type="button" class="btn btn-dark w-100 rounded-3 py-2.5 fw-bold shadow-sm"
                             id="btnPlaceCODOrder"
                             <%= (!addresses || addresses.length === 0) ? 'disabled' : '' %>
-                            onclick="placeOrder()">
+                            onclick="handleOrderAction()">
                         Place Order (Cash on Delivery)
                     </button>
                 </div>
@@ -396,6 +405,7 @@
     </div>
 </div>
 
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
 let addressModalInstance = null;
 let addressFormSubmitted = false;
@@ -968,6 +978,192 @@ function placeOrder() {
             icon: 'error',
             title: 'Error',
             text: 'An error occurred while placing your order.'
+        });
+    });
+}
+
+let selectedPaymentMethod = "COD";
+
+function handlePaymentMethodChange(method) {
+    selectedPaymentMethod = method;
+    const btn = document.getElementById("btnPlaceCODOrder");
+    if (!btn) return;
+    if (method === "RAZORPAY") {
+        btn.textContent = "Pay Securely";
+    } else {
+        btn.textContent = "Place Order (Cash on Delivery)";
+    }
+}
+
+function handleOrderAction() {
+    if (selectedPaymentMethod === "RAZORPAY") {
+        initiateRazorpayPayment();
+    } else {
+        placeOrder();
+    }
+}
+
+function initiateRazorpayPayment() {
+    const radio = document.querySelector("input[name='checkoutAddressRadio']:checked");
+    if (!radio) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'No Address Selected',
+            text: 'Please select a delivery address.'
+        });
+        return;
+    }
+
+    const addressId = radio.value;
+    const checkoutAttemptId = document.getElementById("checkoutAttemptId")?.value || "";
+    const btn = document.getElementById("btnPlaceCODOrder");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Initiating Payment...';
+    }
+
+    fetch("/payment/create-order", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ addressId, checkoutAttemptId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Pay Securely";
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Checkout Error',
+                text: data.message || "Failed to initialize payment."
+            });
+            return;
+        }
+
+        if (data.isAlreadyFinalized && data.orderNumber) {
+            window.location.href = `/checkout/success?orderNumber=${data.orderNumber}`;
+            return;
+        }
+
+        const options = {
+            key: data.keyId,
+            amount: data.amount,
+            currency: data.currency || "INR",
+            name: "Electryve",
+            description: "Order Payment",
+            order_id: data.orderId,
+            prefill: data.prefill || {},
+            theme: {
+                color: "#111827"
+            },
+            handler: function (response) {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Verifying Payment...';
+                }
+
+                fetch("/payment/verify", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_signature: response.razorpay_signature,
+                        checkoutAttemptId
+                    })
+                })
+                .then(res => res.json())
+                .then(verifyData => {
+                    if (verifyData.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Payment Successful!',
+                            text: 'Your payment was verified and your order has been placed.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = `/checkout/success?orderNumber=${verifyData.orderNumber}`;
+                        });
+                    } else if (verifyData.status === "FULFILLMENT_BLOCKED") {
+                        window.location.href = `/payment/failure?orderId=${encodeURIComponent(response.razorpay_order_id)}&attemptId=${encodeURIComponent(checkoutAttemptId)}`;
+                    } else {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = "Pay Securely";
+                        }
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Payment Verification Failed',
+                            text: verifyData.message || "Payment could not be verified."
+                        });
+                    }
+                })
+                .catch(err => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = "Pay Securely";
+                    }
+                    console.error("Verification Error:", err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Verification Error',
+                        text: 'An error occurred while verifying your payment.'
+                    });
+                });
+            },
+            modal: {
+                ondismiss: function () {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = "Pay Securely";
+                    }
+                    fetch("/payment/failure", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            razorpay_order_id: data.orderId,
+                            failureReason: "Payment cancelled by user"
+                        })
+                    }).catch(() => {});
+                }
+            }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on("payment.failed", function (failResponse) {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Pay Securely";
+            }
+            fetch("/payment/failure", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    razorpay_order_id: data.orderId,
+                    failureReason: failResponse.error?.description || "Payment failed at gateway"
+                })
+            }).catch(() => {});
+
+            window.location.href = `/payment/failure?orderId=${encodeURIComponent(data.orderId)}&attemptId=${encodeURIComponent(checkoutAttemptId)}`;
+        });
+        rzp.open();
+    })
+    .catch(err => {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Pay Securely";
+        }
+        console.error("Initiate Payment Error:", err);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An unexpected error occurred while setting up your payment.'
         });
     });
 }

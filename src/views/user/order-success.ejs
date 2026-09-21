@@ -55,7 +55,7 @@
                         </div>
                         <div class="row mb-2">
                             <div class="col-6 text-secondary">Payment Method</div>
-                            <div class="col-6 text-dark fw-medium text-end">Cash on Delivery (COD)</div>
+                            <div class="col-6 text-dark fw-medium text-end"><%= order.paymentMethod === 'RAZORPAY' ? 'Online Payment (Razorpay)' : 'Cash on Delivery (COD)' %></div>
                         </div>
                         <div class="row">
                             <div class="col-6 text-secondary">Order Status</div>

@@ -23,6 +23,7 @@ import categoryRoutes from "./src/routes/categoryRoutes.js";
 
 import brandRoutes from "./src/routes/brandRoutes.js";
 import productRoutes from "./src/routes/productRoutes.js";
+import paymentRoutes from "./src/routes/paymentRoutes.js";
 
 import {
   routeNotFound,
@@ -37,6 +38,9 @@ const app = express();
 
 // Database Connection
 connectDB();
+
+// Route-specific raw body parser for Razorpay webhook (captures exact raw Buffer)
+app.use("/payment/webhook/razorpay", express.raw({ type: "application/json" }));
 
 // Body Parsers
 app.use(express.urlencoded({ extended: true }));
@@ -81,6 +85,7 @@ app.use(globalMiddleware);
 
 // Routes
 app.use("/auth", authRoutes);
+app.use("/payment", paymentRoutes);
 app.use("/", userRoutes);
 app.use("/", reviewRoutes);
 app.use("/admin", adminRoutes);
