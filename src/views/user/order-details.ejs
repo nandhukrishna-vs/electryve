@@ -219,8 +219,18 @@
                                         <span>Qty: <%= item.quantity %></span>
                                         <% if (item.itemStatus === 'CANCELLED') { %>
                                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">CANCELLED</span>
+                                            <% if (item.refundAmount && item.refundAmount > 0) { %>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-wallet2 me-1"></i>Refunded ₹<%= item.refundAmount.toLocaleString() %> to Wallet
+                                                </span>
+                                            <% } %>
                                         <% } else if (item.itemStatus === 'RETURNED') { %>
                                             <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">RETURNED</span>
+                                            <% if (item.refundAmount && item.refundAmount > 0) { %>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-wallet2 me-1"></i>Refunded ₹<%= item.refundAmount.toLocaleString() %> to Wallet
+                                                </span>
+                                            <% } %>
                                         <% } else if (item.returnRequest && item.returnRequest.status === 'PENDING') { %>
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">
                                                 <i class="bi bi-clock-history me-0.5"></i>Return Requested
@@ -327,11 +337,43 @@
                         <span>₹<%= order.finalAmount.toLocaleString() %></span>
                     </div>
 
-                    <div class="border rounded-3 p-3 bg-light text-center small">
+                    <div class="border rounded-3 p-3 bg-light text-center small mb-3">
                         <span class="text-secondary d-block mb-1">Payment Method</span>
-                        <strong class="text-dark text-uppercase"><%= order.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : order.paymentMethod %></strong>
-                        <div class="text-warning-emphasis fw-bold mt-1.5">Status: <%= order.paymentStatus %></div>
+                        <strong class="text-dark">
+                            <% if (order.paymentMethod === 'COD') { %>
+                                Cash on Delivery (COD)
+                            <% } else if (order.paymentMethod === 'WALLET') { %>
+                                <i class="bi bi-wallet2 me-1 text-primary"></i> Electryve Wallet
+                            <% } else if (order.paymentMethod === 'RAZORPAY') { %>
+                                <i class="bi bi-credit-card me-1 text-primary"></i> Online Payment (Razorpay)
+                            <% } else { %>
+                                <%= order.paymentMethod %>
+                            <% } %>
+                        </strong>
+                        <div class="fw-bold mt-1.5 <%= (order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED') ? 'text-success' : (order.paymentStatus === 'FAILED' ? 'text-danger' : 'text-warning-emphasis') %>">
+                            Status: <%= order.paymentStatus %>
+                        </div>
                     </div>
+
+                    <% if (order.refundAmount && order.refundAmount > 0) { %>
+                        <div class="border border-success-subtle rounded-3 p-3 bg-success-subtle text-start small">
+                            <div class="d-flex align-items-center gap-2 mb-1 text-success fw-bold">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <span><%= order.refundStatus === 'REFUNDED' ? 'Full Refund Processed' : 'Partial Refund Processed' %></span>
+                            </div>
+                            <div class="text-secondary" style="font-size: 0.8rem;">
+                                Refund Amount: <strong class="text-dark">₹<%= order.refundAmount.toLocaleString() %></strong>
+                            </div>
+                            <div class="text-secondary" style="font-size: 0.8rem;">
+                                Credited To: <strong class="text-dark"><i class="bi bi-wallet2 me-1"></i>Electryve Wallet</strong>
+                            </div>
+                            <% if (order.refundedAt) { %>
+                                <div class="text-muted mt-1" style="font-size: 0.72rem;">
+                                    Processed on <%= new Date(order.refundedAt).toLocaleDateString() %>
+                                </div>
+                            <% } %>
+                        </div>
+                    <% } %>
                 </div>
             </div>
         </div>

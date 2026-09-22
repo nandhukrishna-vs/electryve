@@ -33,6 +33,7 @@ import * as wishlistController from "../controllers/wishlistController.js";
 import * as wishlistValidator from "../validators/wishlistValidator.js";
 import * as orderController from "../controllers/orderController.js";
 import * as addressValidator from "../validators/addressValidator.js";
+import * as walletController from "../controllers/walletController.js";
 
 const router = express.Router();
 
@@ -125,6 +126,9 @@ router.get("/wishlist/status", wishlistValidator.validateWishlistStatus, wishlis
 router.post("/wishlist/add", isLoggedIn, wishlistValidator.validateWishlist, wishlistController.addToWishlist);
 router.post("/wishlist/remove", isLoggedIn, wishlistValidator.validateWishlist, wishlistController.removeFromWishlist);
 
+// Wallet Routes
+router.get("/wallet", isLoggedIn, walletController.loadWallet);
+
 // Checkout & Order Routes
 router.get("/checkout", isLoggedIn, orderController.loadCheckout);
 router.post("/checkout/address", isLoggedIn, addressValidator.validateCheckoutAddress, orderController.addCheckoutAddress);
@@ -133,6 +137,7 @@ router.post("/checkout/address/:id/default", isLoggedIn, orderController.setDefa
 router.post("/checkout/apply-coupon", isLoggedIn, orderController.applyCoupon);
 router.post("/checkout/remove-coupon", isLoggedIn, orderController.removeCoupon);
 router.post("/checkout/place-order", isLoggedIn, orderController.placeCODOrder);
+router.post("/checkout/place-wallet-order", isLoggedIn, orderController.placeWalletOrder);
 router.get("/checkout/success", isLoggedIn, orderController.loadOrderSuccess);
 router.get("/orders", isLoggedIn, orderController.loadUserOrders);
 router.get("/order/:id", isLoggedIn, orderController.loadOrderDetails);

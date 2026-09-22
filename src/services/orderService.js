@@ -5,8 +5,60 @@ import Cart from "../models/Cart.js";
 import Address from "../models/Address.js";
 import User from "../models/User.js";
 import Coupon from "../models/Coupon.js";
+import WalletTransaction from "../models/WalletTransaction.js";
 import { getCart } from "./cartService.js";
 import { validateUserCoupon } from "./couponService.js";
+import * as walletService from "./walletService.js";
+
+/**
+ * Calculates remaining refundable amount for the full order from historical snapshot
+ */
+export const calculateOrderRefundableAmount = (order) => {
+  const isPaid =
+    (order.paymentMethod === "RAZORPAY" || order.paymentMethod === "WALLET") &&
+    order.paymentStatus === "COMPLETED";
+  if (!isPaid) return 0;
+  const paidAmount = Number(order.finalAmount) || 0;
+  const alreadyRefunded = Number(order.refundAmount) || 0;
+  return Math.max(0, Math.round((paidAmount - alreadyRefunded) * 100) / 100);
+};
+
+/**
+ * Calculates refundable amount for a single item from historical snapshot with proportional coupon allocation
+ */
+export const calculateItemRefundableAmount = (order, item) => {
+  const isPaid =
+    (order.paymentMethod === "RAZORPAY" || order.paymentMethod === "WALLET") &&
+    order.paymentStatus === "COMPLETED";
+  if (!isPaid) return 0;
+
+  const alreadyRefundedOnItem = Number(item.refundAmount) || 0;
+  if (alreadyRefundedOnItem > 0) return 0;
+
+  const totalRemainingOnOrder = calculateOrderRefundableAmount(order);
+  if (totalRemainingOnOrder <= 0) return 0;
+
+  // Check how many active items remain besides this one
+  const remainingActiveItems = order.items.filter(
+    (it) => it._id.toString() !== item._id.toString() && it.itemStatus === "ACTIVE"
+  );
+
+  // If this is the last active item, refund exact remaining refundable balance (including shipping/rounding)
+  if (remainingActiveItems.length === 0) {
+    return totalRemainingOnOrder;
+  }
+
+  // Proportional coupon discount allocation based on historical itemTotal relative to subtotal
+  const itemHistoricalTotal = Number(item.itemTotal) || 0;
+  const orderHistoricalSubtotal = Number(order.subtotal) || 1;
+  const couponDiscount = Number(order.couponDiscount) || 0;
+
+  const proportion = itemHistoricalTotal / orderHistoricalSubtotal;
+  const allocatedCoupon = Math.round(couponDiscount * proportion * 100) / 100;
+  const itemBaseRefund = Math.max(0, Math.round((itemHistoricalTotal - allocatedCoupon) * 100) / 100);
+
+  return Math.min(itemBaseRefund, totalRemainingOnOrder);
+};
 
 const generateOrderNumber = async (opts = {}) => {
   const now = new Date();
@@ -653,8 +705,48 @@ const cancelOrder = async (orderId, reason = "") => {
   order.cancellationReason = appliedReason;
   order.cancelledAt = now;
 
+  // Process wallet refund if order was paid (RAZORPAY or WALLET)
+  const isPaid =
+    (order.paymentMethod === "RAZORPAY" || order.paymentMethod === "WALLET") &&
+    (order.paymentStatus === "COMPLETED" || order.paymentStatus === "PAID");
+  let refundResult = null;
+
+  if (isPaid) {
+    const remainingRefundable = calculateOrderRefundableAmount(order);
+    if (remainingRefundable > 0) {
+      const creditRes = await walletService.creditWallet({
+        userId: order.user,
+        amount: remainingRefundable,
+        source: "REFUND",
+        description: `Refund for cancelled order #${order.orderNumber}`,
+        idempotencyKey: `ORDER_CANCEL_WALLET:${order._id}`,
+        orderId: order._id
+      });
+
+      if (creditRes.success) {
+        order.refundAmount = Math.round(((order.refundAmount || 0) + remainingRefundable) * 100) / 100;
+        order.refundStatus = "COMPLETED";
+        order.refundMethod = "WALLET";
+        order.refundedAt = now;
+        order.refundReference = `ORDER_CANCEL_WALLET:${order._id}`;
+        itemsToRestore.forEach((it) => {
+          it.refundStatus = "COMPLETED";
+          it.refundedAt = now;
+        });
+        refundResult = { credited: true, amount: remainingRefundable };
+      }
+    }
+  }
+
   await order.save();
-  return { success: true, message: "Order cancelled and stock restored successfully.", order };
+  return {
+    success: true,
+    message: refundResult?.credited
+      ? `Order cancelled, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to your Electryve Wallet.`
+      : "Order cancelled and stock restored successfully.",
+    order,
+    refund: refundResult
+  };
 };
 
 const cancelOrderItem = async (orderId, itemId, reason = "") => {
@@ -706,8 +798,48 @@ const cancelOrderItem = async (orderId, itemId, reason = "") => {
     order.cancelledAt = now;
   }
 
+  // Process item-level wallet refund if order was paid (RAZORPAY or WALLET)
+  const isPaid =
+    (order.paymentMethod === "RAZORPAY" || order.paymentMethod === "WALLET") &&
+    (order.paymentStatus === "COMPLETED" || order.paymentStatus === "PAID");
+  let refundResult = null;
+
+  if (isPaid) {
+    const itemRefundAmount = calculateItemRefundableAmount(order, item);
+    if (itemRefundAmount > 0) {
+      const creditRes = await walletService.creditWallet({
+        userId: order.user,
+        amount: itemRefundAmount,
+        source: "REFUND",
+        description: `Refund for cancelled item "${item.productName}" in order #${order.orderNumber}`,
+        idempotencyKey: `ORDER_CANCEL_WALLET_ITEM:${order._id}:${item._id}`,
+        orderId: order._id,
+        orderItemId: item._id
+      });
+
+      if (creditRes.success) {
+        item.refundAmount = itemRefundAmount;
+        item.refundStatus = "COMPLETED";
+        item.refundedAt = now;
+        order.refundAmount = Math.round(((order.refundAmount || 0) + itemRefundAmount) * 100) / 100;
+        order.refundMethod = "WALLET";
+        order.refundStatus = "COMPLETED";
+        order.refundedAt = now;
+        order.refundReference = `ORDER_CANCEL_WALLET_ITEM:${order._id}:${item._id}`;
+        refundResult = { credited: true, amount: itemRefundAmount };
+      }
+    }
+  }
+
   await order.save();
-  return { success: true, message: "Item cancelled and stock restored successfully.", order };
+  return {
+    success: true,
+    message: refundResult?.credited
+      ? `Item cancelled, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to your Electryve Wallet.`
+      : "Item cancelled and stock restored successfully.",
+    order,
+    refund: refundResult
+  };
 };
 
 const restoreOrderReturnStock = async (order, reason) => {
@@ -893,8 +1025,53 @@ const approveReturnRequest = async (orderId) => {
     }
   });
 
+  // Process wallet refund if order was paid (RAZORPAY or WALLET)
+  const isPaid =
+    (order.paymentMethod === "RAZORPAY" || order.paymentMethod === "WALLET") &&
+    (order.paymentStatus === "COMPLETED" || order.paymentStatus === "PAID");
+  let refundResult = null;
+
+  if (isPaid) {
+    const remainingRefundable = calculateOrderRefundableAmount(order);
+    if (remainingRefundable > 0) {
+      const creditRes = await walletService.creditWallet({
+        userId: order.user,
+        amount: remainingRefundable,
+        source: "REFUND",
+        description: `Refund for approved return of order #${order.orderNumber}`,
+        idempotencyKey: `RETURN_WALLET:${order._id}`,
+        orderId: order._id,
+        returnRequestId: order.returnRequest?.requestedAt
+          ? String(new Date(order.returnRequest.requestedAt).getTime())
+          : null
+      });
+
+      if (creditRes.success) {
+        order.refundAmount = Math.round(((order.refundAmount || 0) + remainingRefundable) * 100) / 100;
+        order.refundStatus = "COMPLETED";
+        order.refundMethod = "WALLET";
+        order.refundedAt = now;
+        order.refundReference = `RETURN_WALLET:${order._id}`;
+        order.items.forEach((it) => {
+          if (it.itemStatus === "RETURNED") {
+            it.refundStatus = "COMPLETED";
+            it.refundedAt = now;
+          }
+        });
+        refundResult = { credited: true, amount: remainingRefundable };
+      }
+    }
+  }
+
   await order.save();
-  return { success: true, message: "Return request approved, order marked as returned, and stock restored.", order };
+  return {
+    success: true,
+    message: refundResult?.credited
+      ? `Return request approved, order marked as returned, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to user wallet.`
+      : "Return request approved, order marked as returned, and stock restored.",
+    order,
+    refund: refundResult
+  };
 };
 
 const rejectReturnRequest = async (orderId, rejectionReason) => {
@@ -986,8 +1163,51 @@ const approveReturnItemRequest = async (orderId, itemId) => {
     }
   }
 
+  // Process item-level wallet refund if order was paid (RAZORPAY or WALLET)
+  const isPaid =
+    (order.paymentMethod === "RAZORPAY" || order.paymentMethod === "WALLET") &&
+    (order.paymentStatus === "COMPLETED" || order.paymentStatus === "PAID");
+  let refundResult = null;
+
+  if (isPaid) {
+    const itemRefundAmount = calculateItemRefundableAmount(order, item);
+    if (itemRefundAmount > 0) {
+      const creditRes = await walletService.creditWallet({
+        userId: order.user,
+        amount: itemRefundAmount,
+        source: "REFUND",
+        description: `Refund for approved return of item "${item.productName}" in order #${order.orderNumber}`,
+        idempotencyKey: `RETURN_WALLET_ITEM:${order._id}:${item._id}`,
+        orderId: order._id,
+        orderItemId: item._id,
+        returnRequestId: item.returnRequest?.requestedAt
+          ? String(new Date(item.returnRequest.requestedAt).getTime())
+          : null
+      });
+
+      if (creditRes.success) {
+        item.refundAmount = itemRefundAmount;
+        item.refundStatus = "COMPLETED";
+        item.refundedAt = now;
+        order.refundAmount = Math.round(((order.refundAmount || 0) + itemRefundAmount) * 100) / 100;
+        order.refundMethod = "WALLET";
+        order.refundStatus = order.refundAmount >= order.finalAmount ? "COMPLETED" : "COMPLETED";
+        order.refundedAt = now;
+        order.refundReference = `RETURN_WALLET_ITEM:${order._id}:${item._id}`;
+        refundResult = { credited: true, amount: itemRefundAmount };
+      }
+    }
+  }
+
   await order.save();
-  return { success: true, message: "Item return request approved and stock restored.", order };
+  return {
+    success: true,
+    message: refundResult?.credited
+      ? `Item return request approved, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to user wallet.`
+      : "Item return request approved and stock restored.",
+    order,
+    refund: refundResult
+  };
 };
 
 const rejectReturnItemRequest = async (orderId, itemId, rejectionReason) => {
@@ -1027,8 +1247,327 @@ const rejectReturnItemRequest = async (orderId, itemId, rejectionReason) => {
   return { success: true, message: "Item return request rejected successfully.", order };
 };
 
+const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCodeArg = null, idempotencyKeyArg = null) => {
+  let userId, addressId, couponCode, idempotencyKey;
+  if (userIdOrOptions && typeof userIdOrOptions === "object" && !(userIdOrOptions instanceof mongoose.Types.ObjectId)) {
+    userId = userIdOrOptions.userId;
+    addressId = userIdOrOptions.addressId;
+    couponCode = userIdOrOptions.couponCode || null;
+    idempotencyKey = userIdOrOptions.checkoutAttemptId || userIdOrOptions.idempotencyKey || null;
+  } else {
+    userId = userIdOrOptions;
+    addressId = addressIdArg;
+    couponCode = couponCodeArg;
+    idempotencyKey = idempotencyKeyArg;
+  }
+
+  // 1. Validate shipping address
+  const address = await Address.findOne({ _id: addressId, userId });
+  if (!address) {
+    return { success: false, message: "Invalid shipping address or address does not belong to you." };
+  }
+
+  // 2. Idempotency early-check before fetching cart
+  if (idempotencyKey) {
+    const existingOrder = await Order.findOne({ idempotencyKey, user: userId });
+    if (existingOrder) {
+      await Cart.updateOne({ user: userId }, { $set: { items: [] } }).catch(() => {});
+      return {
+        success: true,
+        message: "Order placed successfully.",
+        orderNumber: existingOrder.orderNumber,
+        orderId: existingOrder._id,
+        isDuplicate: true
+      };
+    }
+  }
+
+  // 3. Fetch and validate cart
+  const cartInfo = await getCart(userId);
+  if (!cartInfo || cartInfo.items.length === 0) {
+    return { success: false, message: "Your cart is empty." };
+  }
+  if (!cartInfo.canCheckout) {
+    return { success: false, message: "Your cart contains unavailable or out-of-stock items." };
+  }
+
+  // 4. Aggregate duplicate variants
+  const aggregatedMap = new Map();
+  for (const item of cartInfo.items) {
+    const pId = item.product?._id ? item.product._id.toString() : item.product.toString();
+    const vId = item.variantId ? item.variantId.toString() : "";
+    const key = `${pId}_${vId}`;
+    if (!aggregatedMap.has(key)) {
+      aggregatedMap.set(key, { ...item, quantity: item.quantity });
+    } else {
+      aggregatedMap.get(key).quantity += item.quantity;
+    }
+  }
+  const aggregatedItems = Array.from(aggregatedMap.values());
+
+  // 5. Validate listing and stock for all variants
+  const preparedItems = [];
+  for (const item of aggregatedItems) {
+    const qty = item.quantity;
+    if (qty <= 0) continue;
+
+    const pId = item.product?._id || item.product;
+    const vId = item.variantId;
+
+    const product = await Product.findOne({
+      _id: pId,
+      isDeleted: false,
+      isListed: true
+    })
+      .populate({ path: "category", match: { isDeleted: false, isListed: true } })
+      .populate({ path: "brand", match: { isDeleted: false, isListed: true } });
+
+    if (!product || !product.category || !product.brand) {
+      return {
+        success: false,
+        message: `Product "${item.nameSnapshot || "Item"}" is no longer available.`
+      };
+    }
+
+    const rawVariants = Array.isArray(product.variants) ? product.variants : [];
+    const variant = rawVariants.find(
+      (v) => v && v._id.toString() === vId.toString() && v.isListed
+    );
+
+    if (!variant) {
+      return {
+        success: false,
+        message: `Selected variant for "${product.name || product.productName}" is no longer available.`
+      };
+    }
+
+    if (variant.stock < qty) {
+      return {
+        success: false,
+        message: `Insufficient stock for product "${product.name || product.productName}" (${variant.color} / ${variant.storage}). Available: ${variant.stock}, requested: ${qty}.`
+      };
+    }
+
+    const regularPrice = variant.regularPrice;
+    const salePrice = variant.salePrice;
+    const offerDiscount = 0;
+    const itemTotal = salePrice * qty;
+
+    preparedItems.push({
+      product: product._id,
+      variantId: variant._id,
+      sku: variant.sku || "",
+      productName: product.name || product.productName,
+      brandName: product.brand?.name || "Brand",
+      categoryName: product.category?.name || "Category",
+      variantDetails: `${variant.color} / ${variant.storage}`,
+      image: (variant.images && variant.images[0]) ? variant.images[0] : (product.thumbnail || ""),
+      quantity: qty,
+      regularPrice,
+      salePrice,
+      offerDiscount,
+      itemTotal,
+      itemStatus: "ACTIVE",
+      isStockRestored: false
+    });
+  }
+
+  // 6. Calculate authoritative price breakdown
+  const subtotal = preparedItems.reduce((sum, it) => sum + it.itemTotal, 0);
+  const catalogDiscount = preparedItems.reduce(
+    (sum, it) => sum + ((it.regularPrice - it.salePrice) * it.quantity),
+    0
+  );
+  const shippingCharge = cartInfo.cartSummary?.shipping ?? (subtotal >= 50000 ? 0 : 50);
+  const tax = 0;
+
+  // 7. Validate coupon if applied
+  let couponSnapshot = null;
+  let couponDiscount = 0;
+  let couponUsed = null;
+
+  if (couponCode) {
+    const couponValidation = await validateUserCoupon(userId, couponCode, subtotal);
+    if (!couponValidation.success) {
+      return { success: false, message: couponValidation.message };
+    }
+    couponUsed = couponValidation.coupon;
+    couponDiscount = couponValidation.discountAmount;
+    couponSnapshot = {
+      couponId: couponValidation.coupon._id,
+      code: couponValidation.coupon.code,
+      discountType: couponValidation.coupon.discountType,
+      discountValue: couponValidation.coupon.discountValue,
+      discountAmount: couponDiscount
+    };
+  }
+
+  const finalAmount = Math.max(0, subtotal - couponDiscount) + shippingCharge + tax;
+  const roundedFinalAmount = Math.round(finalAmount * 100) / 100;
+
+  // 8. Verify wallet balance
+  const walletBalance = await walletService.getWalletBalance(userId);
+  if (walletBalance < roundedFinalAmount) {
+    return {
+      success: false,
+      message: `Insufficient wallet balance. Total payable is ₹${roundedFinalAmount.toLocaleString("en-IN")}, but available wallet balance is ₹${walletBalance.toLocaleString("en-IN")}.`
+    };
+  }
+
+  // 9. Generate unique orderNumber
+  const orderNumber = await generateOrderNumber();
+  const effectiveKey = idempotencyKey || `WALLET_ORDER_${orderNumber}`;
+  const walletDebitKey = `WALLET_ORDER_PAYMENT:${effectiveKey}`;
+
+  // 10. Atomically debit wallet
+  const debitRes = await walletService.debitWallet({
+    userId,
+    amount: roundedFinalAmount,
+    source: "ORDER_PAYMENT",
+    description: `Payment for Order #${orderNumber}`,
+    idempotencyKey: walletDebitKey
+  });
+
+  if (!debitRes.success) {
+    return { success: false, message: debitRes.message || "Wallet payment failed." };
+  }
+
+  // 11. Atomic stock decrement with compensation rollback
+  const deductedItems = [];
+  let orderSaved = false;
+
+  try {
+    for (const item of preparedItems) {
+      const updateResult = await Product.updateOne(
+        {
+          _id: item.product,
+          variants: {
+            $elemMatch: {
+              _id: item.variantId,
+              stock: { $gte: item.quantity }
+            }
+          }
+        },
+        {
+          $inc: { "variants.$.stock": -item.quantity }
+        }
+      );
+
+      if (updateResult.modifiedCount !== 1) {
+        throw new Error(`Insufficient stock for product "${item.productName}" (${item.variantDetails}).`);
+      }
+      deductedItems.push(item);
+    }
+
+    // Atomic coupon usage increment
+    if (couponUsed) {
+      const couponFilter = {
+        _id: couponUsed._id,
+        isDeleted: false,
+        isActive: true
+      };
+      if (couponUsed.usageLimit) {
+        couponFilter.usedCount = { $lt: couponUsed.usageLimit };
+      }
+      const couponUpdate = await Coupon.updateOne(
+        couponFilter,
+        { $inc: { usedCount: 1 } }
+      );
+      if (couponUpdate.modifiedCount !== 1) {
+        throw new Error("Coupon usage limit has been reached.");
+      }
+    }
+
+    const shippingAddress = {
+      fullName: address.fullName,
+      phone: address.phone,
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || "",
+      landmark: address.landmark || "",
+      city: address.city,
+      state: address.state,
+      pinCode: address.pinCode
+    };
+
+    const newOrder = new Order({
+      user: userId,
+      orderNumber,
+      idempotencyKey: effectiveKey,
+      items: preparedItems,
+      shippingAddress,
+      subtotal,
+      discount: catalogDiscount,
+      coupon: couponSnapshot,
+      couponDiscount,
+      tax,
+      shippingCharge,
+      finalAmount: roundedFinalAmount,
+      paymentMethod: "WALLET",
+      paymentStatus: "COMPLETED",
+      paymentVerifiedAt: new Date(),
+      orderStatus: "PLACED"
+    });
+
+    await newOrder.save();
+    orderSaved = true;
+
+    // Update WalletTransaction with the order ID reference
+    if (debitRes.transaction?._id) {
+      await WalletTransaction.updateOne(
+        { _id: debitRes.transaction._id },
+        { $set: { orderId: newOrder._id } }
+      ).catch(() => {});
+    }
+
+    // Clear cart
+    await Cart.updateOne({ user: userId }, { $set: { items: [] } }).catch(() => {});
+
+    return {
+      success: true,
+      message: "Order placed successfully using Electryve Wallet.",
+      orderNumber,
+      orderId: newOrder._id
+    };
+  } catch (err) {
+    if (orderSaved) {
+      // Order was saved, cart clear error shouldn't revert order or wallet debit
+      throw err;
+    }
+
+    // Rollback decremented stock
+    for (const roll of deductedItems) {
+      await Product.updateOne(
+        { _id: roll.product, "variants._id": roll.variantId },
+        { $inc: { "variants.$.stock": roll.quantity } }
+      ).catch(() => {});
+    }
+
+    // Revert coupon usage
+    if (couponUsed) {
+      await Coupon.updateOne(
+        { _id: couponUsed._id },
+        { $inc: { usedCount: -1 } }
+      ).catch(() => {});
+    }
+
+    // Revert wallet debit via atomic credit
+    await walletService.creditWallet({
+      userId,
+      amount: roundedFinalAmount,
+      source: "ORDER_REVERSAL",
+      description: `Reversal for failed order placement #${orderNumber}`,
+      idempotencyKey: `WALLET_REVERSAL:${effectiveKey}`
+    }).catch((reversalErr) => {
+      console.error("[WALLET REVERSAL ERROR]:", reversalErr);
+    });
+
+    return { success: false, message: err.message || "Failed to place order with Wallet." };
+  }
+};
+
 export {
   createCODOrder,
+  createWalletOrder,
   getUserOrders,
   getOrderById,
   getAdminOrders,
@@ -1043,3 +1582,4 @@ export {
   approveReturnItemRequest,
   rejectReturnItemRequest
 };
+

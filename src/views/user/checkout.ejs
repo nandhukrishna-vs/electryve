@@ -158,6 +158,9 @@
 
                 <div class="card checkout-card shadow-sm p-4">
                     <h5 class="fw-bold text-dark mb-3">2. Payment Method</h5>
+                    <% const initGrandTotal = (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? Math.max(0, cart.cartSummary.grandTotal - appliedCoupon.discountAmount) : cart.cartSummary.grandTotal; %>
+                    <% const uWalletBal = typeof walletBalance !== 'undefined' ? walletBalance : 0; %>
+                    <% const canPayWallet = uWalletBal >= initGrandTotal; %>
                     <div class="d-flex flex-column gap-2.5">
                         <label class="border rounded-3 p-3 bg-light d-flex align-items-center gap-3 cursor-pointer" for="paymentMethodCOD" style="cursor: pointer;">
                             <input type="radio" class="form-check-input mt-0" id="paymentMethodCOD" name="paymentMethodRadio" value="COD" checked onchange="handlePaymentMethodChange('COD')">
@@ -171,6 +174,20 @@
                             <div>
                                 <span class="fw-bold text-dark d-block small">Online Payment (Razorpay)</span>
                                 <span class="text-secondary small" style="font-size: 0.75rem;">Pay securely using UPI, Cards, NetBanking, or Wallets.</span>
+                            </div>
+                        </label>
+                        <label class="border rounded-3 p-3 bg-light d-flex align-items-center gap-3 cursor-pointer <%= !canPayWallet ? 'opacity-75' : '' %>" for="paymentMethodWallet" style="cursor: pointer;" id="walletOptionLabel">
+                            <input type="radio" class="form-check-input mt-0" id="paymentMethodWallet" name="paymentMethodRadio" value="WALLET" <%= !canPayWallet ? 'disabled' : '' %> onchange="handlePaymentMethodChange('WALLET')">
+                            <div class="w-100">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold text-dark small"><i class="bi bi-wallet2 me-1 text-primary"></i> Electryve Wallet</span>
+                                    <span class="badge <%= canPayWallet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border' %> rounded-pill px-2 py-0.5" id="walletBalanceBadge">
+                                        Balance: ₹<%= uWalletBal.toLocaleString() %>
+                                    </span>
+                                </div>
+                                <span class="text-secondary small d-block mt-0.5" style="font-size: 0.75rem;" id="walletHelpText">
+                                    <%= canPayWallet ? 'Pay instantly using your available wallet funds.' : 'Insufficient balance to pay for this order.' %>
+                                </span>
                             </div>
                         </label>
                     </div>
@@ -838,6 +855,7 @@ function applyCoupon() {
             document.getElementById("summaryCouponCode").textContent = data.couponCode;
             document.getElementById("summaryCouponDiscount").textContent = `-₹${data.discountAmount.toLocaleString()}`;
             document.getElementById("summaryGrandTotal").textContent = `₹${data.finalAmount.toLocaleString()}`;
+            updateWalletEligibility(data.finalAmount);
 
             Swal.fire({
                 icon: 'success',
@@ -897,6 +915,7 @@ function removeCoupon() {
             document.getElementById("summaryCouponCodeWrapper").style.display = "none";
             document.getElementById("summaryCouponDiscount").textContent = "₹0";
             document.getElementById("summaryGrandTotal").textContent = `₹${data.finalAmount.toLocaleString()}`;
+            updateWalletEligibility(data.finalAmount);
 
             Swal.fire({
                 icon: 'info',
@@ -983,6 +1002,43 @@ function placeOrder() {
 }
 
 let selectedPaymentMethod = "COD";
+const userWalletBalance = <%= typeof walletBalance !== 'undefined' ? walletBalance : 0 %>;
+
+function updateWalletEligibility(grandTotal) {
+    const walletRadio = document.getElementById("paymentMethodWallet");
+    const walletLabel = document.getElementById("walletOptionLabel");
+    const walletBadge = document.getElementById("walletBalanceBadge");
+    const walletHelp = document.getElementById("walletHelpText");
+    if (!walletRadio || !walletLabel) return;
+
+    const canPay = userWalletBalance >= grandTotal;
+    walletRadio.disabled = !canPay;
+
+    if (canPay) {
+        walletLabel.classList.remove("opacity-75");
+        if (walletBadge) {
+            walletBadge.className = "badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5";
+        }
+        if (walletHelp) {
+            walletHelp.textContent = "Pay instantly using your available wallet funds.";
+        }
+    } else {
+        walletLabel.classList.add("opacity-75");
+        if (walletBadge) {
+            walletBadge.className = "badge bg-secondary-subtle text-secondary border rounded-pill px-2 py-0.5";
+        }
+        if (walletHelp) {
+            walletHelp.textContent = "Insufficient balance to pay for this order.";
+        }
+        if (selectedPaymentMethod === "WALLET") {
+            const codRadio = document.getElementById("paymentMethodCOD");
+            if (codRadio) {
+                codRadio.checked = true;
+                handlePaymentMethodChange("COD");
+            }
+        }
+    }
+}
 
 function handlePaymentMethodChange(method) {
     selectedPaymentMethod = method;
@@ -990,6 +1046,8 @@ function handlePaymentMethodChange(method) {
     if (!btn) return;
     if (method === "RAZORPAY") {
         btn.textContent = "Pay Securely";
+    } else if (method === "WALLET") {
+        btn.textContent = "Pay with Wallet";
     } else {
         btn.textContent = "Place Order (Cash on Delivery)";
     }
@@ -998,9 +1056,75 @@ function handlePaymentMethodChange(method) {
 function handleOrderAction() {
     if (selectedPaymentMethod === "RAZORPAY") {
         initiateRazorpayPayment();
+    } else if (selectedPaymentMethod === "WALLET") {
+        placeWalletOrder();
     } else {
         placeOrder();
     }
+}
+
+function placeWalletOrder() {
+    const radio = document.querySelector("input[name='checkoutAddressRadio']:checked");
+    if (!radio) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'No Address Selected',
+            text: 'Please select a delivery address.'
+        });
+        return;
+    }
+
+    const addressId = radio.value;
+    const checkoutAttemptId = document.getElementById("checkoutAttemptId")?.value || "";
+    const btn = document.getElementById("btnPlaceCODOrder");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing Wallet Payment...';
+    }
+
+    fetch("/checkout/place-wallet-order", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ addressId, checkoutAttemptId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Order Placed!',
+                text: 'Your order was paid successfully via Electryve Wallet.',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.href = `/checkout/success?orderNumber=${data.orderNumber}`;
+            });
+        } else {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Pay with Wallet";
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Wallet Payment Failed',
+                text: data.message || "Failed to place your order with Wallet."
+            });
+        }
+    })
+    .catch(err => {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Pay with Wallet";
+        }
+        console.error("Place Wallet Order Error:", err);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred while placing your order.'
+        });
+    });
 }
 
 function initiateRazorpayPayment() {

@@ -284,10 +284,20 @@
                                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
                                                 CANCELLED
                                             </span>
+                                            <% if (item.refundAmount && item.refundAmount > 0) { %>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-1.5 py-0.5 d-block mt-1" style="font-size: 0.6rem;">
+                                                    Refunded ₹<%= item.refundAmount.toLocaleString('en-IN') %>
+                                                </span>
+                                            <% } %>
                                         <% } else if (isItemReturned) { %>
                                             <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
                                                 RETURNED
                                             </span>
+                                            <% if (item.refundAmount && item.refundAmount > 0) { %>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-1.5 py-0.5 d-block mt-1" style="font-size: 0.6rem;">
+                                                    Refunded ₹<%= item.refundAmount.toLocaleString('en-IN') %>
+                                                </span>
+                                            <% } %>
                                         <% } else if (item.returnRequest && item.returnRequest.status === 'PENDING') { %>
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
                                                 RETURN REQUESTED
@@ -451,20 +461,45 @@
                     <div class="border rounded-3 p-2.5 bg-light d-flex justify-content-between align-items-center">
                         <div>
                             <span class="text-muted d-block" style="font-size: 0.7rem;">PAYMENT METHOD</span>
-                            <strong class="text-dark text-uppercase"><%= order.paymentMethod %></strong>
+                            <strong class="text-dark text-uppercase">
+                                <% if (order.paymentMethod === 'WALLET') { %>
+                                    ELECTRYVE WALLET
+                                <% } else if (order.paymentMethod === 'RAZORPAY') { %>
+                                    ONLINE (RAZORPAY)
+                                <% } else { %>
+                                    <%= order.paymentMethod %>
+                                <% } %>
+                            </strong>
                         </div>
                         <div>
-                            <% if (order.paymentStatus === 'COMPLETED') { %>
+                            <% if (order.paymentStatus === 'COMPLETED' || order.paymentStatus === 'PAID') { %>
                                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-semibold">
                                     PAID
                                 </span>
                             <% } else { %>
                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1 fw-semibold">
-                                    PENDING
+                                    <%= order.paymentStatus %>
                                 </span>
                             <% } %>
                         </div>
                     </div>
+
+                    <% if (order.refundAmount && order.refundAmount > 0) { %>
+                    <div class="border border-success-subtle rounded-3 p-2.5 bg-success-subtle mt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-success fw-bold" style="font-size: 0.75rem;"><i class="bi bi-check-circle-fill me-1"></i>REFUND PROCESSED</span>
+                            <span class="badge bg-white text-dark border" style="font-size: 0.65rem;"><%= order.refundStatus %></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center text-dark fw-bold" style="font-size: 0.85rem;">
+                            <span>Total Refunded:</span>
+                            <span>₹<%= order.refundAmount.toLocaleString('en-IN') %></span>
+                        </div>
+                        <div class="text-secondary small mt-1" style="font-size: 0.72rem;">
+                            Destination: <strong class="text-dark"><%= order.refundMethod || 'WALLET' %></strong>
+                            <% if (order.refundReference) { %> • Ref: <%= order.refundReference %><% } %>
+                        </div>
+                    </div>
+                    <% } %>
                 </div>
             </div>
 

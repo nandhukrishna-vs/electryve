@@ -100,6 +100,19 @@ const orderItemSchema = new mongoose.Schema({
       trim: true,
       default: null
     }
+  },
+  refundAmount: {
+    type: Number,
+    default: 0
+  },
+  refundStatus: {
+    type: String,
+    enum: ["NONE", "PROCESSING", "COMPLETED", "REFUNDED", "FAILED"],
+    default: "NONE"
+  },
+  refundedAt: {
+    type: Date,
+    default: null
   }
 });
 
@@ -218,14 +231,36 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["COD", "RAZORPAY"],
+      enum: ["COD", "RAZORPAY", "WALLET"],
       default: "COD"
     },
     paymentStatus: {
       type: String,
       required: true,
-      enum: ["PENDING", "COMPLETED", "FAILED"],
+      enum: ["PENDING", "COMPLETED", "PAID", "FAILED"],
       default: "PENDING"
+    },
+    refundAmount: {
+      type: Number,
+      default: 0
+    },
+    refundStatus: {
+      type: String,
+      enum: ["NONE", "PROCESSING", "COMPLETED", "REFUNDED", "PARTIALLY_REFUNDED", "FAILED"],
+      default: "NONE"
+    },
+    refundMethod: {
+      type: String,
+      enum: ["NONE", "WALLET"],
+      default: "NONE"
+    },
+    refundReference: {
+      type: String,
+      default: null
+    },
+    refundedAt: {
+      type: Date,
+      default: null
     },
     razorpayOrderId: {
       type: String,

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import * as cartService from "../services/cartService.js";
 import * as orderService from "../services/orderService.js";
+import * as walletService from "../services/walletService.js";
 import { validateUserCoupon } from "../services/couponService.js";
 import { generateInvoicePDF } from "../utils/invoiceGenerator.js";
 import Address from "../models/Address.js";
@@ -34,6 +35,9 @@ const loadCheckout = async (req, res, next) => {
       defaultAddress = addresses[0];
     }
 
+    // Fetch user verified wallet balance
+    const walletBalance = await walletService.getWalletBalance(userId);
+
     // Revalidate session-applied coupon against current cart
     let appliedCoupon = null;
     if (req.session.appliedCoupon?.code) {
@@ -60,6 +64,7 @@ const loadCheckout = async (req, res, next) => {
       addresses,
       defaultAddress,
       appliedCoupon,
+      walletBalance,
       checkoutAttemptId
     });
   } catch (error) {
@@ -304,6 +309,43 @@ const placeCODOrder = async (req, res, next) => {
   try {
     const couponCode = req.session.appliedCoupon?.code || null;
     const result = await orderService.createCODOrder(userId, addressId, couponCode, effectiveIdempotencyKey);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    // Clear applied coupon on successful order placement
+    delete req.session.appliedCoupon;
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  } finally {
+    activeOrderPlacements.delete(lockKey);
+  }
+};
+
+const placeWalletOrder = async (req, res, next) => {
+  const userId = req.session.user.id;
+  const { addressId, checkoutAttemptId, idempotencyKey } = req.body;
+
+  if (!addressId) {
+    return res.status(400).json({ success: false, message: "Please select a delivery address." });
+  }
+
+  const effectiveIdempotencyKey = checkoutAttemptId || idempotencyKey || req.headers["idempotency-key"] || null;
+  const lockKey = `${userId.toString()}_${effectiveIdempotencyKey || "default"}`;
+
+  if (activeOrderPlacements.has(lockKey)) {
+    return res.status(409).json({
+      success: false,
+      message: "An order placement request is already being processed. Please wait."
+    });
+  }
+
+  activeOrderPlacements.add(lockKey);
+  try {
+    const couponCode = req.session.appliedCoupon?.code || null;
+    const result = await orderService.createWalletOrder(userId, addressId, couponCode, effectiveIdempotencyKey);
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -662,6 +704,7 @@ export {
   applyCoupon,
   removeCoupon,
   placeCODOrder,
+  placeWalletOrder,
   loadOrderSuccess,
   loadUserOrders,
   loadOrderDetails,
