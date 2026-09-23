@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import * as cartService from "../services/cartService.js";
 import * as orderService from "../services/orderService.js";
 import * as walletService from "../services/walletService.js";
-import { validateUserCoupon } from "../services/couponService.js";
+import { validateUserCoupon, getEligibleCouponsForUser } from "../services/couponService.js";
 import { generateInvoicePDF } from "../utils/invoiceGenerator.js";
 import Address from "../models/Address.js";
 import Order from "../models/Order.js";
@@ -197,6 +197,41 @@ const setDefaultAddress = async (req, res, next) => {
   }
 };
 
+const getEligibleCoupons = async (req, res, next) => {
+  try {
+    const userId = req.session.user.id;
+    const cart = await cartService.getCart(userId, { referralCode: req.session.referralCode });
+    if (!cart || !cart.items || cart.items.length === 0) {
+      return res.json({
+        success: true,
+        subtotal: 0,
+        appliedCouponCode: null,
+        eligibleCoupons: [],
+        ineligibleCoupons: [],
+        message: "Your cart is empty."
+      });
+    }
+
+    const subtotal = cart.cartSummary?.subtotal || 0;
+    const appliedCode = req.session.appliedCoupon?.code || null;
+    const result = await getEligibleCouponsForUser(userId, { subtotal, appliedCode });
+
+    return res.json({
+      success: true,
+      subtotal,
+      appliedCouponCode: appliedCode,
+      eligibleCoupons: result.eligibleCoupons,
+      ineligibleCoupons: result.ineligibleCoupons
+    });
+  } catch (error) {
+    console.error("Get Eligible Coupons Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load eligible coupons. Please try again."
+    });
+  }
+};
+
 const applyCoupon = async (req, res, next) => {
   try {
     const userId = req.session.user.id;
@@ -242,6 +277,8 @@ const applyCoupon = async (req, res, next) => {
 
     const shippingCharge = cart.cartSummary.shipping;
     const finalAmount = Math.max(0, subtotal - result.discountAmount) + shippingCharge;
+    const walletBalance = await walletService.getWalletBalance(userId);
+    const canPayWithWallet = walletBalance >= finalAmount;
 
     return res.json({
       success: true,
@@ -250,7 +287,9 @@ const applyCoupon = async (req, res, next) => {
       discountAmount: result.discountAmount,
       subtotal,
       shippingCharge,
-      finalAmount
+      finalAmount,
+      walletBalance,
+      canPayWithWallet
     });
   } catch (error) {
     console.error("Apply Coupon Controller Error:", error);
@@ -270,13 +309,17 @@ const removeCoupon = async (req, res, next) => {
     const subtotal = cart?.cartSummary?.subtotal || 0;
     const shippingCharge = cart?.cartSummary?.shipping || 0;
     const finalAmount = cart?.cartSummary?.grandTotal || (subtotal + shippingCharge);
+    const walletBalance = await walletService.getWalletBalance(userId);
+    const canPayWithWallet = walletBalance >= finalAmount;
 
     return res.json({
       success: true,
       message: "Coupon removed successfully.",
       subtotal,
       shippingCharge,
-      finalAmount
+      finalAmount,
+      walletBalance,
+      canPayWithWallet
     });
   } catch (error) {
     console.error("Remove Coupon Controller Error:", error);
@@ -701,6 +744,7 @@ export {
   addCheckoutAddress,
   updateCheckoutAddress,
   setDefaultAddress,
+  getEligibleCoupons,
   applyCoupon,
   removeCoupon,
   placeCODOrder,

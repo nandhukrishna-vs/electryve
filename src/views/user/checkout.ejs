@@ -230,42 +230,80 @@
 
                     <!-- Coupon Application Section -->
                     <div class="mb-3">
-                        <label for="couponCodeInput" class="form-label small fw-bold text-secondary mb-1.5">Apply Coupon</label>
+                        <label class="form-label small fw-bold text-secondary mb-1.5">Apply Coupon</label>
                         
-                        <!-- Input Group (shown when no coupon applied) -->
-                        <div id="couponInputGroup" class="input-group" style="<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? 'display: none !important;' : '' %>">
-                            <input
-                                type="text"
-                                id="couponCodeInput"
-                                class="form-control text-uppercase font-monospace"
-                                placeholder="ENTER COUPON CODE"
-                                style="text-transform: uppercase;"
-                                maxlength="30"
-                            >
-                            <button
-                                type="button"
-                                id="btnApplyCoupon"
-                                class="btn btn-outline-dark fw-bold px-3"
-                                onclick="applyCoupon()"
-                            >
-                                Apply
-                            </button>
+                        <!-- Trigger Card (shown when no coupon applied) -->
+                        <div id="couponTriggerWrapper" style="<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? 'display: none !important;' : '' %>">
+                            <div class="card border rounded-3 p-3 bg-light d-flex flex-row align-items-center justify-content-between mb-2 shadow-sm">
+                                <div class="d-flex align-items-center gap-2.5">
+                                    <div class="bg-white p-2 rounded-circle border shadow-sm text-primary d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                        <i class="bi bi-ticket-perforated-fill fs-5"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0 small">Apply Coupon</h6>
+                                        <span class="text-secondary small" style="font-size: 0.75rem;">Select from available coupons &amp; save</span>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-dark btn-sm fw-semibold rounded-pill px-3 py-1.5" onclick="openCouponModal()">
+                                    View Coupons
+                                </button>
+                            </div>
+
+                            <!-- Secondary Manual Code Entry Option -->
+                            <div class="mb-1">
+                                <button class="btn btn-link text-decoration-none text-secondary p-0 small fw-medium d-inline-flex align-items-center gap-1" type="button" data-bs-toggle="collapse" data-bs-target="#manualCouponCollapse" aria-expanded="false" aria-controls="manualCouponCollapse" style="font-size: 0.78rem;">
+                                    <span>Have a coupon code? Enter manually</span>
+                                    <i class="bi bi-chevron-down" style="font-size: 0.65rem;"></i>
+                                </button>
+                                <div class="collapse mt-2" id="manualCouponCollapse">
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            id="couponCodeInput"
+                                            class="form-control form-control-sm text-uppercase font-monospace"
+                                            placeholder="ENTER CODE"
+                                            style="text-transform: uppercase;"
+                                            maxlength="30"
+                                        >
+                                        <button
+                                            type="button"
+                                            id="btnApplyManualCoupon"
+                                            class="btn btn-dark btn-sm fw-bold px-3"
+                                            onclick="applyManualCoupon()"
+                                        >
+                                            Apply
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Applied Coupon Badge (shown when coupon applied) -->
                         <div id="appliedCouponBadge" class="p-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25" style="<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? '' : 'display: none !important;' %>">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="text-success small fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.3px; text-transform: uppercase;">
-                                    Available coupon applied:
+                                <span class="text-success small fw-semibold d-flex align-items-center gap-1.5" style="font-size: 0.75rem; letter-spacing: 0.3px; text-transform: uppercase;">
+                                    <i class="bi bi-check-circle-fill"></i> Coupon applied
                                 </span>
-                                <button
-                                    type="button"
-                                    id="btnRemoveCoupon"
-                                    class="btn btn-sm btn-link text-danger text-decoration-none p-0 fw-semibold small"
-                                    onclick="removeCoupon()"
-                                >
-                                    Remove
-                                </button>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-link text-primary text-decoration-none p-0 fw-semibold small"
+                                        style="font-size: 0.75rem;"
+                                        onclick="openCouponModal()"
+                                    >
+                                        Change
+                                    </button>
+                                    <span class="text-muted" style="font-size: 0.75rem;">•</span>
+                                    <button
+                                        type="button"
+                                        id="btnRemoveCoupon"
+                                        class="btn btn-sm btn-link text-danger text-decoration-none p-0 fw-semibold small"
+                                        style="font-size: 0.75rem;"
+                                        onclick="removeCoupon()"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
                             <div class="d-flex align-items-baseline gap-2">
                                 <span id="appliedCouponCode" class="fw-bold font-monospace text-dark fs-6">
@@ -433,6 +471,80 @@
                         <button type="submit" class="btn btn-dark rounded-3 px-4" id="btnSaveAddress">Save Address</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Eligible Coupons Modal -->
+<div class="modal fade" id="couponModal" tabindex="-1" aria-labelledby="couponModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom px-4 py-3 bg-light rounded-top-4">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-ticket-perforated-fill text-primary fs-5"></i>
+                    <h5 class="modal-title fw-bold text-dark fs-6 mb-0" id="couponModalLabel">Available Coupons</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Search filter -->
+                <div class="input-group mb-3">
+                    <span class="input-group-text bg-white border-end-0 text-secondary">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" id="couponSearchInput" class="form-control border-start-0 text-uppercase font-monospace" placeholder="Search coupon code..." oninput="filterCouponsList()">
+                </div>
+
+                <!-- Modal Loading State -->
+                <div id="couponModalLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading coupons...</span>
+                    </div>
+                    <p class="text-muted small mt-2 mb-0">Checking coupon eligibility for your cart...</p>
+                </div>
+
+                <!-- Modal Error State -->
+                <div id="couponModalError" class="alert alert-danger d-none py-2 px-3 small" role="alert">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+                        <span id="couponModalErrorText">Unable to load coupons. Please try again.</span>
+                    </div>
+                </div>
+
+                <!-- Content Container -->
+                <div id="couponModalContent" class="d-none">
+                    <!-- Eligible Coupons Section -->
+                    <div id="eligibleCouponsSection" class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2.5">
+                            <h6 class="fw-bold text-dark small text-uppercase letter-spacing-1 mb-0">Eligible Coupons</h6>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5" id="eligibleCouponsCount">0 available</span>
+                        </div>
+                        <div id="eligibleCouponsList" class="d-flex flex-column gap-3"></div>
+                    </div>
+
+                    <!-- Ineligible Coupons Section -->
+                    <div id="ineligibleCouponsSection" class="mt-4 pt-3 border-top d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2.5">
+                            <h6 class="fw-bold text-secondary small text-uppercase letter-spacing-1 mb-0">Other Coupons</h6>
+                            <span class="text-muted small" style="font-size: 0.72rem;">Requirements not met</span>
+                        </div>
+                        <div id="ineligibleCouponsList" class="d-flex flex-column gap-2.5"></div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="couponModalEmpty" class="text-center py-5 d-none">
+                        <div class="bg-light p-3 rounded-circle d-inline-block mb-2 text-secondary opacity-75">
+                            <i class="bi bi-ticket-perforated fs-1"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark small mb-1">No coupons available right now</h6>
+                        <p class="text-secondary small mb-0" style="font-size: 0.8rem;">Add more items to your cart or check back during sales.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top px-4 py-2.5 bg-light rounded-bottom-4 d-flex justify-content-between align-items-center">
+                <span class="text-secondary small" style="font-size: 0.75rem;">Only 1 coupon applies per order</span>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -826,9 +938,207 @@ function setDefaultAddress(addressId) {
     });
 }
 
-function applyCoupon() {
+let currentEligibleCoupons = [];
+let currentIneligibleCoupons = [];
+let activeAppliedCode = '<%= (typeof appliedCoupon !== "undefined" && appliedCoupon) ? appliedCoupon.code : "" %>';
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function openCouponModal() {
+    const modalEl = document.getElementById('couponModal');
+    if (!modalEl) return;
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    bsModal.show();
+    loadEligibleCoupons();
+}
+
+function loadEligibleCoupons() {
+    const loadingEl = document.getElementById('couponModalLoading');
+    const errorEl = document.getElementById('couponModalError');
+    const contentEl = document.getElementById('couponModalContent');
+    const searchInput = document.getElementById('couponSearchInput');
+
+    if (searchInput) searchInput.value = '';
+    if (loadingEl) loadingEl.classList.remove('d-none');
+    if (errorEl) errorEl.classList.add('d-none');
+    if (contentEl) contentEl.classList.add('d-none');
+
+    fetch('/checkout/eligible-coupons')
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to load eligible coupons');
+            return res.json();
+        })
+        .then(data => {
+            if (loadingEl) loadingEl.classList.add('d-none');
+            if (data.success) {
+                currentEligibleCoupons = Array.isArray(data.eligibleCoupons) ? data.eligibleCoupons : [];
+                currentIneligibleCoupons = Array.isArray(data.ineligibleCoupons) ? data.ineligibleCoupons : [];
+                if (data.appliedCouponCode) {
+                    activeAppliedCode = data.appliedCouponCode;
+                }
+                renderCouponsList(currentEligibleCoupons, currentIneligibleCoupons, activeAppliedCode);
+                if (contentEl) contentEl.classList.remove('d-none');
+            } else {
+                if (errorEl) {
+                    document.getElementById('couponModalErrorText').textContent = data.message || 'Unable to load coupons.';
+                    errorEl.classList.remove('d-none');
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Eligible coupons load error:', err);
+            if (loadingEl) loadingEl.classList.add('d-none');
+            if (errorEl) {
+                document.getElementById('couponModalErrorText').textContent = 'An error occurred while loading coupons. Please try again.';
+                errorEl.classList.remove('d-none');
+            }
+        });
+}
+
+function renderCouponsList(eligible, ineligible, appliedCode) {
+    const eligibleCountEl = document.getElementById('eligibleCouponsCount');
+    const eligibleSection = document.getElementById('eligibleCouponsSection');
+    const eligibleListEl = document.getElementById('eligibleCouponsList');
+    const ineligibleSection = document.getElementById('ineligibleCouponsSection');
+    const ineligibleListEl = document.getElementById('ineligibleCouponsList');
+    const emptyEl = document.getElementById('couponModalEmpty');
+
+    const totalCoupons = eligible.length + ineligible.length;
+    if (totalCoupons === 0) {
+        if (eligibleSection) eligibleSection.classList.add('d-none');
+        if (ineligibleSection) ineligibleSection.classList.add('d-none');
+        if (emptyEl) emptyEl.classList.remove('d-none');
+        return;
+    }
+
+    if (emptyEl) emptyEl.classList.add('d-none');
+
+    // Render Eligible Section
+    if (eligible.length > 0) {
+        if (eligibleSection) eligibleSection.classList.remove('d-none');
+        if (eligibleCountEl) eligibleCountEl.textContent = `${eligible.length} available`;
+
+        let html = '';
+        eligible.forEach(c => {
+            const isApplied = appliedCode && (c.code.toUpperCase() === appliedCode.toUpperCase());
+            const discountText = c.discountType === 'PERCENTAGE'
+                ? `${c.discountValue}% OFF${c.maxDiscountAmount ? ` (Up to ₹${c.maxDiscountAmount.toLocaleString('en-IN')})` : ''}`
+                : `₹${c.discountValue.toLocaleString('en-IN')} OFF`;
+            const validDate = c.validTo ? new Date(c.validTo).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+            html += `
+                <div class="card border rounded-3 p-3 ${isApplied ? 'border-success bg-success bg-opacity-10' : 'bg-white shadow-sm'}">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge bg-dark font-monospace text-uppercase px-2.5 py-1.5" style="letter-spacing: 0.5px;">${escapeHtml(c.code)}</span>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold rounded-pill px-2 py-0.5" style="font-size: 0.72rem;">Save ₹${Number(c.projectedDiscount || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                            <h6 class="fw-bold text-dark small mb-1">${escapeHtml(discountText)}</h6>
+                            ${c.description ? `<p class="text-secondary small mb-1" style="font-size: 0.78rem;">${escapeHtml(c.description)}</p>` : ''}
+                            <div class="d-flex flex-wrap align-items-center gap-2 text-muted" style="font-size: 0.72rem;">
+                                ${c.minimumPurchaseAmount > 0 ? `<span>Min Order: ₹${c.minimumPurchaseAmount.toLocaleString('en-IN')}</span>` : '<span>No min order</span>'}
+                                ${validDate ? `<span>•</span><span>Valid till ${validDate}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 ms-2">
+                            ${isApplied ? `
+                                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-bold" disabled>
+                                    <i class="bi bi-check2 me-1"></i>Applied
+                                </button>
+                            ` : `
+                                <button type="button" class="btn btn-sm btn-dark rounded-pill px-3 fw-bold" onclick="applyCouponFromModal('${escapeHtml(c.code)}', this)">
+                                    Apply
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        if (eligibleListEl) eligibleListEl.innerHTML = html;
+    } else {
+        if (eligibleSection) eligibleSection.classList.add('d-none');
+        if (eligibleCountEl) eligibleCountEl.textContent = '0 available';
+    }
+
+    // Render Ineligible Section
+    if (ineligible.length > 0) {
+        if (ineligibleSection) ineligibleSection.classList.remove('d-none');
+
+        let inHtml = '';
+        ineligible.forEach(c => {
+            const discountText = c.discountType === 'PERCENTAGE'
+                ? `${c.discountValue}% OFF${c.maxDiscountAmount ? ` (Up to ₹${c.maxDiscountAmount.toLocaleString('en-IN')})` : ''}`
+                : `₹${c.discountValue.toLocaleString('en-IN')} OFF`;
+            const reason = c.ineligibleReason || 'Requirements not met';
+
+            inHtml += `
+                <div class="card border rounded-3 p-3 bg-light opacity-75">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge bg-secondary font-monospace text-uppercase px-2.5 py-1.5" style="letter-spacing: 0.5px;">${escapeHtml(c.code)}</span>
+                                <span class="text-secondary small fw-medium" style="font-size: 0.75rem;">${escapeHtml(discountText)}</span>
+                            </div>
+                            ${c.description ? `<p class="text-secondary small mb-1" style="font-size: 0.78rem;">${escapeHtml(c.description)}</p>` : ''}
+                            <div class="text-danger small fw-semibold d-flex align-items-center gap-1 mt-1" style="font-size: 0.75rem;">
+                                <i class="bi bi-info-circle"></i>
+                                <span>${escapeHtml(reason)}</span>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 ms-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold" disabled>
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        if (ineligibleListEl) ineligibleListEl.innerHTML = inHtml;
+    } else {
+        if (ineligibleSection) ineligibleSection.classList.add('d-none');
+    }
+}
+
+function filterCouponsList() {
+    const q = (document.getElementById('couponSearchInput')?.value || '').trim().toUpperCase();
+    if (!q) {
+        renderCouponsList(currentEligibleCoupons, currentIneligibleCoupons, activeAppliedCode);
+        return;
+    }
+
+    const filteredEligible = currentEligibleCoupons.filter(c => {
+        const codeMatch = (c.code || '').toUpperCase().includes(q);
+        const descMatch = (c.description || '').toUpperCase().includes(q);
+        return codeMatch || descMatch;
+    });
+
+    const filteredIneligible = currentIneligibleCoupons.filter(c => {
+        const codeMatch = (c.code || '').toUpperCase().includes(q);
+        const descMatch = (c.description || '').toUpperCase().includes(q);
+        return codeMatch || descMatch;
+    });
+
+    renderCouponsList(filteredEligible, filteredIneligible, activeAppliedCode);
+}
+
+function applyCouponFromModal(couponCode, btn) {
+    executeCouponApplication(couponCode, btn, true);
+}
+
+function applyManualCoupon() {
     const input = document.getElementById("couponCodeInput");
-    const couponCode = input.value.trim().toUpperCase();
+    const couponCode = (input ? input.value : "").trim().toUpperCase();
 
     if (!couponCode) {
         Swal.fire({
@@ -839,10 +1149,22 @@ function applyCoupon() {
         return;
     }
 
-    const btn = document.getElementById("btnApplyCoupon");
-    btn.disabled = true;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Applying...';
+    const btn = document.getElementById("btnApplyManualCoupon") || document.getElementById("btnApplyCoupon");
+    executeCouponApplication(couponCode, btn, false);
+}
+
+// Backward-compatibility alias
+function applyCoupon() {
+    applyManualCoupon();
+}
+
+function executeCouponApplication(couponCode, btn, fromModal) {
+    let originalText = '';
+    if (btn) {
+        btn.disabled = true;
+        originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Applying...';
+    }
 
     fetch("/checkout/apply-coupon", {
         method: "POST",
@@ -853,30 +1175,63 @@ function applyCoupon() {
     })
     .then(res => res.json())
     .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
 
         if (data.success) {
-            // Update UI state
-            document.getElementById("couponInputGroup").style.setProperty("display", "none", "important");
+            activeAppliedCode = data.couponCode;
+
+            // Update UI State: trigger card vs applied badge
+            const trigger = document.getElementById("couponTriggerWrapper");
+            if (trigger) trigger.style.setProperty("display", "none", "important");
+
             const badge = document.getElementById("appliedCouponBadge");
-            badge.style.setProperty("display", "block", "important");
-            document.getElementById("appliedCouponCode").textContent = data.couponCode;
-            document.getElementById("appliedCouponSavings").textContent = `You saved ₹${data.discountAmount.toLocaleString()}`;
+            if (badge) badge.style.setProperty("display", "block", "important");
+
+            const codeEl = document.getElementById("appliedCouponCode");
+            if (codeEl) codeEl.textContent = data.couponCode;
+
+            const savingsEl = document.getElementById("appliedCouponSavings");
+            if (savingsEl) savingsEl.textContent = `You saved ₹${Number(data.discountAmount || 0).toLocaleString('en-IN')}`;
+
+            // Reset manual input
+            const input = document.getElementById("couponCodeInput");
+            if (input) input.value = "";
 
             // Update Price Details
             const discountRow = document.getElementById("couponDiscountRow");
-            discountRow.className = "d-flex justify-content-between text-success fw-medium";
-            document.getElementById("summaryCouponCodeWrapper").style.display = "inline";
-            document.getElementById("summaryCouponCode").textContent = data.couponCode;
-            document.getElementById("summaryCouponDiscount").textContent = `-₹${data.discountAmount.toLocaleString()}`;
-            document.getElementById("summaryGrandTotal").textContent = `₹${data.finalAmount.toLocaleString()}`;
+            if (discountRow) discountRow.className = "d-flex justify-content-between text-success fw-medium";
+
+            const codeWrap = document.getElementById("summaryCouponCodeWrapper");
+            if (codeWrap) codeWrap.style.display = "inline";
+
+            const sumCode = document.getElementById("summaryCouponCode");
+            if (sumCode) sumCode.textContent = data.couponCode;
+
+            const sumDisc = document.getElementById("summaryCouponDiscount");
+            if (sumDisc) sumDisc.textContent = `-₹${Number(data.discountAmount || 0).toLocaleString('en-IN')}`;
+
+            const sumGrand = document.getElementById("summaryGrandTotal");
+            if (sumGrand) sumGrand.textContent = `₹${Number(data.finalAmount || 0).toLocaleString('en-IN')}`;
+
+            // Dynamically recalculate Wallet eligibility
             updateWalletEligibility(data.finalAmount);
+
+            // Close modal if applied from modal
+            if (fromModal) {
+                const modalEl = document.getElementById('couponModal');
+                if (modalEl) {
+                    const inst = bootstrap.Modal.getInstance(modalEl);
+                    if (inst) inst.hide();
+                }
+            }
 
             Swal.fire({
                 icon: 'success',
                 title: 'Coupon Applied!',
-                text: data.message,
+                text: data.message || `Coupon "${data.couponCode}" applied successfully!`,
                 timer: 1500,
                 showConfirmButton: false
             });
@@ -889,8 +1244,10 @@ function applyCoupon() {
         }
     })
     .catch(err => {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
         console.error("Apply Coupon Error:", err);
         Swal.fire({
             icon: 'error',
@@ -902,8 +1259,10 @@ function applyCoupon() {
 
 function removeCoupon() {
     const btn = document.getElementById("btnRemoveCoupon");
+    let originalText = '';
     if (btn) {
         btn.disabled = true;
+        originalText = btn.innerHTML;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Removing...';
     }
 
@@ -917,26 +1276,41 @@ function removeCoupon() {
     .then(data => {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = "Remove";
+            btn.innerHTML = originalText || "Remove";
         }
         if (data.success) {
+            activeAppliedCode = null;
+
             // Reset UI state
-            document.getElementById("couponCodeInput").value = "";
-            document.getElementById("couponInputGroup").style.setProperty("display", "flex", "important");
-            document.getElementById("appliedCouponBadge").style.setProperty("display", "none", "important");
+            const input = document.getElementById("couponCodeInput");
+            if (input) input.value = "";
+
+            const trigger = document.getElementById("couponTriggerWrapper");
+            if (trigger) trigger.style.setProperty("display", "block", "important");
+
+            const badge = document.getElementById("appliedCouponBadge");
+            if (badge) badge.style.setProperty("display", "none", "important");
 
             // Reset Price Details to ₹0
             const discountRow = document.getElementById("couponDiscountRow");
-            discountRow.className = "d-flex justify-content-between text-secondary";
-            document.getElementById("summaryCouponCodeWrapper").style.display = "none";
-            document.getElementById("summaryCouponDiscount").textContent = "₹0";
-            document.getElementById("summaryGrandTotal").textContent = `₹${data.finalAmount.toLocaleString()}`;
+            if (discountRow) discountRow.className = "d-flex justify-content-between text-secondary";
+
+            const codeWrap = document.getElementById("summaryCouponCodeWrapper");
+            if (codeWrap) codeWrap.style.display = "none";
+
+            const sumDisc = document.getElementById("summaryCouponDiscount");
+            if (sumDisc) sumDisc.textContent = "₹0";
+
+            const sumGrand = document.getElementById("summaryGrandTotal");
+            if (sumGrand) sumGrand.textContent = `₹${Number(data.finalAmount || 0).toLocaleString('en-IN')}`;
+
+            // Recalculate Wallet eligibility with restored amount
             updateWalletEligibility(data.finalAmount);
 
             Swal.fire({
                 icon: 'info',
                 title: 'Coupon Removed',
-                text: data.message,
+                text: data.message || 'Coupon has been removed.',
                 timer: 1200,
                 showConfirmButton: false
             });
@@ -951,7 +1325,7 @@ function removeCoupon() {
     .catch(err => {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = "Remove";
+            btn.innerHTML = originalText || "Remove";
         }
         console.error("Remove Coupon Error:", err);
         Swal.fire({

@@ -145,6 +145,8 @@ router.get("/checkout", isLoggedIn, orderController.loadCheckout);
 router.post("/checkout/address", isLoggedIn, addressValidator.validateCheckoutAddress, orderController.addCheckoutAddress);
 router.patch("/checkout/address/:id", isLoggedIn, addressValidator.validateCheckoutAddress, orderController.updateCheckoutAddress);
 router.post("/checkout/address/:id/default", isLoggedIn, orderController.setDefaultAddress);
+router.get("/checkout/eligible-coupons", isLoggedIn, orderController.getEligibleCoupons);
+router.get("/coupon/eligible", isLoggedIn, orderController.getEligibleCoupons);
 router.post("/checkout/apply-coupon", isLoggedIn, orderController.applyCoupon);
 router.post("/checkout/remove-coupon", isLoggedIn, orderController.removeCoupon);
 router.post("/checkout/place-order", isLoggedIn, orderController.placeCODOrder);

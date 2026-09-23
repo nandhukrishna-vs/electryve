@@ -303,3 +303,219 @@ export const validateUserCoupon = async (userId, couponCode, subtotal) => {
   };
 };
 
+/**
+ * Retrieve eligible and ineligible coupons for an authenticated user based on live cart subtotal.
+ *
+ * @param {ObjectId|string} userId
+ * @param {Object} options
+ * @param {number} options.subtotal - Live Offer-adjusted subtotal
+ * @param {string} [options.appliedCode=null] - Currently applied coupon code in session
+ * @returns {Promise<Object>} { eligibleCoupons, ineligibleCoupons, subtotal }
+ */
+export const getEligibleCouponsForUser = async (userId, { subtotal = 0, appliedCode = null } = {}) => {
+  const numericSubtotal = Math.max(0, Number(subtotal) || 0);
+  const now = new Date();
+
+  // 1. Fetch non-deleted coupons
+  const allCoupons = await Coupon.find({ isDeleted: false })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // 2. Fetch user's historical order coupon usage in a single batch query
+  const userUsageMap = {};
+  if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+    const userCouponOrders = await Order.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          orderStatus: { $ne: "CANCELLED" },
+          "coupon.code": { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: "$coupon.code",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    userCouponOrders.forEach((o) => {
+      if (o._id) {
+        userUsageMap[o._id.toUpperCase()] = o.count;
+      }
+    });
+  }
+
+  const eligibleCoupons = [];
+  const ineligibleCoupons = [];
+
+  for (const coupon of allCoupons) {
+    const code = coupon.code;
+    const isApplied = Boolean(
+      appliedCode && appliedCode.trim().toUpperCase() === code.toUpperCase()
+    );
+
+    // Filter out inactive
+    if (!coupon.isActive) {
+      ineligibleCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minPurchaseAmount: coupon.minPurchaseAmount || 0,
+        maxDiscountAmount: coupon.maxDiscountAmount || null,
+        startDate: coupon.startDate,
+        expiryDate: coupon.expiryDate,
+        isApplied,
+        isEligible: false,
+        ineligibleReason: "Coupon is not currently active."
+      });
+      continue;
+    }
+
+    // Check future/scheduled coupon
+    if (now < new Date(coupon.startDate)) {
+      ineligibleCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minPurchaseAmount: coupon.minPurchaseAmount || 0,
+        maxDiscountAmount: coupon.maxDiscountAmount || null,
+        startDate: coupon.startDate,
+        expiryDate: coupon.expiryDate,
+        isApplied,
+        isEligible: false,
+        ineligibleReason: `Starts on ${new Date(coupon.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}.`
+      });
+      continue;
+    }
+
+    // Check expired coupon
+    if (now > new Date(coupon.expiryDate)) {
+      ineligibleCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minPurchaseAmount: coupon.minPurchaseAmount || 0,
+        maxDiscountAmount: coupon.maxDiscountAmount || null,
+        startDate: coupon.startDate,
+        expiryDate: coupon.expiryDate,
+        isApplied,
+        isEligible: false,
+        ineligibleReason: "Coupon has expired."
+      });
+      continue;
+    }
+
+    // Check global usage limit
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      ineligibleCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minPurchaseAmount: coupon.minPurchaseAmount || 0,
+        maxDiscountAmount: coupon.maxDiscountAmount || null,
+        startDate: coupon.startDate,
+        expiryDate: coupon.expiryDate,
+        isApplied,
+        isEligible: false,
+        ineligibleReason: "Coupon usage limit has been reached."
+      });
+      continue;
+    }
+
+    // Check per-user limit
+    const userTimesUsed = userUsageMap[code.toUpperCase()] || 0;
+    if (coupon.perUserLimit && userTimesUsed >= coupon.perUserLimit) {
+      ineligibleCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minPurchaseAmount: coupon.minPurchaseAmount || 0,
+        maxDiscountAmount: coupon.maxDiscountAmount || null,
+        startDate: coupon.startDate,
+        expiryDate: coupon.expiryDate,
+        isApplied,
+        isEligible: false,
+        ineligibleReason: "You have already used this coupon the maximum number of times."
+      });
+      continue;
+    }
+
+    // Check minimum purchase amount
+    const minPurchase = coupon.minPurchaseAmount || 0;
+    if (minPurchase > 0 && numericSubtotal < minPurchase) {
+      const shortfall = minPurchase - numericSubtotal;
+      ineligibleCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minPurchaseAmount: minPurchase,
+        maxDiscountAmount: coupon.maxDiscountAmount || null,
+        startDate: coupon.startDate,
+        expiryDate: coupon.expiryDate,
+        isApplied,
+        isEligible: false,
+        shortfall,
+        ineligibleReason: `Add ₹${shortfall.toLocaleString("en-IN")} more to qualify (Min. ₹${minPurchase.toLocaleString("en-IN")}).`
+      });
+      continue;
+    }
+
+    // If all pass, calculate projected discount
+    let projectedDiscount = 0;
+    if (coupon.discountType === "PERCENTAGE") {
+      projectedDiscount = Math.round((numericSubtotal * coupon.discountValue) / 100);
+      if (coupon.maxDiscountAmount && projectedDiscount > coupon.maxDiscountAmount) {
+        projectedDiscount = coupon.maxDiscountAmount;
+      }
+    } else if (coupon.discountType === "FIXED") {
+      projectedDiscount = coupon.discountValue;
+    }
+    projectedDiscount = Math.max(0, Math.min(projectedDiscount, numericSubtotal));
+
+    eligibleCoupons.push({
+      _id: coupon._id,
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      projectedDiscount,
+      minPurchaseAmount: minPurchase,
+      maxDiscountAmount: coupon.maxDiscountAmount || null,
+      startDate: coupon.startDate,
+      expiryDate: coupon.expiryDate,
+      isApplied,
+      isEligible: true
+    });
+  }
+
+  // Sort eligible coupons deterministically:
+  // 1. Currently applied coupon first
+  // 2. Highest projected discount descending
+  // 3. Expiry date soonest ascending
+  // 4. _id string comparison
+  eligibleCoupons.sort((a, b) => {
+    if (a.isApplied && !b.isApplied) return -1;
+    if (!a.isApplied && b.isApplied) return 1;
+    if (b.projectedDiscount !== a.projectedDiscount) {
+      return b.projectedDiscount - a.projectedDiscount;
+    }
+    const aExp = new Date(a.expiryDate).getTime();
+    const bExp = new Date(b.expiryDate).getTime();
+    if (aExp !== bExp) return aExp - bExp;
+    return a._id.toString().localeCompare(b._id.toString());
+  });
+
+  return {
+    eligibleCoupons,
+    ineligibleCoupons,
+    subtotal: numericSubtotal
+  };
+};
+
