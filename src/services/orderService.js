@@ -9,6 +9,7 @@ import WalletTransaction from "../models/WalletTransaction.js";
 import { getCart } from "./cartService.js";
 import { validateUserCoupon } from "./couponService.js";
 import * as walletService from "./walletService.js";
+import { getBestOfferForItem, consumeOfferUsage, rollbackOfferUsage } from "./offerService.js";
 
 /**
  * Calculates remaining refundable amount for the full order from historical snapshot
@@ -99,6 +100,7 @@ const checkTransactionSupport = () => {
 const executeOrderCreation = async (userId, address, cartInfo, session, couponCode = null, idempotencyKey = null) => {
   const opts = session ? { session } : {};
   const deductedItems = [];
+  const consumedOffers = [];
   let createdOrderId = null;
   let orderSaved = false;
   let couponUsed = null;
@@ -216,7 +218,7 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
         productName: product.name
       });
 
-      // Authoritative snapshot preparation
+      // Authoritative snapshot preparation with Best Offer evaluation
       const brandName = product.brand.name || "Brand";
       const variantDetails = `${variant.color} / ${variant.storage}`;
       const image = (Array.isArray(variant.images) && variant.images.length > 0)
@@ -224,9 +226,26 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
         : (item.imageSnapshot || "");
       const regularPrice = variant.regularPrice || variant.salePrice;
       const salePrice = variant.salePrice;
-      // offerDiscount is reserved for future Offer module; catalog difference is regularPrice - salePrice
-      const offerDiscount = 0;
-      const itemTotal = salePrice * qty;
+
+      const offerEval = await getBestOfferForItem({
+        productId: product._id,
+        categoryId: product.category._id || product.category,
+        unitPrice: salePrice,
+        quantity: qty,
+        userId
+      });
+
+      const appliedOffer = offerEval.bestOffer;
+      const offerDiscount = offerEval.totalOfferDiscount;
+      const effectiveItemPrice = offerEval.effectiveItemPrice;
+      const itemTotal = offerEval.itemTotal;
+
+      if (appliedOffer && appliedOffer._id) {
+        const consumed = await consumeOfferUsage(appliedOffer._id, session);
+        if (consumed) {
+          consumedOffers.push(appliedOffer._id);
+        }
+      }
 
       preparedItems.push({
         product: product._id,
@@ -239,7 +258,13 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
         quantity: qty,
         regularPrice,
         salePrice,
+        appliedOfferId: appliedOffer ? appliedOffer._id : null,
+        appliedOfferName: appliedOffer ? appliedOffer.name : "",
+        appliedOfferScope: appliedOffer ? appliedOffer.scope : "",
+        appliedOfferDiscountType: appliedOffer ? appliedOffer.discountType : "",
+        appliedOfferDiscountValue: appliedOffer ? appliedOffer.discountValue : 0,
         offerDiscount,
+        effectiveItemPrice,
         itemTotal,
         itemStatus: "ACTIVE",
         isStockRestored: false
@@ -250,6 +275,10 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
     const subtotal = preparedItems.reduce((sum, it) => sum + it.itemTotal, 0);
     const catalogDiscount = preparedItems.reduce(
       (sum, it) => sum + ((it.regularPrice - it.salePrice) * it.quantity),
+      0
+    );
+    const totalOfferDiscount = preparedItems.reduce(
+      (sum, it) => sum + it.offerDiscount,
       0
     );
     const shippingCharge = cartInfo.cartSummary?.shipping ?? (subtotal >= 50000 ? 0 : 50);
@@ -317,6 +346,7 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
       shippingAddress,
       subtotal,
       discount: catalogDiscount,
+      totalOfferDiscount,
       coupon: couponSnapshot,
       couponDiscount,
       tax,
@@ -361,6 +391,9 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
             { $inc: { usedCount: -1 } }
           ).catch((err) => console.error("Coupon rollback failed:", err));
         }
+        for (const offId of consumedOffers) {
+          await rollbackOfferUsage(offId, session).catch(() => {});
+        }
         // Retrieve winning order and return
         if (idempotencyKey) {
           const existingOrder = await Order.findOne({ idempotencyKey, user: userId });
@@ -393,6 +426,10 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
         ).catch((err) => {
           console.error("Coupon usage rollback failed:", err);
         });
+      }
+
+      for (const offId of consumedOffers) {
+        await rollbackOfferUsage(offId, session).catch(() => {});
       }
 
       // Revert ALL deducted stock items
@@ -1307,6 +1344,7 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
 
   // 5. Validate listing and stock for all variants
   const preparedItems = [];
+  const consumedOffers = [];
   for (const item of aggregatedItems) {
     const qty = item.quantity;
     if (qty <= 0) continue;
@@ -1348,10 +1386,28 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
       };
     }
 
-    const regularPrice = variant.regularPrice;
+    const regularPrice = variant.regularPrice || variant.salePrice;
     const salePrice = variant.salePrice;
-    const offerDiscount = 0;
-    const itemTotal = salePrice * qty;
+
+    const offerEval = await getBestOfferForItem({
+      productId: product._id,
+      categoryId: product.category?._id || product.category,
+      unitPrice: salePrice,
+      quantity: qty,
+      userId
+    });
+
+    const appliedOffer = offerEval.bestOffer;
+    const offerDiscount = offerEval.totalOfferDiscount;
+    const effectiveItemPrice = offerEval.effectiveItemPrice;
+    const itemTotal = offerEval.itemTotal;
+
+    if (appliedOffer && appliedOffer._id) {
+      const consumed = await consumeOfferUsage(appliedOffer._id);
+      if (consumed) {
+        consumedOffers.push(appliedOffer._id);
+      }
+    }
 
     preparedItems.push({
       product: product._id,
@@ -1365,7 +1421,13 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
       quantity: qty,
       regularPrice,
       salePrice,
+      appliedOfferId: appliedOffer ? appliedOffer._id : null,
+      appliedOfferName: appliedOffer ? appliedOffer.name : "",
+      appliedOfferScope: appliedOffer ? appliedOffer.scope : "",
+      appliedOfferDiscountType: appliedOffer ? appliedOffer.discountType : "",
+      appliedOfferDiscountValue: appliedOffer ? appliedOffer.discountValue : 0,
       offerDiscount,
+      effectiveItemPrice,
       itemTotal,
       itemStatus: "ACTIVE",
       isStockRestored: false
@@ -1376,6 +1438,10 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
   const subtotal = preparedItems.reduce((sum, it) => sum + it.itemTotal, 0);
   const catalogDiscount = preparedItems.reduce(
     (sum, it) => sum + ((it.regularPrice - it.salePrice) * it.quantity),
+    0
+  );
+  const totalOfferDiscount = preparedItems.reduce(
+    (sum, it) => sum + it.offerDiscount,
     0
   );
   const shippingCharge = cartInfo.cartSummary?.shipping ?? (subtotal >= 50000 ? 0 : 50);
@@ -1497,6 +1563,7 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
       shippingAddress,
       subtotal,
       discount: catalogDiscount,
+      totalOfferDiscount,
       coupon: couponSnapshot,
       couponDiscount,
       tax,
@@ -1548,6 +1615,11 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
         { _id: couponUsed._id },
         { $inc: { usedCount: -1 } }
       ).catch(() => {});
+    }
+
+    // Revert offer usage
+    for (const offId of consumedOffers) {
+      await rollbackOfferUsage(offId).catch(() => {});
     }
 
     // Revert wallet debit via atomic credit

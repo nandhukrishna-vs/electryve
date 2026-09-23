@@ -12,7 +12,8 @@ export const createPaymentOrder = async (req, res, next) => {
       userId,
       addressId,
       couponCode,
-      checkoutAttemptId
+      checkoutAttemptId,
+      { referralCode: req.session.referralCode }
     );
 
     if (!result.success) {

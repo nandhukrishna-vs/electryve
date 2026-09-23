@@ -10,6 +10,7 @@ import {
 import * as adminOrderController from "../controllers/adminOrderController.js";
 import * as couponController from "../controllers/couponController.js";
 import * as inventoryController from "../controllers/inventoryController.js";
+import * as offerController from "../controllers/offerController.js";
 
 import { isAdmin } from "../middlewares/adminMiddleware.js";
 
@@ -55,6 +56,15 @@ router.get("/coupons/:id/edit", isAdmin, couponController.loadEditCoupon);
 router.post("/coupons/:id/edit", isAdmin, couponController.updateCoupon);
 router.patch("/coupons/:id/status", isAdmin, couponController.toggleCouponStatus);
 router.patch("/coupons/:id/delete", isAdmin, couponController.deleteCoupon);
+
+// Offer Management Routes
+router.get("/offers", isAdmin, offerController.loadOffers);
+router.get("/offers/add", isAdmin, offerController.loadAddOffer);
+router.post("/offers", isAdmin, offerController.createOffer);
+router.get("/offers/:id/edit", isAdmin, offerController.loadEditOffer);
+router.post("/offers/:id/edit", isAdmin, offerController.updateOffer);
+router.patch("/offers/:id/status", isAdmin, offerController.toggleOfferStatus);
+router.patch("/offers/:id/delete", isAdmin, offerController.deleteOffer);
 
 router.get("/logout", isAdmin, adminLogout);
 

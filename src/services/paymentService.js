@@ -11,6 +11,7 @@ import ProcessedWebhook from "../models/ProcessedWebhook.js";
 import { getCart } from "./cartService.js";
 import { validateUserCoupon } from "./couponService.js";
 import { getRazorpayClient, getRazorpayKeyId, getRazorpayWebhookSecret } from "../config/razorpay.js";
+import { getBestOfferForItem, consumeOfferUsage } from "./offerService.js";
 
 const generateOrderNumber = async () => {
   const now = new Date();
@@ -90,63 +91,67 @@ export const verifyWebhookSignature = (rawBodyBuffer, signature) => {
  * Creates a Razorpay Order and saves an authoritative PaymentAttempt.
  * Guards against rapid double-clicks for the same checkoutAttemptId.
  */
-export const createRazorpayOrder = async (userId, addressId, couponCode, checkoutAttemptId) => {
+export const createRazorpayOrder = async (userId, addressId, couponCode, checkoutAttemptId, options = {}) => {
   // 1. Address check
   const address = await Address.findOne({ _id: addressId, userId });
   if (!address) {
-    return {
-      success: false,
-      message: "Invalid shipping address or address does not belong to you."
-    };
+    return { success: false, message: "Selected delivery address not found." };
   }
 
-  // 2. Check for an existing PaymentAttempt for this checkoutAttemptId
-  const existingAttempt = await PaymentAttempt.findOne({ user: userId, checkoutAttemptId }).sort({ createdAt: -1 });
-  if (existingAttempt) {
-    if (existingAttempt.status === "COMPLETED" && existingAttempt.order) {
-      const existingOrder = await Order.findById(existingAttempt.order);
-      if (existingOrder) {
+  // 2. Concurrency & Idempotency check on checkoutAttemptId
+  let existingAttempt = null;
+  if (checkoutAttemptId) {
+    existingAttempt = await PaymentAttempt.findOne({
+      user: userId,
+      checkoutAttemptId
+    });
+
+    if (existingAttempt) {
+      if (existingAttempt.status === "COMPLETED") {
         return {
-          success: true,
-          isAlreadyFinalized: true,
-          orderNumber: existingOrder.orderNumber,
-          orderId: existingOrder._id
+          success: false,
+          message: "Payment for this checkout attempt has already been completed."
         };
       }
-    }
 
-    if (existingAttempt.status === "CREATED") {
-      // Reuse the existing active Razorpay order without creating a duplicate
-      return {
-        success: true,
-        keyId: getRazorpayKeyId(),
-        orderId: existingAttempt.razorpayOrderId,
-        amount: existingAttempt.amountInPaise,
-        currency: existingAttempt.currency,
-        prefill: {
-          name: address.fullName,
-          phone: address.phone
-        }
-      };
-    }
+      if (existingAttempt.status === "CREATED" && existingAttempt.razorpayOrderId) {
+        return {
+          success: true,
+          reused: true,
+          orderId: existingAttempt.razorpayOrderId,
+          razorpayOrderId: existingAttempt.razorpayOrderId,
+          amount: existingAttempt.amount,
+          currency: existingAttempt.currency,
+          keyId: getRazorpayKeyId(),
+          paymentAttemptId: existingAttempt._id.toString(),
+          breakdown: {
+            subtotal: existingAttempt.subtotal,
+            couponDiscount: existingAttempt.couponDiscount,
+            totalOfferDiscount: existingAttempt.totalOfferDiscount || 0,
+            shippingCharge: existingAttempt.shippingCharge,
+            finalAmount: existingAttempt.amount
+          }
+        };
+      }
 
-    if (existingAttempt.status === "PROCESSING") {
-      return {
-        success: false,
-        message: "Payment is currently processing. Please check your orders or try again in a moment."
-      };
-    }
+      if (existingAttempt.status === "PROCESSING") {
+        return {
+          success: false,
+          message: "Payment is currently processing. Please check your orders or try again in a moment."
+        };
+      }
 
-    if (existingAttempt.status === "FULFILLMENT_BLOCKED") {
-      return {
-        success: false,
-        message: "A previous payment for this attempt requires refund reconciliation. Please initialize a new checkout."
-      };
+      if (existingAttempt.status === "FULFILLMENT_BLOCKED") {
+        return {
+          success: false,
+          message: "A previous payment for this attempt requires refund reconciliation. Please initialize a new checkout."
+        };
+      }
     }
   }
 
   // 3. Cart live revalidation & Authoritative Snapshot Building
-  const cartInfo = await getCart(userId);
+  const cartInfo = await getCart(userId, options);
   if (!cartInfo || !cartInfo.items || cartInfo.items.length === 0) {
     return { success: false, message: "Your cart is empty." };
   }
@@ -218,8 +223,20 @@ export const createRazorpayOrder = async (userId, addressId, couponCode, checkou
         : item.imageSnapshot || "";
     const regularPrice = variant.regularPrice || variant.salePrice;
     const salePrice = variant.salePrice;
-    const offerDiscount = 0;
-    const itemTotal = salePrice * qty;
+
+    const offerEval = await getBestOfferForItem({
+      productId: product._id,
+      categoryId: product.category?._id || product.category,
+      unitPrice: salePrice,
+      quantity: qty,
+      userId,
+      referralCode: options.referralCode || null
+    });
+
+    const appliedOffer = offerEval.bestOffer;
+    const offerDiscount = offerEval.totalOfferDiscount;
+    const effectiveItemPrice = offerEval.effectiveItemPrice;
+    const itemTotal = offerEval.itemTotal;
 
     preparedItems.push({
       product: product._id,
@@ -232,7 +249,13 @@ export const createRazorpayOrder = async (userId, addressId, couponCode, checkou
       quantity: qty,
       regularPrice,
       salePrice,
+      appliedOfferId: appliedOffer ? appliedOffer._id : null,
+      appliedOfferName: appliedOffer ? appliedOffer.name : "",
+      appliedOfferScope: appliedOffer ? appliedOffer.scope : "",
+      appliedOfferDiscountType: appliedOffer ? appliedOffer.discountType : "",
+      appliedOfferDiscountValue: appliedOffer ? appliedOffer.discountValue : 0,
       offerDiscount,
+      effectiveItemPrice,
       itemTotal
     });
   }
@@ -245,6 +268,10 @@ export const createRazorpayOrder = async (userId, addressId, couponCode, checkou
   const subtotal = preparedItems.reduce((sum, it) => sum + it.itemTotal, 0);
   const catalogDiscount = preparedItems.reduce(
     (sum, it) => sum + (it.regularPrice - it.salePrice) * it.quantity,
+    0
+  );
+  const totalOfferDiscount = preparedItems.reduce(
+    (sum, it) => sum + it.offerDiscount,
     0
   );
   const shippingCharge = cartInfo.cartSummary?.shipping ?? (subtotal >= 50000 ? 0 : 50);
@@ -309,6 +336,7 @@ export const createRazorpayOrder = async (userId, addressId, couponCode, checkou
     items: preparedItems,
     subtotal,
     catalogDiscount,
+    totalOfferDiscount,
     coupon: couponSnapshot,
     couponDiscount,
     shippingCharge,
@@ -641,7 +669,13 @@ export const finalizeSuccessfulPayment = async ({
       quantity: it.quantity,
       regularPrice: it.regularPrice,
       salePrice: it.salePrice,
+      appliedOfferId: it.appliedOfferId || null,
+      appliedOfferName: it.appliedOfferName || "",
+      appliedOfferScope: it.appliedOfferScope || "",
+      appliedOfferDiscountType: it.appliedOfferDiscountType || "",
+      appliedOfferDiscountValue: it.appliedOfferDiscountValue || 0,
       offerDiscount: it.offerDiscount || 0,
+      effectiveItemPrice: it.effectiveItemPrice || it.salePrice,
       itemTotal: it.itemTotal,
       itemStatus: "ACTIVE",
       isStockRestored: false
@@ -655,6 +689,7 @@ export const finalizeSuccessfulPayment = async ({
       shippingAddress: paymentAttempt.shippingAddress,
       subtotal: paymentAttempt.subtotal,
       discount: paymentAttempt.catalogDiscount,
+      totalOfferDiscount: paymentAttempt.totalOfferDiscount || 0,
       coupon: paymentAttempt.coupon,
       couponDiscount: paymentAttempt.couponDiscount,
       tax: paymentAttempt.tax,
@@ -683,6 +718,13 @@ export const finalizeSuccessfulPayment = async ({
       paymentAttempt.processedWebhooks.push(webhookEventId);
     }
     await paymentAttempt.save();
+
+    // Consume offer usage for applied offers
+    for (const it of paymentAttempt.items) {
+      if (it.appliedOfferId) {
+        await consumeOfferUsage(it.appliedOfferId).catch(() => {});
+      }
+    }
 
     // Clear Cart safely
     await Cart.updateOne({ user: paymentAttempt.user }, { $set: { items: [] } }).catch((err) => {

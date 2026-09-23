@@ -6,7 +6,7 @@ import * as cartService from "../services/cartService.js";
 const loadCart = async (req, res, next) => {
     try {
         const userId = req.session.user.id;
-        const cartData = await cartService.getCart(userId);
+        const cartData = await cartService.getCart(userId, { referralCode: req.session?.referralCode });
 
         res.render("user/cart", {
             layout: "layouts/user-layout",
@@ -81,7 +81,7 @@ const updateQuantity = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Invalid quantity parameter." });
         }
 
-        const result = await cartService.updateQuantity(userId, productId, variantId, qty);
+        const result = await cartService.updateQuantity(userId, productId, variantId, qty, { referralCode: req.session?.referralCode });
         
         if (!result.success) {
             return res.status(400).json(result);

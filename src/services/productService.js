@@ -7,6 +7,8 @@ import Wishlist from "../models/Wishlist.js";
 import validateProduct from "../validators/productValidator.js";
 import { uploadImages, deleteImage } from "./imageService.js";
 import { getProductReviewsSummary } from "./reviewService.js";
+import Offer from "../models/Offer.js";
+import { getBestOfferForItem, getOffersForCatalog } from "./offerService.js";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -915,7 +917,9 @@ const getShopProducts = async (query, userId) => {
         }
     }
 
-    // 6. Compute business logic details on the service layer
+    // 6. Compute business logic details and best offers on the service layer
+    const catalogOffers = await getOffersForCatalog(rawProducts);
+
     const products = rawProducts.map(p => {
         // Find the first listed/active variant
         const defaultVariant = p.variants.find(v => v.isListed) || p.variants[0] || null;
@@ -923,12 +927,17 @@ const getShopProducts = async (query, userId) => {
         let discountPercentage = 0;
         let stockStatus = "Out of Stock";
 
+        const offerData = catalogOffers.get(p._id.toString());
+        const bestOffer = offerData?.bestOffer || null;
+        const unitOfferDiscount = offerData?.unitOfferDiscount || 0;
+        const effectivePrice = offerData?.effectiveItemPrice ?? (defaultVariant?.salePrice || 0);
+
         if (defaultVariant) {
             // Compute discount
             const regPrice = defaultVariant.regularPrice || 0;
-            const salePrice = defaultVariant.salePrice || 0;
-            if (regPrice > 0 && salePrice < regPrice) {
-                discountPercentage = Math.round(((regPrice - salePrice) / regPrice) * 100);
+            const finalPrice = effectivePrice;
+            if (regPrice > 0 && finalPrice < regPrice) {
+                discountPercentage = Math.round(((regPrice - finalPrice) / regPrice) * 100);
             }
 
             // Compute stock status
@@ -946,6 +955,9 @@ const getShopProducts = async (query, userId) => {
         return {
             ...p,
             defaultVariant,
+            bestOffer,
+            unitOfferDiscount,
+            effectivePrice,
             discountPercentage,
             stockStatus,
             isInWishlist
@@ -993,6 +1005,18 @@ const getProductDetails = async (id) => {
 
     const fallbackSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23f3f4f6"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-family="sans-serif" font-size="16">No Image Available</text></svg>`;
 
+    const now = new Date();
+    const productOffers = await Offer.find({
+        isDeleted: false,
+        isActive: true,
+        startAt: { $lte: now },
+        expiryAt: { $gte: now },
+        $or: [
+            { scope: "PRODUCT", products: product._id },
+            { scope: "CATEGORY", categories: product.category._id }
+        ]
+    }).lean();
+
     const rawVariants = Array.isArray(product.variants) ? product.variants : [];
     
     const activeVariants = rawVariants
@@ -1008,8 +1032,22 @@ const getProductDetails = async (id) => {
             }
             const stockStatus = v.stock <= 0 ? "Out of Stock" : (v.stock <= 5 ? "Low Stock" : "In Stock");
 
+            const bestOffer = getBestOfferForItem({
+                productId: product._id,
+                categoryId: product.category._id,
+                unitPrice: salePrice,
+                quantity: 1,
+                now,
+                prefetchedOffers: productOffers
+            });
+            const unitOfferDiscount = bestOffer ? bestOffer.unitDiscount : 0;
+            const effectiveSalePrice = Math.max(0, salePrice - unitOfferDiscount);
+
             return {
                 ...v,
+                bestOffer,
+                unitOfferDiscount,
+                effectiveSalePrice,
                 display: {
                     image: displayImage,
                     images: vImages.length > 0 ? vImages : [fallbackSvg],
@@ -1018,7 +1056,10 @@ const getProductDetails = async (id) => {
                     discountPercentage: discountPercentage,
                     stockStatus: stockStatus,
                     sku: v.sku || '-',
-                    stock: v.stock
+                    stock: v.stock,
+                    bestOffer,
+                    unitOfferDiscount,
+                    effectiveSalePrice
                 }
             };
         });
@@ -1052,6 +1093,8 @@ const getProductDetails = async (id) => {
     .limit(8)
     .lean();
 
+    const relatedOffersByTarget = await getOffersForCatalog(rawRelated, now);
+
     const relatedProducts = rawRelated.map(rp => {
         const rpVariants = Array.isArray(rp.variants) ? rp.variants : [];
         const rpActiveVariants = rpVariants.filter(v => v && v.isListed);
@@ -1079,8 +1122,26 @@ const getProductDetails = async (id) => {
             return null;
         }
 
+        const rpTargetOffers = [
+            ...(relatedOffersByTarget.productOffersMap.get(String(rp._id)) || []),
+            ...(relatedOffersByTarget.categoryOffersMap.get(String(rp.category._id)) || [])
+        ];
+        const rpBestOffer = getBestOfferForItem({
+            productId: rp._id,
+            categoryId: rp.category._id,
+            unitPrice: salePrice,
+            quantity: 1,
+            now,
+            prefetchedOffers: rpTargetOffers
+        });
+        const rpUnitOfferDiscount = rpBestOffer ? rpBestOffer.unitDiscount : 0;
+        const rpEffectivePrice = Math.max(0, salePrice - rpUnitOfferDiscount);
+
         return {
             ...rp,
+            bestOffer: rpBestOffer,
+            unitOfferDiscount: rpUnitOfferDiscount,
+            effectivePrice: rpEffectivePrice,
             defaultVariant: {
                 ...rpDefaultVariant,
                 display: {
@@ -1091,7 +1152,10 @@ const getProductDetails = async (id) => {
                     discountPercentage: discountPercentage,
                     stockStatus: stockStatus,
                     sku: rpDefaultVariant.sku || '-',
-                    stock: rpDefaultVariant.stock
+                    stock: rpDefaultVariant.stock,
+                    bestOffer: rpBestOffer,
+                    unitOfferDiscount: rpUnitOfferDiscount,
+                    effectiveSalePrice: rpEffectivePrice
                 }
             }
         };
@@ -1103,6 +1167,9 @@ const getProductDetails = async (id) => {
         product: {
             ...product,
             defaultVariant,
+            bestOffer: defaultVariant.bestOffer,
+            unitOfferDiscount: defaultVariant.unitOfferDiscount,
+            effectiveSalePrice: defaultVariant.effectiveSalePrice,
             averageRating: reviewSummary.averageRating,
             totalReviews: reviewSummary.totalReviews,
             ratingDistribution: reviewSummary.ratingDistribution

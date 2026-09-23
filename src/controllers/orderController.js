@@ -15,7 +15,7 @@ const loadCheckout = async (req, res, next) => {
     const userId = req.session.user.id;
 
     // Load and validate cart
-    const cart = await cartService.getCart(userId);
+    const cart = await cartService.getCart(userId, { referralCode: req.session.referralCode });
     if (!cart || cart.items.length === 0) {
       req.session.errorMessage = "Your cart is empty. Add products to cart first.";
       return res.redirect("/cart");
@@ -209,7 +209,7 @@ const applyCoupon = async (req, res, next) => {
       });
     }
 
-    const cart = await cartService.getCart(userId);
+    const cart = await cartService.getCart(userId, { referralCode: req.session.referralCode });
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({
         success: false,
@@ -266,7 +266,7 @@ const removeCoupon = async (req, res, next) => {
     const userId = req.session.user.id;
     delete req.session.appliedCoupon;
 
-    const cart = await cartService.getCart(userId);
+    const cart = await cartService.getCart(userId, { referralCode: req.session.referralCode });
     const subtotal = cart?.cartSummary?.subtotal || 0;
     const shippingCharge = cart?.cartSummary?.shipping || 0;
     const finalAmount = cart?.cartSummary?.grandTotal || (subtotal + shippingCharge);
@@ -308,7 +308,7 @@ const placeCODOrder = async (req, res, next) => {
   activeOrderPlacements.add(lockKey);
   try {
     const couponCode = req.session.appliedCoupon?.code || null;
-    const result = await orderService.createCODOrder(userId, addressId, couponCode, effectiveIdempotencyKey);
+    const result = await orderService.createCODOrder(userId, addressId, couponCode, effectiveIdempotencyKey, { referralCode: req.session.referralCode });
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -345,7 +345,7 @@ const placeWalletOrder = async (req, res, next) => {
   activeOrderPlacements.add(lockKey);
   try {
     const couponCode = req.session.appliedCoupon?.code || null;
-    const result = await orderService.createWalletOrder(userId, addressId, couponCode, effectiveIdempotencyKey);
+    const result = await orderService.createWalletOrder(userId, addressId, couponCode, effectiveIdempotencyKey, { referralCode: req.session.referralCode });
     if (!result.success) {
       return res.status(400).json(result);
     }

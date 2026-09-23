@@ -1,0 +1,411 @@
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-md-11">
+            <!-- Breadcrumbs / Top Nav -->
+            <div class="mb-3">
+                <a href="/admin/offers" class="text-decoration-none text-muted small d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Back to Offers</span>
+                </a>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h4 class="h5 fw-bold mb-0">Edit Offer</h4>
+                    <p class="text-muted small mb-0">Update offer details, targets, discount rules, or validity.</p>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- Error Alert -->
+                    <% if (typeof errorMessage !== "undefined" && errorMessage) { %>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <%= errorMessage %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <% } %>
+
+                    <form action="/admin/offers/<%= offer._id %>/edit" method="POST" id="offerForm" novalidate>
+                        <!-- Basic Info: Name & Status -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label for="name" class="form-label fw-semibold">
+                                    Offer Name <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    class="form-control <%= errors?.name ? 'is-invalid' : '' %>"
+                                    id="name"
+                                    name="name"
+                                    placeholder="e.g. Summer Festival Special, Flagship Category Sale"
+                                    value="<%= offer?.name || '' %>"
+                                    required
+                                >
+                                <% if (errors?.name) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.name %></div>
+                                <% } else { %>
+                                    <div class="form-text">Between 2 and 100 characters.</div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-4 d-flex flex-column justify-content-center pt-md-3">
+                                <div class="form-check form-switch mt-2">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        id="isActive"
+                                        name="isActive"
+                                        value="true"
+                                        <%= (offer?.isActive === true || offer?.isActive === 'true') ? 'checked' : '' %>
+                                    >
+                                    <label class="form-check-label fw-semibold" for="isActive">Offer Active</label>
+                                </div>
+                                <div class="form-text">Active offers apply within their validity dates.</div>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-semibold">Description</label>
+                            <textarea
+                                class="form-control <%= errors?.description ? 'is-invalid' : '' %>"
+                                id="description"
+                                name="description"
+                                rows="2"
+                                placeholder="Optional summary for internal tracking or banner display"
+                            ><%= offer?.description || '' %></textarea>
+                            <% if (errors?.description) { %>
+                                <div class="invalid-feedback d-block"><%= errors.description %></div>
+                            <% } %>
+                        </div>
+
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <!-- Offer Scope & Target Selection -->
+                        <h5 class="h6 fw-bold text-dark mb-3">1. Scope & Target</h5>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="scope" class="form-label fw-semibold">
+                                    Offer Scope <span class="text-danger">*</span>
+                                </label>
+                                <select
+                                    class="form-select <%= errors?.scope ? 'is-invalid' : '' %>"
+                                    id="scope"
+                                    name="scope"
+                                    required
+                                >
+                                    <option value="" disabled>Select scope...</option>
+                                    <option value="PRODUCT" <%= offer?.scope === 'PRODUCT' ? 'selected' : '' %>>Product Specific</option>
+                                    <option value="CATEGORY" <%= offer?.scope === 'CATEGORY' ? 'selected' : '' %>>Category Specific</option>
+                                    <option value="REFERRAL" <%= offer?.scope === 'REFERRAL' ? 'selected' : '' %>>Referral Offer</option>
+                                </select>
+                                <% if (errors?.scope) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.scope %></div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="priority" class="form-label fw-semibold">
+                                    Priority Rank
+                                </label>
+                                <input
+                                    type="number"
+                                    class="form-control <%= errors?.priority ? 'is-invalid' : '' %>"
+                                    id="priority"
+                                    name="priority"
+                                    min="0"
+                                    step="1"
+                                    placeholder="0"
+                                    value="<%= typeof offer?.priority !== 'undefined' ? offer.priority : 0 %>"
+                                >
+                                <div class="form-text">Higher numbers break ties when discount amounts are equal.</div>
+                                <% if (errors?.priority) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.priority %></div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <!-- Target: Products -->
+                        <div id="productTargetContainer" class="mb-3" style="display: none;">
+                            <label for="products" class="form-label fw-semibold">
+                                Applicable Products <span class="text-danger">*</span>
+                            </label>
+                            <select
+                                multiple
+                                class="form-select <%= errors?.products ? 'is-invalid' : '' %>"
+                                id="products"
+                                name="products"
+                                size="6"
+                            >
+                                <% (products || []).forEach(p => { %>
+                                    <%
+                                        const isSelected = offer?.productIds
+                                            ? offer.productIds.includes(String(p._id))
+                                            : (offer?.products && Array.isArray(offer.products)
+                                                ? offer.products.some(sel => String(sel._id || sel) === String(p._id))
+                                                : String(offer?.products) === String(p._id));
+                                    %>
+                                    <option value="<%= p._id %>" <%= isSelected ? 'selected' : '' %>><%= p.name %></option>
+                                <% }) %>
+                            </select>
+                            <div class="form-text">Hold Ctrl (Windows) or Cmd (Mac) to select multiple products.</div>
+                            <% if (errors?.products) { %>
+                                <div class="invalid-feedback d-block"><%= errors.products %></div>
+                            <% } %>
+                        </div>
+
+                        <!-- Target: Categories -->
+                        <div id="categoryTargetContainer" class="mb-3" style="display: none;">
+                            <label for="categories" class="form-label fw-semibold">
+                                Applicable Categories <span class="text-danger">*</span>
+                            </label>
+                            <select
+                                multiple
+                                class="form-select <%= errors?.categories ? 'is-invalid' : '' %>"
+                                id="categories"
+                                name="categories"
+                                size="4"
+                            >
+                                <% (categories || []).forEach(c => { %>
+                                    <%
+                                        const isSelected = offer?.categoryIds
+                                            ? offer.categoryIds.includes(String(c._id))
+                                            : (offer?.categories && Array.isArray(offer.categories)
+                                                ? offer.categories.some(sel => String(sel._id || sel) === String(c._id))
+                                                : String(offer?.categories) === String(c._id));
+                                    %>
+                                    <option value="<%= c._id %>" <%= isSelected ? 'selected' : '' %>><%= c.name %></option>
+                                <% }) %>
+                            </select>
+                            <div class="form-text">Hold Ctrl or Cmd to select multiple categories.</div>
+                            <% if (errors?.categories) { %>
+                                <div class="invalid-feedback d-block"><%= errors.categories %></div>
+                            <% } %>
+                        </div>
+
+                        <!-- Target: Referral Code -->
+                        <div id="referralTargetContainer" class="mb-3" style="display: none;">
+                            <label for="referralCode" class="form-label fw-semibold">
+                                Referral Code <span class="text-danger">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                class="form-control font-monospace text-uppercase <%= errors?.referralCode ? 'is-invalid' : '' %>"
+                                id="referralCode"
+                                name="referralCode"
+                                placeholder="e.g. FRIEND20, INVITE50"
+                                value="<%= offer?.referralCode || '' %>"
+                            >
+                            <div class="form-text">Customers visiting with ?ref=CODE unlock this offer.</div>
+                            <% if (errors?.referralCode) { %>
+                                <div class="invalid-feedback d-block"><%= errors.referralCode %></div>
+                            <% } %>
+                        </div>
+
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <!-- Discount Calculation Rules -->
+                        <h5 class="h6 fw-bold text-dark mb-3">2. Discount Configuration</h5>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label for="discountType" class="form-label fw-semibold">
+                                    Discount Type <span class="text-danger">*</span>
+                                </label>
+                                <select
+                                    class="form-select <%= errors?.discountType ? 'is-invalid' : '' %>"
+                                    id="discountType"
+                                    name="discountType"
+                                    required
+                                >
+                                    <option value="" disabled>Select type...</option>
+                                    <option value="PERCENTAGE" <%= offer?.discountType === 'PERCENTAGE' ? 'selected' : '' %>>Percentage Discount (%)</option>
+                                    <option value="FIXED" <%= offer?.discountType === 'FIXED' ? 'selected' : '' %>>Flat Discount (₹ per unit)</option>
+                                </select>
+                                <% if (errors?.discountType) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.discountType %></div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="discountValue" class="form-label fw-semibold">
+                                    Discount Value <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text" id="discountPrefix">₹ / %</span>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        min="1"
+                                        class="form-control <%= errors?.discountValue ? 'is-invalid' : '' %>"
+                                        id="discountValue"
+                                        name="discountValue"
+                                        placeholder="e.g. 10 or 500"
+                                        value="<%= offer?.discountValue || '' %>"
+                                        required
+                                    >
+                                </div>
+                                <% if (errors?.discountValue) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.discountValue %></div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-4" id="maxDiscountContainer">
+                                <label for="maxDiscountAmount" class="form-label fw-semibold">
+                                    Max Discount Cap (₹)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        min="1"
+                                        class="form-control <%= errors?.maxDiscountAmount ? 'is-invalid' : '' %>"
+                                        id="maxDiscountAmount"
+                                        name="maxDiscountAmount"
+                                        placeholder="Optional maximum cap"
+                                        value="<%= offer?.maxDiscountAmount || '' %>"
+                                    >
+                                </div>
+                                <div class="form-text">Limits maximum per-unit percentage discount.</div>
+                                <% if (errors?.maxDiscountAmount) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.maxDiscountAmount %></div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <!-- Validity & Limits -->
+                        <h5 class="h6 fw-bold text-dark mb-3">3. Validity & Limits</h5>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="startAt" class="form-label fw-semibold">
+                                    Start Date & Time <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    class="form-control <%= errors?.startAt ? 'is-invalid' : '' %>"
+                                    id="startAt"
+                                    name="startAt"
+                                    value="<%= offer?.startAtFormatted || offer?.startAt || '' %>"
+                                    required
+                                >
+                                <% if (errors?.startAt) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.startAt %></div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="expiryAt" class="form-label fw-semibold">
+                                    Expiry Date & Time <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    class="form-control <%= errors?.expiryAt ? 'is-invalid' : '' %>"
+                                    id="expiryAt"
+                                    name="expiryAt"
+                                    value="<%= offer?.expiryAtFormatted || offer?.expiryAt || '' %>"
+                                    required
+                                >
+                                <% if (errors?.expiryAt) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.expiryAt %></div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="usageLimit" class="form-label fw-semibold">
+                                    Total Usage Limit
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    class="form-control <%= errors?.usageLimit ? 'is-invalid' : '' %>"
+                                    id="usageLimit"
+                                    name="usageLimit"
+                                    placeholder="Leave empty for unlimited"
+                                    value="<%= offer?.usageLimit || '' %>"
+                                >
+                                <div class="form-text">Total orders that can win this offer globally. Currently used: <%= offer?.usedCount || 0 %></div>
+                                <% if (errors?.usageLimit) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.usageLimit %></div>
+                                <% } %>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="perUserLimit" class="form-label fw-semibold">
+                                    Usage Limit Per Customer
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    class="form-control <%= errors?.perUserLimit ? 'is-invalid' : '' %>"
+                                    id="perUserLimit"
+                                    name="perUserLimit"
+                                    placeholder="Leave empty for unlimited"
+                                    value="<%= offer?.perUserLimit || '' %>"
+                                >
+                                <div class="form-text">Maximum orders per individual customer.</div>
+                                <% if (errors?.perUserLimit) { %>
+                                    <div class="invalid-feedback d-block"><%= errors.perUserLimit %></div>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="/admin/offers" class="btn btn-light px-4 border">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4 fw-medium">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const scopeSelect = document.getElementById("scope");
+    const productContainer = document.getElementById("productTargetContainer");
+    const categoryContainer = document.getElementById("categoryTargetContainer");
+    const referralContainer = document.getElementById("referralTargetContainer");
+
+    const discountTypeSelect = document.getElementById("discountType");
+    const discountPrefix = document.getElementById("discountPrefix");
+    const maxDiscountContainer = document.getElementById("maxDiscountContainer");
+    const maxDiscountInput = document.getElementById("maxDiscountAmount");
+
+    function syncScopeUI() {
+        const val = scopeSelect.value;
+        productContainer.style.display = val === "PRODUCT" ? "block" : "none";
+        categoryContainer.style.display = val === "CATEGORY" ? "block" : "none";
+        referralContainer.style.display = val === "REFERRAL" ? "block" : "none";
+    }
+
+    function syncDiscountUI() {
+        const val = discountTypeSelect.value;
+        if (val === "PERCENTAGE") {
+            discountPrefix.textContent = "%";
+            maxDiscountContainer.style.display = "block";
+            maxDiscountInput.removeAttribute("disabled");
+        } else if (val === "FIXED") {
+            discountPrefix.textContent = "₹";
+            maxDiscountContainer.style.display = "none";
+            maxDiscountInput.setAttribute("disabled", "disabled");
+        } else {
+            discountPrefix.textContent = "₹ / %";
+            maxDiscountContainer.style.display = "block";
+        }
+    }
+
+    scopeSelect.addEventListener("change", syncScopeUI);
+    discountTypeSelect.addEventListener("change", syncDiscountUI);
+
+    // Initial run
+    syncScopeUI();
+    syncDiscountUI();
+});
+</script>

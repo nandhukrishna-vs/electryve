@@ -48,6 +48,33 @@ const paymentAttemptItemSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  appliedOfferId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Offer",
+    default: null
+  },
+  appliedOfferName: {
+    type: String,
+    default: ""
+  },
+  appliedOfferScope: {
+    type: String,
+    enum: ["PRODUCT", "CATEGORY", "REFERRAL", ""],
+    default: ""
+  },
+  appliedOfferDiscountType: {
+    type: String,
+    enum: ["PERCENTAGE", "FIXED", ""],
+    default: ""
+  },
+  appliedOfferDiscountValue: {
+    type: Number,
+    default: 0
+  },
+  effectiveItemPrice: {
+    type: Number,
+    default: 0
+  },
   itemTotal: {
     type: Number,
     required: true
@@ -116,6 +143,10 @@ const paymentAttemptSchema = new mongoose.Schema(
       required: true
     },
     catalogDiscount: {
+      type: Number,
+      default: 0
+    },
+    totalOfferDiscount: {
       type: Number,
       default: 0
     },

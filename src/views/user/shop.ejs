@@ -377,16 +377,31 @@
 
                                     <div>
                                         <!-- Prices (Sale price bold/dark/large, Regular price strikethrough/gray) -->
-                                        <div class="d-flex align-items-baseline gap-2 mb-3">
+                                        <div class="d-flex align-items-baseline gap-2 mb-1">
                                             <% if(product.defaultVariant){ %>
-                                                <span class="fw-bold text-dark fs-4">₹<%= product.defaultVariant.salePrice.toLocaleString() %></span>
-                                                <% if(product.discountPercentage > 0){ %>
-                                                    <span class="text-muted text-decoration-line-through small">₹<%= product.defaultVariant.regularPrice.toLocaleString() %></span>
+                                                <% if (product.bestOffer && product.unitOfferDiscount > 0) { %>
+                                                    <span class="fw-bold text-success fs-4">₹<%= (product.effectivePrice || (product.defaultVariant.salePrice - product.unitOfferDiscount)).toLocaleString('en-IN') %></span>
+                                                    <span class="text-muted text-decoration-line-through small">₹<%= product.defaultVariant.salePrice.toLocaleString('en-IN') %></span>
+                                                <% } else { %>
+                                                    <span class="fw-bold text-dark fs-4">₹<%= product.defaultVariant.salePrice.toLocaleString('en-IN') %></span>
+                                                    <% if(product.discountPercentage > 0){ %>
+                                                        <span class="text-muted text-decoration-line-through small">₹<%= product.defaultVariant.regularPrice.toLocaleString('en-IN') %></span>
+                                                    <% } %>
                                                 <% } %>
                                             <% } else { %>
                                                 <span class="text-muted">-</span>
                                             <% } %>
                                         </div>
+
+                                        <% if (product.bestOffer && product.unitOfferDiscount > 0) { %>
+                                            <div class="mb-3">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-tag-fill me-1"></i><%= product.bestOffer.offerName %>: <%= product.bestOffer.discountType === 'PERCENTAGE' ? product.bestOffer.discountValue + '% OFF' : '₹' + product.bestOffer.discountValue + ' OFF' %>
+                                                </span>
+                                            </div>
+                                        <% } else { %>
+                                            <div class="mb-3" style="min-height: 20px;"></div>
+                                        <% } %>
 
                                         <!-- View Details & Add to Cart button split -->
                                         <div class="d-flex gap-2">
@@ -654,13 +669,23 @@ function renderProducts(products) {
         }
 
         let priceHtml = "";
+        let offerBadgeHtml = "";
         if (defaultVariant) {
-            priceHtml = `<span class="fw-bold text-dark fs-4">₹${defaultVariant.salePrice.toLocaleString()}</span>`;
-            if (product.discountPercentage > 0) {
-                priceHtml += ` <span class="text-muted text-decoration-line-through small">₹${defaultVariant.regularPrice.toLocaleString()}</span>`;
+            if (product.bestOffer && product.unitOfferDiscount > 0) {
+                const effPrice = product.effectivePrice || Math.max(0, defaultVariant.salePrice - product.unitOfferDiscount);
+                priceHtml = `<span class="fw-bold text-success fs-4">₹${effPrice.toLocaleString('en-IN')}</span> <span class="text-muted text-decoration-line-through small">₹${defaultVariant.salePrice.toLocaleString('en-IN')}</span>`;
+                const discountLabel = product.bestOffer.discountType === 'PERCENTAGE' ? `${product.bestOffer.discountValue}% OFF` : `₹${product.bestOffer.discountValue} OFF`;
+                offerBadgeHtml = `<div class="mb-3"><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;"><i class="bi bi-tag-fill me-1"></i>${product.bestOffer.offerName}: ${discountLabel}</span></div>`;
+            } else {
+                priceHtml = `<span class="fw-bold text-dark fs-4">₹${defaultVariant.salePrice.toLocaleString('en-IN')}</span>`;
+                if (product.discountPercentage > 0) {
+                    priceHtml += ` <span class="text-muted text-decoration-line-through small">₹${defaultVariant.regularPrice.toLocaleString('en-IN')}</span>`;
+                }
+                offerBadgeHtml = `<div class="mb-3" style="min-height: 20px;"></div>`;
             }
         } else {
             priceHtml = `<span class="text-muted">-</span>`;
+            offerBadgeHtml = `<div class="mb-3" style="min-height: 20px;"></div>`;
         }
 
         const disabledAttr = product.stockStatus === 'Out of Stock' ? 'disabled' : '';
@@ -693,9 +718,10 @@ function renderProducts(products) {
                             </div>
                         </div>
                         <div>
-                            <div class="d-flex align-items-baseline gap-2 mb-3">
+                            <div class="d-flex align-items-baseline gap-2 mb-1">
                                 ${priceHtml}
                             </div>
+                            ${offerBadgeHtml}
                             <div class="d-flex gap-2">
                                 <a href="/product/${product._id}" class="btn btn-outline-dark flex-grow-1 rounded-3 py-2 fw-semibold text-center small">
                                     Details

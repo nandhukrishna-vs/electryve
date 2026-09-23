@@ -250,6 +250,12 @@
                                             <span class="text-muted small d-block" style="font-size: 0.75rem;">
                                                 <%= item.variantDetails %>
                                             </span>
+                                            <% if (item.appliedOfferName) { %>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 d-inline-block mt-1" style="font-size: 0.68rem;">
+                                                    <i class="bi bi-tag-fill me-1"></i><%= item.appliedOfferName %>
+                                                    <% if (item.offerDiscount > 0) { %> (-₹<%= item.offerDiscount.toLocaleString('en-IN') %>)<% } %>
+                                                </span>
+                                            <% } %>
                                             <% if (item.cancellationReason) { %>
                                                 <span class="text-danger small d-block mt-0.5" style="font-size: 0.72rem;">
                                                     <i class="bi bi-info-circle me-1"></i>Cancelled: <%= item.cancellationReason %>
@@ -439,6 +445,12 @@
                         <span>Subtotal</span>
                         <span class="text-dark fw-medium">₹<%= order.subtotal.toLocaleString('en-IN') %></span>
                     </div>
+                    <% if (order.totalOfferDiscount && order.totalOfferDiscount > 0) { %>
+                    <div class="d-flex justify-content-between mb-2 text-success fw-medium">
+                        <span>Offer Savings</span>
+                        <span>-₹<%= order.totalOfferDiscount.toLocaleString('en-IN') %></span>
+                    </div>
+                    <% } %>
                     <% if (order.discount > 0) { %>
                     <div class="d-flex justify-content-between mb-2 text-danger">
                         <span>Discount</span>

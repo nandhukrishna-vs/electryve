@@ -208,9 +208,19 @@
                                 <div class="flex-grow-1 min-w-0">
                                     <h6 class="fw-bold text-dark text-truncate mb-0.5" style="font-size: 0.9rem;"><%= item.nameSnapshot %></h6>
                                     <span class="text-secondary d-block" style="font-size: 0.75rem;"><%= item.variantSnapshot %> • Qty: <%= item.quantity %></span>
+                                    <% if (item.appliedOffer && item.unitOfferDiscount > 0) { %>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 mt-0.5" style="font-size: 0.68rem;">
+                                            <i class="bi bi-tag-fill me-1"></i><%= item.appliedOffer.offerName %> (-₹<%= item.offerDiscount.toLocaleString('en-IN') %>)
+                                        </span>
+                                    <% } %>
                                 </div>
                                 <div class="text-dark fw-bold text-end small">
-                                    ₹<%= (item.priceSnapshot * item.quantity).toLocaleString() %>
+                                    <% if (item.appliedOffer && item.unitOfferDiscount > 0) { %>
+                                        <span class="text-success d-block">₹<%= item.itemTotal.toLocaleString('en-IN') %></span>
+                                        <span class="text-muted text-decoration-line-through smaller-text" style="font-size: 0.72rem;">₹<%= (item.priceSnapshot * item.quantity).toLocaleString('en-IN') %></span>
+                                    <% } else { %>
+                                        ₹<%= (item.priceSnapshot * item.quantity).toLocaleString('en-IN') %>
+                                    <% } %>
                                 </div>
                             </div>
                         <% }) %>
@@ -262,7 +272,7 @@
                                     <%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? appliedCoupon.code : '' %>
                                 </span>
                                 <span id="appliedCouponSavings" class="text-success small fw-medium">
-                                    You saved ₹<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? appliedCoupon.discountAmount.toLocaleString() : '0' %>
+                                    You saved ₹<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? appliedCoupon.discountAmount.toLocaleString('en-IN') : '0' %>
                                 </span>
                             </div>
                         </div>
@@ -275,12 +285,18 @@
                     <div class="d-flex flex-column gap-2 mb-3" style="font-size: 0.85rem;">
                         <div class="d-flex justify-content-between text-secondary">
                             <span>Subtotal</span>
-                            <span class="text-dark fw-medium" id="summarySubtotal">₹<%= cart.cartSummary.subtotal.toLocaleString() %></span>
+                            <span class="text-dark fw-medium" id="summarySubtotal">₹<%= cart.cartSummary.subtotal.toLocaleString('en-IN') %></span>
                         </div>
+                        <% if (cart.cartSummary.totalOfferDiscount > 0) { %>
+                            <div class="d-flex justify-content-between text-success fw-medium">
+                                <span>Offer Savings</span>
+                                <span>-₹<%= cart.cartSummary.totalOfferDiscount.toLocaleString('en-IN') %></span>
+                            </div>
+                        <% } %>
                         <% if (cart.cartSummary.discount > 0) { %>
                             <div class="d-flex justify-content-between text-danger">
                                 <span>Catalog Discount</span>
-                                <span>-₹<%= cart.cartSummary.discount.toLocaleString() %></span>
+                                <span>-₹<%= cart.cartSummary.discount.toLocaleString('en-IN') %></span>
                             </div>
                         <% } %>
                         <!-- Coupon Discount Row -->

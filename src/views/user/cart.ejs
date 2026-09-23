@@ -178,20 +178,36 @@
                                     <div>
                                         <% if (!item.isUnavailable && !item.isOutOfStock) { %>
                                             <div class="d-flex align-items-baseline gap-1.5 justify-content-end flex-wrap">
-                                                <span class="fw-bold text-dark fs-5">
-                                                    ₹<%= item.priceSnapshot.toLocaleString() %>
-                                                </span>
-                                                <% if (item.regularPrice && item.regularPrice > item.priceSnapshot) { %>
+                                                <% if (item.appliedOffer && item.unitOfferDiscount > 0) { %>
+                                                    <span class="fw-bold text-success fs-5">
+                                                        ₹<%= item.effectiveItemPrice.toLocaleString('en-IN') %>
+                                                    </span>
                                                     <span class="text-muted text-decoration-line-through small" style="font-size: 0.8rem;">
-                                                        ₹<%= item.regularPrice.toLocaleString() %>
+                                                        ₹<%= item.priceSnapshot.toLocaleString('en-IN') %>
                                                     </span>
-                                                    <span class="badge-discount-percent fw-semibold">
-                                                        <%= item.discountPercentage %>% OFF
+                                                <% } else { %>
+                                                    <span class="fw-bold text-dark fs-5">
+                                                        ₹<%= item.priceSnapshot.toLocaleString('en-IN') %>
                                                     </span>
+                                                    <% if (item.regularPrice && item.regularPrice > item.priceSnapshot) { %>
+                                                        <span class="text-muted text-decoration-line-through small" style="font-size: 0.8rem;">
+                                                            ₹<%= item.regularPrice.toLocaleString('en-IN') %>
+                                                        </span>
+                                                        <span class="badge-discount-percent fw-semibold">
+                                                            <%= item.discountPercentage %>% OFF
+                                                        </span>
+                                                    <% } %>
                                                 <% } %>
                                             </div>
+                                            <% if (item.appliedOffer && item.unitOfferDiscount > 0) { %>
+                                                <div class="text-end mt-0.5">
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5" style="font-size: 0.68rem;">
+                                                        <i class="bi bi-tag-fill me-1"></i><%= item.appliedOffer.offerName %> (-₹<%= item.offerDiscount.toLocaleString('en-IN') %>)
+                                                    </span>
+                                                </div>
+                                            <% } %>
                                             <div class="text-secondary small mt-0.5">
-                                                Total: <strong class="text-dark">₹<span id="pdp-item-subtotal-<%= item.product._id %>-<%= item.variantId %>"><%= (item.quantity * item.priceSnapshot).toLocaleString() %></span></strong>
+                                                Total: <strong class="text-dark">₹<span id="pdp-item-subtotal-<%= item.product._id %>-<%= item.variantId %>"><%= item.itemTotal.toLocaleString('en-IN') %></span></strong>
                                             </div>
                                         <% } else { %>
                                             <div class="text-danger small fw-semibold">
@@ -282,8 +298,20 @@
 
                             <div class="d-flex justify-content-between text-secondary">
                                 <span>Subtotal</span>
-                                <span class="fw-bold text-dark">₹<span id="summarySubtotal"><%= cartSummary.subtotal.toLocaleString() %></span></span>
+                                <span class="fw-bold text-dark">₹<span id="summarySubtotal"><%= cartSummary.subtotal.toLocaleString('en-IN') %></span></span>
                             </div>
+
+                            <% if (cartSummary.totalOfferDiscount > 0) { %>
+                                <div class="d-flex justify-content-between text-success" id="summaryOfferDiscountRow">
+                                    <span>Offer Savings</span>
+                                    <span class="fw-bold">-₹<span id="summaryOfferDiscount"><%= cartSummary.totalOfferDiscount.toLocaleString('en-IN') %></span></span>
+                                </div>
+                            <% } else { %>
+                                <div class="d-flex justify-content-between text-success" id="summaryOfferDiscountRow" style="display: none;">
+                                    <span>Offer Savings</span>
+                                    <span class="fw-bold">-₹<span id="summaryOfferDiscount">0</span></span>
+                                </div>
+                            <% } %>
 
                             <div class="d-flex justify-content-between text-secondary">
                                 <span>Discount Savings</span>
@@ -565,21 +593,32 @@ function updateCartSummary(summary, totalCount) {
     const totalSavingsEl = document.getElementById('summaryTotalSavings');
     const savingsAlert = document.getElementById('summarySavingsAlert');
     const totalItemsEl = document.getElementById('summaryTotalItems');
+    const offerRow = document.getElementById('summaryOfferDiscountRow');
+    const offerEl = document.getElementById('summaryOfferDiscount');
 
-    if (subtotalEl) subtotalEl.textContent = summary.subtotal.toLocaleString();
-    if (discountEl) discountEl.textContent = summary.discount.toLocaleString();
+    if (subtotalEl) subtotalEl.textContent = summary.subtotal.toLocaleString('en-IN');
+    if (discountEl) discountEl.textContent = summary.discount.toLocaleString('en-IN');
+
+    if (offerRow && offerEl) {
+        if (summary.totalOfferDiscount > 0) {
+            offerEl.textContent = summary.totalOfferDiscount.toLocaleString('en-IN');
+            offerRow.style.display = 'flex';
+        } else {
+            offerRow.style.display = 'none';
+        }
+    }
     
     if (shippingEl) {
-        shippingEl.textContent = summary.shipping === 0 ? 'FREE' : '₹' + summary.shipping.toLocaleString();
+        shippingEl.textContent = summary.shipping === 0 ? 'FREE' : '₹' + summary.shipping.toLocaleString('en-IN');
     }
-    if (totalEl) totalEl.textContent = summary.grandTotal.toLocaleString();
+    if (totalEl) totalEl.textContent = summary.grandTotal.toLocaleString('en-IN');
 
     if (totalItemsEl) {
         totalItemsEl.textContent = `${totalCount} Items`;
     }
 
     if (summary.discount > 0) {
-        if (totalSavingsEl) totalSavingsEl.textContent = summary.discount.toLocaleString();
+        if (totalSavingsEl) totalSavingsEl.textContent = summary.discount.toLocaleString('en-IN');
         if (savingsAlert) savingsAlert.style.display = 'flex';
     } else {
         if (savingsAlert) savingsAlert.style.display = 'none';

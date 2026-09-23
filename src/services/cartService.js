@@ -5,6 +5,7 @@ import Category from "../models/Category.js";
 import Brand from "../models/Brand.js";
 import { MAX_CART_QUANTITY, SHIPPING_CHARGE, FREE_SHIPPING_MIN_SUBTOTAL } from "../config/cartConfig.js";
 import { removeItemForCart } from "./wishlistService.js";
+import { getBestOfferForItem } from "./offerService.js";
 
 const fallbackSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23f3f4f6"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-family="sans-serif" font-size="16">No Image Available</text></svg>`;
 
@@ -58,13 +59,13 @@ const getCartCount = async (userId) => {
 /**
  * Fetch and refresh the user's cart
  */
-const getCart = async (userId) => {
+const getCart = async (userId, options = {}) => {
     let cart = await Cart.findOne({ user: userId });
     if (!cart) {
         return {
             items: [],
             canCheckout: false,
-            cartSummary: { subtotal: 0, shipping: 0, discount: 0, grandTotal: 0 },
+            cartSummary: { subtotal: 0, shipping: 0, discount: 0, catalogDiscount: 0, totalOfferDiscount: 0, grandTotal: 0 },
             priceChanges: []
         };
     }
@@ -73,7 +74,8 @@ const getCart = async (userId) => {
     const priceChanges = [];
     const processedItems = [];
     let subtotal = 0;
-    let discount = 0;
+    let catalogDiscount = 0;
+    let totalOfferDiscount = 0;
     let hasUnavailableItems = false;
     let hasOutOfStockItems = false;
 
@@ -91,6 +93,10 @@ const getCart = async (userId) => {
                 variantSnapshot: item.variantSnapshot,
                 quantity: item.quantity,
                 priceSnapshot: item.priceSnapshot,
+                effectiveItemPrice: item.priceSnapshot,
+                unitOfferDiscount: 0,
+                offerDiscount: 0,
+                itemTotal: item.quantity * item.priceSnapshot,
                 isUnavailable: true,
                 isOutOfStock: false,
                 statusMessage: "This product is no longer available."
@@ -127,12 +133,23 @@ const getCart = async (userId) => {
             priceChanges.push(`The price of "${product.name} (${variant.color}/${variant.storage})" has changed. Your cart has been updated.`);
         }
 
+        // Server-authoritative best offer evaluation
+        const offerEval = await getBestOfferForItem({
+            productId: product._id,
+            categoryId: product.category?._id || product.category,
+            unitPrice: itemPrice,
+            quantity: itemQuantity,
+            userId,
+            referralCode: options?.referralCode || null
+        });
+
         // Totals accumulation for valid available stock items
         if (!isItemOutOfStock) {
-            subtotal += itemQuantity * itemPrice;
+            subtotal += offerEval.itemTotal; // Offer-adjusted subtotal
+            totalOfferDiscount += offerEval.totalOfferDiscount;
             const itemRegPrice = variant.regularPrice || itemPrice;
             if (itemRegPrice > itemPrice) {
-                discount += itemQuantity * (itemRegPrice - itemPrice);
+                catalogDiscount += itemQuantity * (itemRegPrice - itemPrice);
             }
         }
 
@@ -152,6 +169,11 @@ const getCart = async (userId) => {
             priceSnapshot: itemPrice,
             regularPrice: variant.regularPrice || itemPrice,
             discountPercentage: (variant.regularPrice > 0 && itemPrice < variant.regularPrice) ? Math.round(((variant.regularPrice - itemPrice) / variant.regularPrice) * 100) : 0,
+            appliedOffer: offerEval.bestOffer,
+            unitOfferDiscount: offerEval.unitOfferDiscount,
+            offerDiscount: offerEval.totalOfferDiscount,
+            effectiveItemPrice: offerEval.effectiveItemPrice,
+            itemTotal: offerEval.itemTotal,
             stock: variant.stock,
             isUnavailable: false,
             isOutOfStock: isItemOutOfStock,
@@ -180,7 +202,9 @@ const getCart = async (userId) => {
         cartSummary: {
             subtotal,
             shipping,
-            discount,
+            discount: catalogDiscount,
+            catalogDiscount,
+            totalOfferDiscount,
             grandTotal
         },
         priceChanges
@@ -325,12 +349,16 @@ const updateQuantity = async (userId, productId, variantId, quantity) => {
         const refreshedCart = await getCart(userId);
         const count = await getCartCount(userId);
 
+        const matchingItem = refreshedCart.items.find(
+            it => it.product?._id?.toString() === productId.toString() && it.variantId?.toString() === variantId.toString()
+        );
+
         return {
             success: true,
             count,
             canCheckout: refreshedCart.canCheckout,
             cartSummary: refreshedCart.cartSummary,
-            itemTotal: parsedQty * variant.salePrice
+            itemTotal: matchingItem ? matchingItem.itemTotal : (parsedQty * variant.salePrice)
         };
     } catch (error) {
         console.error("Cart Update Error:", error);

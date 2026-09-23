@@ -37,6 +37,17 @@ import * as walletController from "../controllers/walletController.js";
 
 const router = express.Router();
 
+// Referral code capture middleware: captures ?ref=CODE into session
+router.use((req, res, next) => {
+  if (req.query && req.query.ref) {
+    const code = String(req.query.ref).trim().toUpperCase();
+    if (code) {
+      req.session.referralCode = code;
+    }
+  }
+  next();
+});
+
 router.get("/", loadHome);
 
 router.get("/profile", isLoggedIn, loadProfile);

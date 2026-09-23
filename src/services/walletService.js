@@ -342,6 +342,16 @@ const getWalletSummary = async (userId) => {
   };
 };
 
+export {
+  getOrCreateWallet,
+  getWallet,
+  getWalletBalance,
+  creditWallet,
+  debitWallet,
+  getWalletTransactions,
+  getWalletSummary
+};
+
 export default {
   getOrCreateWallet,
   getWallet,
