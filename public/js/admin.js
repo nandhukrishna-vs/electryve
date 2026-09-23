@@ -99,3 +99,51 @@ if (result.success) {
     });
 
 });
+
+// Admin Navigation & Mobile Sidebar Handler
+document.addEventListener("DOMContentLoaded", function () {
+    // 1. Highlight Active Sidebar Navigation Link
+    const currentPath = window.location.pathname;
+    const sidebarLinks = document.querySelectorAll(".sidebar a");
+
+    sidebarLinks.forEach(link => {
+        const href = link.getAttribute("href");
+        if (href) {
+            // Match exact path or subpaths (e.g. /admin/orders matches /admin/orders/123)
+            if (currentPath === href) {
+                link.classList.add("active");
+            } else if (href !== "/admin/dashboard" && href !== "/admin" && currentPath.startsWith(href)) {
+                link.classList.add("active");
+            }
+        }
+    });
+
+    // 2. Mobile Sidebar Offcanvas Toggle
+    const toggleBtn = document.getElementById("adminSidebarToggle");
+    const sidebar = document.querySelector(".sidebar");
+    const backdrop = document.getElementById("adminSidebarBackdrop");
+
+    if (toggleBtn && sidebar) {
+        toggleBtn.addEventListener("click", function () {
+            sidebar.classList.toggle("show");
+            if (backdrop) backdrop.classList.toggle("show");
+        });
+    }
+
+    if (backdrop && sidebar) {
+        backdrop.addEventListener("click", function () {
+            sidebar.classList.remove("show");
+            backdrop.classList.remove("show");
+        });
+    }
+
+    // Auto-close sidebar on mobile navigation click
+    sidebarLinks.forEach(link => {
+        link.addEventListener("click", function () {
+            if (window.innerWidth < 768 && sidebar) {
+                sidebar.classList.remove("show");
+                if (backdrop) backdrop.classList.remove("show");
+            }
+        });
+    });
+});

@@ -24,7 +24,14 @@ rel="stylesheet">
 <body>
   <div class="admin-wrapper">
     <header class="admin-header">
-      <h1 class="logo">ELECTRYVE</h1>
+      <div class="admin-header-brand">
+        <% if (user && user.role === "ADMIN") { %>
+          <button type="button" class="sidebar-toggle-btn d-md-none" id="adminSidebarToggle" aria-label="Toggle navigation">
+            <i class="bi bi-list"></i>
+          </button>
+        <% } %>
+        <h1 class="logo">ELECTRYVE</h1>
+      </div>
 
       <% if (user && user.role === "ADMIN") { %>
         <a href="/admin/logout" class="logout-btn">
@@ -35,75 +42,82 @@ rel="stylesheet">
 
     <div class="admin-container">
       <% if (user && user.role === "ADMIN") { %>
+        <div class="sidebar-backdrop d-md-none" id="adminSidebarBackdrop"></div>
         <aside class="sidebar">
-    <nav>
-        <ul>
-
-            <li>
-                <a href="/admin/dashboard">
-                    <i class="bi bi-grid"></i>
-                    Dashboard
+          <nav>
+            <ul>
+              <li>
+                <a href="/admin/dashboard" class="<%= (typeof title !== 'undefined' && title === 'Dashboard') ? 'active' : '' %>">
+                  <i class="bi bi-grid"></i>
+                  Dashboard
                 </a>
-            </li>
+              </li>
 
-            <li>
+              <li>
                 <a href="/admin/users">
-                    <i class="bi bi-people"></i>
-                    Users
+                  <i class="bi bi-people"></i>
+                  Users
                 </a>
-            </li>
+              </li>
 
-            <li>
+              <li>
                 <a href="/admin/categories">
-                    <i class="bi bi-folder"></i>
-                    Categories
+                  <i class="bi bi-folder"></i>
+                  Categories
                 </a>
-            </li>
-            <li class="nav-item">
-    <a href="/admin/brands" class="nav-link">
-        <i class="bi bi-tags me-2"></i>
-        Brands
-    </a>
-</li>
+              </li>
 
-                    <li>
-                        <a href="/admin/products">
-                        <i class="bi bi-box"></i>
-                        Products
-                      </a>
-                  </li>
+              <li>
+                <a href="/admin/brands">
+                  <i class="bi bi-tags"></i>
+                  Brands
+                </a>
+              </li>
 
-            <li>
+              <li>
+                <a href="/admin/products">
+                  <i class="bi bi-box"></i>
+                  Products
+                </a>
+              </li>
+
+              <li>
                 <a href="/admin/inventory">
-                    <i class="bi bi-box-seam"></i>
-                    Inventory
+                  <i class="bi bi-box-seam"></i>
+                  Inventory
                 </a>
-            </li>
+              </li>
 
-            <li>
+              <li>
                 <a href="/admin/orders">
-                    <i class="bi bi-cart"></i>
-                    Orders
+                  <i class="bi bi-cart"></i>
+                  Orders
                 </a>
-            </li>
+              </li>
 
-            <li>
+              <li>
                 <a href="/admin/coupons">
-                    <i class="bi bi-ticket-perforated"></i>
-                    Coupons
+                  <i class="bi bi-ticket-perforated"></i>
+                  Coupons
                 </a>
-            </li>
+              </li>
 
-            <li>
+              <li>
                 <a href="/admin/offers">
-                    <i class="bi bi-tag"></i>
-                    Offers
+                  <i class="bi bi-tag"></i>
+                  Offers
                 </a>
-            </li>
+              </li>
 
-        </ul>
-    </nav>
-</aside>
+              <li>
+                <a href="/admin/sales-report">
+                  <i class="bi bi-file-earmark-bar-graph"></i>
+                  Sales Report
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </aside>
       <% } %>
 
       <main class="admin-content">

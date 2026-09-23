@@ -5,12 +5,15 @@ import {
   adminLogin,
   adminLogout,
   loadUsers,
-  toggleUserStatus
+  toggleUserStatus,
+  loadDashboard,
+  getDashboardData
 } from "../controllers/adminController.js";
 import * as adminOrderController from "../controllers/adminOrderController.js";
 import * as couponController from "../controllers/couponController.js";
 import * as inventoryController from "../controllers/inventoryController.js";
 import * as offerController from "../controllers/offerController.js";
+import * as reportController from "../controllers/reportController.js";
 
 import { isAdmin } from "../middlewares/adminMiddleware.js";
 
@@ -19,11 +22,8 @@ const router = express.Router();
 router.get("/login", loadAdminLogin);
 router.post("/login", adminLogin);
 
-router.get("/dashboard", isAdmin, (req, res) => {
-  res.render("admin/dashboard", {
-    layout: "layouts/admin-layout"
-  });
-});
+router.get("/dashboard", isAdmin, loadDashboard);
+router.get("/dashboard/data", isAdmin, getDashboardData);
 
 router.get("/users", isAdmin, loadUsers);
 
@@ -65,6 +65,12 @@ router.get("/offers/:id/edit", isAdmin, offerController.loadEditOffer);
 router.post("/offers/:id/edit", isAdmin, offerController.updateOffer);
 router.patch("/offers/:id/status", isAdmin, offerController.toggleOfferStatus);
 router.patch("/offers/:id/delete", isAdmin, offerController.deleteOffer);
+
+// Sales Report Routes
+router.get("/sales-report", isAdmin, reportController.loadSalesReport);
+router.get("/sales-report/data", isAdmin, reportController.getSalesReportData);
+router.get("/sales-report/pdf", isAdmin, reportController.exportSalesReportPdf);
+router.get("/sales-report/excel", isAdmin, reportController.exportSalesReportExcel);
 
 router.get("/logout", isAdmin, adminLogout);
 

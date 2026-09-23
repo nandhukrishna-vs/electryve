@@ -1,0 +1,933 @@
+<!-- Admin Sales Report Module -->
+<div class="container-fluid px-0" id="sales-report-view">
+  <!-- Top Navigation & Controls Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+      <h2 class="h3 fw-bold mb-1 text-dark">Sales & Revenue Report</h2>
+      <p class="text-muted mb-0 small">
+        <i class="bi bi-shield-check text-success me-1"></i>
+        Authoritative single source of truth for financial metrics, periodic breakdowns, and exports (IST)
+      </p>
+    </div>
+
+    <!-- Active Range Display, Refresh & Export Buttons -->
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="badge bg-light text-dark border px-3 py-2 fw-medium shadow-sm" id="active-range-badge">
+        <i class="bi bi-calendar-event me-1 text-primary"></i>
+        <span id="active-range-label"><%= summary?.period?.label || 'This Month' %></span>
+      </span>
+
+      <button class="btn btn-outline-secondary btn-sm shadow-sm px-3 py-2" id="btn-refresh-report" title="Refresh report data">
+        <i class="bi bi-arrow-clockwise me-1" id="refresh-spinner-icon"></i>
+        <span>Refresh</span>
+      </button>
+
+      <a href="/admin/sales-report/pdf?preset=<%= query.preset %>&startDate=<%= query.startDate || '' %>&endDate=<%= query.endDate || '' %>&paymentMethod=<%= query.paymentMethod || 'ALL' %>&orderStatus=<%= query.orderStatus || 'ALL' %>&search=<%= encodeURIComponent(query.search || '') %>" 
+         class="btn btn-danger btn-sm shadow-sm px-3 py-2" 
+         id="btn-export-pdf" 
+         target="_blank" 
+         title="Download PDF Sales Report">
+        <i class="bi bi-file-earmark-pdf me-1"></i>
+        <span>Export PDF</span>
+      </a>
+
+      <a href="/admin/sales-report/excel?preset=<%= query.preset %>&startDate=<%= query.startDate || '' %>&endDate=<%= query.endDate || '' %>&paymentMethod=<%= query.paymentMethod || 'ALL' %>&orderStatus=<%= query.orderStatus || 'ALL' %>&search=<%= encodeURIComponent(query.search || '') %>" 
+         class="btn btn-success btn-sm shadow-sm px-3 py-2" 
+         id="btn-export-excel" 
+         target="_blank" 
+         title="Download Excel Sales Report">
+        <i class="bi bi-file-earmark-excel me-1"></i>
+        <span>Export Excel</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Toolbar Card -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+      <!-- Date Presets & Custom Date Selection -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 border-bottom">
+        <div class="btn-group btn-group-sm flex-wrap" role="group" id="preset-buttons-group">
+          <button type="button" class="btn btn-outline-primary <%= query.preset === 'today' ? 'active' : '' %>" data-preset="today">Today</button>
+          <button type="button" class="btn btn-outline-primary <%= query.preset === 'yesterday' ? 'active' : '' %>" data-preset="yesterday">Yesterday</button>
+          <button type="button" class="btn btn-outline-primary <%= query.preset === 'this_week' ? 'active' : '' %>" data-preset="this_week">This Week</button>
+          <button type="button" class="btn btn-outline-primary <%= (!query.preset || query.preset === 'this_month') ? 'active' : '' %>" data-preset="this_month">This Month</button>
+          <button type="button" class="btn btn-outline-primary <%= query.preset === 'last_month' ? 'active' : '' %>" data-preset="last_month">Last Month</button>
+          <button type="button" class="btn btn-outline-primary <%= query.preset === 'this_year' ? 'active' : '' %>" data-preset="this_year">This Year</button>
+          <button type="button" class="btn btn-outline-primary <%= query.preset === 'custom' ? 'active' : '' %>" data-preset="custom" id="btn-preset-custom">
+            <i class="bi bi-sliders me-1"></i>Custom Range
+          </button>
+        </div>
+
+        <!-- Custom Range Inputs -->
+        <div id="custom-range-container" class="<%= query.preset === 'custom' ? 'd-flex' : 'd-none' %> align-items-center gap-2 flex-wrap">
+          <div class="input-group input-group-sm" style="max-width: 160px;">
+            <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
+            <input type="date" id="custom-start-date" class="form-control" value="<%= query.startDate || '' %>" title="Start Date" />
+          </div>
+          <span class="text-muted small">to</span>
+          <div class="input-group input-group-sm" style="max-width: 160px;">
+            <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
+            <input type="date" id="custom-end-date" class="form-control" value="<%= query.endDate || '' %>" title="End Date" />
+          </div>
+          <button type="button" class="btn btn-sm btn-primary px-3" id="btn-apply-custom">
+            <i class="bi bi-check-lg me-1"></i>Apply
+          </button>
+        </div>
+      </div>
+
+      <!-- Secondary Filters: Payment, Order Status, Search, GroupBy -->
+      <div class="row g-2 pt-3 align-items-center">
+        <!-- Payment Filter -->
+        <div class="col-xl-2 col-md-3 col-sm-6">
+          <label class="form-label text-muted small fw-semibold mb-1">Payment Method</label>
+          <select class="form-select form-select-sm" id="filter-payment-method">
+            <option value="ALL" <%= (!query.paymentMethod || query.paymentMethod === 'ALL') ? 'selected' : '' %>>All Payments</option>
+            <option value="COD" <%= query.paymentMethod === 'COD' ? 'selected' : '' %>>Cash on Delivery (COD)</option>
+            <option value="RAZORPAY" <%= query.paymentMethod === 'RAZORPAY' ? 'selected' : '' %>>Razorpay Online</option>
+            <option value="WALLET" <%= query.paymentMethod === 'WALLET' ? 'selected' : '' %>>Electryve Wallet</option>
+          </select>
+        </div>
+
+        <!-- Order Status Filter -->
+        <div class="col-xl-2 col-md-3 col-sm-6">
+          <label class="form-label text-muted small fw-semibold mb-1">Order Status</label>
+          <select class="form-select form-select-sm" id="filter-order-status">
+            <option value="ALL" <%= (!query.orderStatus || query.orderStatus === 'ALL') ? 'selected' : '' %>>All Statuses</option>
+            <option value="PENDING" <%= query.orderStatus === 'PENDING' ? 'selected' : '' %>>Pending</option>
+            <option value="PROCESSING" <%= query.orderStatus === 'PROCESSING' ? 'selected' : '' %>>Processing</option>
+            <option value="SHIPPED" <%= query.orderStatus === 'SHIPPED' ? 'selected' : '' %>>Shipped</option>
+            <option value="DELIVERED" <%= query.orderStatus === 'DELIVERED' ? 'selected' : '' %>>Delivered</option>
+            <option value="CANCELLED" <%= query.orderStatus === 'CANCELLED' ? 'selected' : '' %>>Cancelled</option>
+            <option value="RETURNED" <%= query.orderStatus === 'RETURNED' ? 'selected' : '' %>>Returned</option>
+          </select>
+        </div>
+
+        <!-- Group By Selector -->
+        <div class="col-xl-2 col-md-3 col-sm-6">
+          <label class="form-label text-muted small fw-semibold mb-1">Group Periodic Sales</label>
+          <select class="form-select form-select-sm" id="filter-group-by">
+            <option value="day" <%= (!query.groupBy || query.groupBy === 'day') ? 'selected' : '' %>>Daily</option>
+            <option value="month" <%= query.groupBy === 'month' ? 'selected' : '' %>>Monthly</option>
+            <option value="year" <%= query.groupBy === 'year' ? 'selected' : '' %>>Yearly</option>
+          </select>
+        </div>
+
+        <!-- Customer & Order Search -->
+        <div class="col-xl-4 col-md-5 col-sm-6">
+          <label class="form-label text-muted small fw-semibold mb-1">Search Customer / Order #</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="filter-search-input" placeholder="Order ID, name, email, phone..." value="<%= query.search || '' %>" />
+            <button class="btn btn-outline-secondary <%= query.search ? '' : 'd-none' %>" type="button" id="btn-clear-search">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Clear All Filters Button -->
+        <div class="col-xl-2 col-md-2 col-sm-12 text-md-end mt-md-4">
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btn-reset-filters">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Bar Indicator -->
+  <div id="report-loading-bar" class="progress mb-3 d-none" style="height: 4px;">
+    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary w-100"></div>
+  </div>
+
+  <!-- 6 Authoritative Summary KPI Cards -->
+  <div class="row g-3 mb-4">
+    <!-- 1. Net Sales -->
+    <div class="col-xl-2 col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Net Sales</span>
+            <div class="kpi-icon-circle bg-success-subtle text-success">
+              <i class="bi bi-currency-rupee fs-6"></i>
+            </div>
+          </div>
+          <h4 class="fw-bold mb-1 text-dark" id="kpi-net-sales">₹<%= Number(summary?.kpis?.netSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></h4>
+          <p class="text-muted mb-0" style="font-size: 0.75rem;">Gross − Completed Refunds</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Gross Sales -->
+    <div class="col-xl-2 col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Gross Sales</span>
+            <div class="kpi-icon-circle bg-primary-subtle text-primary">
+              <i class="bi bi-graph-up-arrow fs-6"></i>
+            </div>
+          </div>
+          <h4 class="fw-bold mb-1 text-dark" id="kpi-gross-sales">₹<%= Number(summary?.kpis?.grossSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></h4>
+          <p class="text-muted mb-0" style="font-size: 0.75rem;">Finalized sales volume</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Total Orders -->
+    <div class="col-xl-2 col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Total Orders</span>
+            <div class="kpi-icon-circle bg-dark-subtle text-dark">
+              <i class="bi bi-receipt fs-6"></i>
+            </div>
+          </div>
+          <h4 class="fw-bold mb-1 text-dark" id="kpi-total-orders"><%= Number(summary?.kpis?.totalOrders || 0).toLocaleString('en-IN') %></h4>
+          <p class="text-muted mb-0" style="font-size: 0.75rem;">Qualifying finalized orders</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Units Sold -->
+    <div class="col-xl-2 col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Units Sold</span>
+            <div class="kpi-icon-circle bg-info-subtle text-info">
+              <i class="bi bi-box-seam fs-6"></i>
+            </div>
+          </div>
+          <h4 class="fw-bold mb-1 text-dark" id="kpi-units-sold"><%= Number(summary?.kpis?.unitsSold || 0).toLocaleString('en-IN') %></h4>
+          <p class="text-muted mb-0" style="font-size: 0.75rem;">Net fulfilled physical units</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Total Refunds -->
+    <div class="col-xl-2 col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Total Refunds</span>
+            <div class="kpi-icon-circle bg-danger-subtle text-danger">
+              <i class="bi bi-arrow-counterclockwise fs-6"></i>
+            </div>
+          </div>
+          <h4 class="fw-bold mb-1 text-danger" id="kpi-total-refunds">₹<%= Number(summary?.kpis?.completedRefunds || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></h4>
+          <p class="text-muted mb-0" style="font-size: 0.75rem;">Completed refund deductions</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Total Discounts -->
+    <div class="col-xl-2 col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Discounts</span>
+            <div class="kpi-icon-circle bg-warning-subtle text-warning">
+              <i class="bi bi-tag fs-6"></i>
+            </div>
+          </div>
+          <h4 class="fw-bold mb-1 text-dark" id="kpi-total-discounts">₹<%= Number(summary?.kpis?.totalDiscounts || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></h4>
+          <p class="text-muted mb-0" style="font-size: 0.72rem;">
+            Coupons: ₹<span id="kpi-coupon-savings"><%= Number(summary?.kpis?.couponSavings || 0).toLocaleString('en-IN') %></span> | Offers: ₹<span id="kpi-offer-savings"><%= Number(summary?.kpis?.offerSavings || 0).toLocaleString('en-IN') %></span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Periodic Grouped Sales Table Card -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="fw-bold mb-0 text-dark">
+          <i class="bi bi-bar-chart-steps me-2 text-primary"></i>
+          Periodic Sales Summary
+        </h5>
+        <p class="text-muted small mb-0">Aggregated breakdown by time interval</p>
+      </div>
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle" id="grouped-period-badge">
+        <%= (grouped?.groupBy || 'day').toUpperCase() %> VIEW
+      </span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="grouped-sales-table">
+        <thead class="table-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-4">Period</th>
+            <th class="text-end">Orders</th>
+            <th class="text-end">Units Sold</th>
+            <th class="text-end">Gross Sales</th>
+            <th class="text-end">Coupon Disc.</th>
+            <th class="text-end">Offer Disc.</th>
+            <th class="text-end">Total Disc.</th>
+            <th class="text-end">Refunds</th>
+            <th class="text-end pe-4">Net Sales</th>
+          </tr>
+        </thead>
+        <tbody id="grouped-sales-tbody">
+          <% if (grouped?.rows && grouped.rows.length > 0) { %>
+            <% grouped.rows.forEach(function(row) { %>
+              <tr>
+                <td class="ps-4 fw-medium text-dark"><%= row.label || row.periodKey %></td>
+                <td class="text-end"><%= row.orderCount %></td>
+                <td class="text-end"><%= row.unitsSold %></td>
+                <td class="text-end">₹<%= Number(row.grossSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end text-muted">₹<%= Number(row.couponSavings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end text-muted">₹<%= Number(row.offerSavings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end text-warning fw-medium">₹<%= Number(row.totalDiscounts || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end text-danger">₹<%= Number(row.completedRefunds || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end pe-4 fw-bold text-success">₹<%= Number(row.netSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+              </tr>
+            <% }); %>
+          <% } else { %>
+            <tr>
+              <td colspan="9" class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-4 d-block mb-1"></i>
+                No sales recorded for this period
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Detailed Orders Table Card -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <h5 class="fw-bold mb-0 text-dark">
+          <i class="bi bi-list-task me-2 text-primary"></i>
+          Detailed Order Transactions
+        </h5>
+        <p class="text-muted small mb-0">
+          Showing <span id="orders-count-label"><%= details?.pagination?.totalOrders || 0 %></span> total qualifying orders
+        </p>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <label class="text-muted small mb-0">Rows:</label>
+        <select class="form-select form-select-sm" id="page-limit-select" style="width: auto;">
+          <option value="10" <%= details?.pagination?.limit === 10 ? 'selected' : '' %>>10</option>
+          <option value="25" <%= details?.pagination?.limit === 25 ? 'selected' : '' %>>25</option>
+          <option value="50" <%= details?.pagination?.limit === 50 ? 'selected' : '' %>>50</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="detailed-orders-table">
+        <thead class="table-light text-muted small text-uppercase">
+          <tr>
+            <th class="ps-4">Order #</th>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Payment</th>
+            <th>Status</th>
+            <th class="text-end">Units</th>
+            <th class="text-end">Gross</th>
+            <th class="text-end">Discounts</th>
+            <th class="text-end">Refunds</th>
+            <th class="text-end">Net Sales</th>
+            <th class="text-center pe-4">Items</th>
+          </tr>
+        </thead>
+        <tbody id="detailed-orders-tbody">
+          <% if (details?.orders && details.orders.length > 0) { %>
+            <% details.orders.forEach(function(order, idx) { %>
+              <tr>
+                <td class="ps-4 fw-semibold text-dark">
+                  <%= order.orderNumber %>
+                </td>
+                <td class="small text-muted"><%= order.formattedDate %></td>
+                <td>
+                  <div class="fw-medium text-dark"><%= order.customerName %></div>
+                  <div class="text-muted small" style="font-size: 0.75rem;"><%= order.customerEmail %></div>
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark border">
+                    <%= order.paymentMethod %>
+                  </span>
+                </td>
+                <td>
+                  <% if (order.orderStatus === 'DELIVERED') { %>
+                    <span class="badge bg-success-subtle text-success">Delivered</span>
+                  <% } else if (order.orderStatus === 'SHIPPED') { %>
+                    <span class="badge bg-primary-subtle text-primary">Shipped</span>
+                  <% } else if (order.orderStatus === 'PROCESSING') { %>
+                    <span class="badge bg-info-subtle text-info">Processing</span>
+                  <% } else if (order.orderStatus === 'CANCELLED') { %>
+                    <span class="badge bg-danger-subtle text-danger">Cancelled</span>
+                  <% } else if (order.orderStatus === 'RETURNED') { %>
+                    <span class="badge bg-warning-subtle text-warning">Returned</span>
+                  <% } else { %>
+                    <span class="badge bg-secondary-subtle text-secondary"><%= order.orderStatus %></span>
+                  <% } %>
+                </td>
+                <td class="text-end"><%= order.unitsCount %></td>
+                <td class="text-end">₹<%= Number(order.grossSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end text-warning">
+                  ₹<%= Number(order.totalDiscounts || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %>
+                  <% if (order.couponCode) { %>
+                    <span class="badge bg-warning-subtle text-dark border ms-1" style="font-size: 0.65rem;"><%= order.couponCode %></span>
+                  <% } %>
+                </td>
+                <td class="text-end text-danger">₹<%= Number(order.refundAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end fw-bold text-success">₹<%= Number(order.netSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-center pe-4">
+                  <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#items-row-<%= idx %>" aria-expanded="false" title="View Item Details">
+                    <i class="bi bi-chevron-down"></i>
+                  </button>
+                </td>
+              </tr>
+              <!-- Collapsible Line Item Snapshots Row -->
+              <tr class="collapse bg-light" id="items-row-<%= idx %>">
+                <td colspan="11" class="p-3">
+                  <div class="card border border-light-subtle shadow-none">
+                    <div class="card-body p-2">
+                      <h6 class="small fw-bold text-muted mb-2 ps-1">Order Items & Offer Snapshots</h6>
+                      <div class="table-responsive">
+                        <table class="table table-sm table-bordered bg-white mb-0" style="font-size: 0.8rem;">
+                          <thead class="table-light text-muted">
+                            <tr>
+                              <th>Product</th>
+                              <th>Variant</th>
+                              <th>SKU</th>
+                              <th class="text-end">Qty</th>
+                              <th class="text-end">Regular Price</th>
+                              <th class="text-end">Sale Price</th>
+                              <th class="text-end">Offer Discount</th>
+                              <th>Applied Offer</th>
+                              <th class="text-end">Line Total</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <% (order.items || []).forEach(function(item) { %>
+                              <tr>
+                                <td class="fw-medium text-dark"><%= item.productName %></td>
+                                <td><%= item.variantDetails || 'Standard' %></td>
+                                <td><code><%= item.sku || '—' %></code></td>
+                                <td class="text-end"><%= item.quantity %></td>
+                                <td class="text-end">₹<%= Number(item.regularPrice || 0).toLocaleString('en-IN') %></td>
+                                <td class="text-end">₹<%= Number(item.salePrice || 0).toLocaleString('en-IN') %></td>
+                                <td class="text-end text-success">₹<%= Number(item.offerDiscount || 0).toLocaleString('en-IN') %></td>
+                                <td><%= item.appliedOfferName || '—' %></td>
+                                <td class="text-end fw-bold">₹<%= Number(item.itemTotal || 0).toLocaleString('en-IN') %></td>
+                                <td>
+                                  <% if (item.itemStatus === 'ACTIVE') { %>
+                                    <span class="badge bg-success-subtle text-success">Active</span>
+                                  <% } else if (item.itemStatus === 'CANCELLED') { %>
+                                    <span class="badge bg-danger-subtle text-danger">Cancelled</span>
+                                  <% } else if (item.itemStatus === 'RETURNED') { %>
+                                    <span class="badge bg-warning-subtle text-warning">Returned</span>
+                                  <% } %>
+                                </td>
+                              </tr>
+                            <% }); %>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          <% } else { %>
+            <tr>
+              <td colspan="11" class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-4 d-block mb-1"></i>
+                No matching order transactions found
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Server-Side Pagination Bar -->
+    <div class="card-footer bg-white py-3 border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div class="text-muted small">
+        Page <span id="pagination-current-page"><%= details?.pagination?.page || 1 %></span> of <span id="pagination-total-pages"><%= details?.pagination?.totalPages || 1 %></span>
+        (<span id="pagination-total-records"><%= details?.pagination?.totalOrders || 0 %></span> total orders)
+      </div>
+
+      <nav aria-label="Sales report pagination">
+        <ul class="pagination pagination-sm mb-0" id="report-pagination-nav">
+          <li class="page-item <%= (!details?.pagination?.hasPrevPage) ? 'disabled' : '' %>" id="page-item-prev">
+            <button class="page-link" type="button" id="btn-prev-page">
+              <i class="bi bi-chevron-left me-1"></i>Previous
+            </button>
+          </li>
+          <li class="page-item <%= (!details?.pagination?.hasNextPage) ? 'disabled' : '' %>" id="page-item-next">
+            <button class="page-link" type="button" id="btn-next-page">
+              Next<i class="bi bi-chevron-right ms-1"></i>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<!-- Embedded Sales Report Client Handler -->
+<script>
+(function() {
+  // Client state
+  let currentPreset = "<%= query.preset || 'this_month' %>";
+  let currentStartDate = "<%= query.startDate || '' %>";
+  let currentEndDate = "<%= query.endDate || '' %>";
+  let currentPaymentMethod = "<%= query.paymentMethod || 'ALL' %>";
+  let currentOrderStatus = "<%= query.orderStatus || 'ALL' %>";
+  let currentSearch = "<%= query.search || '' %>";
+  let currentGroupBy = "<%= query.groupBy || 'day' %>";
+  let currentPage = <%= details?.pagination?.page || 1 %>;
+  let currentLimit = <%= details?.pagination?.limit || 10 %>;
+
+  // Race condition sequence token
+  let requestSequenceToken = 0;
+  let searchDebounceTimer = null;
+
+  // DOM Elements
+  const activeRangeBadge = document.getElementById("active-range-badge");
+  const activeRangeLabel = document.getElementById("active-range-label");
+  const refreshBtn = document.getElementById("btn-refresh-report");
+  const spinnerIcon = document.getElementById("refresh-spinner-icon");
+  const loadingBar = document.getElementById("report-loading-bar");
+  const presetButtons = document.querySelectorAll("#preset-buttons-group button[data-preset]");
+  const customRangeContainer = document.getElementById("custom-range-container");
+  const customStartDateInput = document.getElementById("custom-start-date");
+  const customEndDateInput = document.getElementById("custom-end-date");
+  const applyCustomBtn = document.getElementById("btn-apply-custom");
+  const paymentSelect = document.getElementById("filter-payment-method");
+  const statusSelect = document.getElementById("filter-order-status");
+  const groupBySelect = document.getElementById("filter-group-by");
+  const searchInput = document.getElementById("filter-search-input");
+  const clearSearchBtn = document.getElementById("btn-clear-search");
+  const resetFiltersBtn = document.getElementById("btn-reset-filters");
+  const limitSelect = document.getElementById("page-limit-select");
+  const prevPageBtn = document.getElementById("btn-prev-page");
+  const nextPageBtn = document.getElementById("btn-next-page");
+  const prevPageItem = document.getElementById("page-item-prev");
+  const nextPageItem = document.getElementById("page-item-next");
+  const exportPdfBtn = document.getElementById("btn-export-pdf");
+  const exportExcelBtn = document.getElementById("btn-export-excel");
+
+  // KPI elements
+  const kpiNetSales = document.getElementById("kpi-net-sales");
+  const kpiGrossSales = document.getElementById("kpi-gross-sales");
+  const kpiTotalOrders = document.getElementById("kpi-total-orders");
+  const kpiUnitsSold = document.getElementById("kpi-units-sold");
+  const kpiTotalRefunds = document.getElementById("kpi-total-refunds");
+  const kpiTotalDiscounts = document.getElementById("kpi-total-discounts");
+  const kpiCouponSavings = document.getElementById("kpi-coupon-savings");
+  const kpiOfferSavings = document.getElementById("kpi-offer-savings");
+
+  const groupedTbody = document.getElementById("grouped-sales-tbody");
+  const groupedBadge = document.getElementById("grouped-period-badge");
+  const ordersTbody = document.getElementById("detailed-orders-tbody");
+  const ordersCountLabel = document.getElementById("orders-count-label");
+  const curPageLabel = document.getElementById("pagination-current-page");
+  const totalPagesLabel = document.getElementById("pagination-total-pages");
+  const totalRecordsLabel = document.getElementById("pagination-total-records");
+
+  const formatINR = (val) => {
+    return '₹' + Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const updateExportLinks = () => {
+    const params = new URLSearchParams({
+      preset: currentPreset,
+      startDate: currentStartDate || '',
+      endDate: currentEndDate || '',
+      paymentMethod: currentPaymentMethod,
+      orderStatus: currentOrderStatus,
+      search: currentSearch,
+      groupBy: currentGroupBy
+    });
+    if (exportPdfBtn) exportPdfBtn.href = '/admin/sales-report/pdf?' + params.toString();
+    if (exportExcelBtn) exportExcelBtn.href = '/admin/sales-report/excel?' + params.toString();
+  };
+
+  const fetchReportData = async () => {
+    const token = ++requestSequenceToken;
+    if (loadingBar) loadingBar.classList.remove("d-none");
+    if (spinnerIcon) spinnerIcon.classList.add("spin-animation");
+
+    try {
+      const params = new URLSearchParams({
+        preset: currentPreset,
+        startDate: currentStartDate || '',
+        endDate: currentEndDate || '',
+        paymentMethod: currentPaymentMethod,
+        orderStatus: currentOrderStatus,
+        search: currentSearch,
+        groupBy: currentGroupBy,
+        page: currentPage,
+        limit: currentLimit
+      });
+
+      const res = await fetch('/admin/sales-report/data?' + params.toString(), {
+        headers: { Accept: "application/json" }
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to fetch sales data');
+      }
+
+      const data = await res.json();
+
+      // Guard against race conditions
+      if (token !== requestSequenceToken) return;
+
+      renderReport(data);
+      updateExportLinks();
+    } catch (err) {
+      if (token !== requestSequenceToken) return;
+      console.error('Report fetch error:', err);
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Report Error',
+          text: err.message || 'Could not load sales report data'
+        });
+      }
+    } finally {
+      if (token === requestSequenceToken) {
+        if (loadingBar) loadingBar.classList.add("d-none");
+        if (spinnerIcon) spinnerIcon.classList.remove("spin-animation");
+      }
+    }
+  };
+
+  const renderReport = (data) => {
+    const summary = data.summary || {};
+    const kpis = summary.kpis || {};
+    const period = summary.period || {};
+    const grouped = data.grouped || {};
+    const details = data.details || {};
+    const pagination = details.pagination || {};
+
+    // 1. Update Header Label
+    if (activeRangeLabel) activeRangeLabel.textContent = period.label || 'Sales Report';
+
+    // 2. Update KPI Cards
+    if (kpiNetSales) kpiNetSales.textContent = formatINR(kpis.netSales);
+    if (kpiGrossSales) kpiGrossSales.textContent = formatINR(kpis.grossSales);
+    if (kpiTotalOrders) kpiTotalOrders.textContent = Number(kpis.totalOrders || 0).toLocaleString('en-IN');
+    if (kpiUnitsSold) kpiUnitsSold.textContent = Number(kpis.unitsSold || 0).toLocaleString('en-IN');
+    if (kpiTotalRefunds) kpiTotalRefunds.textContent = formatINR(kpis.completedRefunds);
+    if (kpiTotalDiscounts) kpiTotalDiscounts.textContent = formatINR(kpis.totalDiscounts);
+    if (kpiCouponSavings) kpiCouponSavings.textContent = Number(kpis.couponSavings || 0).toLocaleString('en-IN');
+    if (kpiOfferSavings) kpiOfferSavings.textContent = Number(kpis.offerSavings || 0).toLocaleString('en-IN');
+
+    // 3. Update Grouped Sales Table
+    if (groupedBadge) groupedBadge.textContent = (grouped.groupBy || 'day').toUpperCase() + ' VIEW';
+    if (groupedTbody) {
+      const rows = grouped.rows || [];
+      if (rows.length === 0) {
+        groupedTbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted"><i class="bi bi-inbox fs-4 d-block mb-1"></i>No sales recorded for this period</td></tr>`;
+      } else {
+        groupedTbody.innerHTML = rows.map(r => `
+          <tr>
+            <td class="ps-4 fw-medium text-dark">${r.label || r.periodKey}</td>
+            <td class="text-end">${r.orderCount}</td>
+            <td class="text-end">${r.unitsSold}</td>
+            <td class="text-end">${formatINR(r.grossSales)}</td>
+            <td class="text-end text-muted">${formatINR(r.couponSavings)}</td>
+            <td class="text-end text-muted">${formatINR(r.offerSavings)}</td>
+            <td class="text-end text-warning fw-medium">${formatINR(r.totalDiscounts)}</td>
+            <td class="text-end text-danger">${formatINR(r.completedRefunds)}</td>
+            <td class="text-end pe-4 fw-bold text-success">${formatINR(r.netSales)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    // 4. Update Detailed Orders Table
+    const orders = details.orders || [];
+    if (ordersCountLabel) ordersCountLabel.textContent = pagination.totalOrders || 0;
+    if (ordersTbody) {
+      if (orders.length === 0) {
+        ordersTbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted"><i class="bi bi-inbox fs-4 d-block mb-1"></i>No matching order transactions found</td></tr>`;
+      } else {
+        ordersTbody.innerHTML = orders.map((o, idx) => {
+          let statusBadgeClass = 'bg-secondary-subtle text-secondary';
+          if (o.orderStatus === 'DELIVERED') statusBadgeClass = 'bg-success-subtle text-success';
+          else if (o.orderStatus === 'SHIPPED') statusBadgeClass = 'bg-primary-subtle text-primary';
+          else if (o.orderStatus === 'PROCESSING') statusBadgeClass = 'bg-info-subtle text-info';
+          else if (o.orderStatus === 'CANCELLED') statusBadgeClass = 'bg-danger-subtle text-danger';
+          else if (o.orderStatus === 'RETURNED') statusBadgeClass = 'bg-warning-subtle text-warning';
+
+          const couponBadge = o.couponCode ? `<span class="badge bg-warning-subtle text-dark border ms-1" style="font-size: 0.65rem;">${o.couponCode}</span>` : '';
+
+          const itemsHtml = (o.items || []).map(it => `
+            <tr>
+              <td class="fw-medium text-dark">${it.productName}</td>
+              <td>${it.variantDetails || 'Standard'}</td>
+              <td><code>${it.sku || '—'}</code></td>
+              <td class="text-end">${it.quantity}</td>
+              <td class="text-end">${formatINR(it.regularPrice)}</td>
+              <td class="text-end">${formatINR(it.salePrice)}</td>
+              <td class="text-end text-success">${formatINR(it.offerDiscount)}</td>
+              <td>${it.appliedOfferName || '—'}</td>
+              <td class="text-end fw-bold">${formatINR(it.itemTotal)}</td>
+              <td>
+                <span class="badge ${it.itemStatus === 'ACTIVE' ? 'bg-success-subtle text-success' : (it.itemStatus === 'CANCELLED' ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning')}">
+                  ${it.itemStatus}
+                </span>
+              </td>
+            </tr>
+          `).join('');
+
+          return `
+            <tr>
+              <td class="ps-4 fw-semibold text-dark">${o.orderNumber}</td>
+              <td class="small text-muted">${o.formattedDate}</td>
+              <td>
+                <div class="fw-medium text-dark">${o.customerName}</div>
+                <div class="text-muted small" style="font-size: 0.75rem;">${o.customerEmail}</div>
+              </td>
+              <td><span class="badge bg-light text-dark border">${o.paymentMethod}</span></td>
+              <td><span class="badge ${statusBadgeClass}">${o.orderStatus}</span></td>
+              <td class="text-end">${o.unitsCount}</td>
+              <td class="text-end">${formatINR(o.grossSales)}</td>
+              <td class="text-end text-warning">${formatINR(o.totalDiscounts)} ${couponBadge}</td>
+              <td class="text-end text-danger">${formatINR(o.refundAmount)}</td>
+              <td class="text-end fw-bold text-success">${formatINR(o.netSales)}</td>
+              <td class="text-center pe-4">
+                <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#items-row-dyn-${idx}" aria-expanded="false" title="View Item Details">
+                  <i class="bi bi-chevron-down"></i>
+                </button>
+              </td>
+            </tr>
+            <tr class="collapse bg-light" id="items-row-dyn-${idx}">
+              <td colspan="11" class="p-3">
+                <div class="card border border-light-subtle shadow-none">
+                  <div class="card-body p-2">
+                    <h6 class="small fw-bold text-muted mb-2 ps-1">Order Items & Offer Snapshots</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered bg-white mb-0" style="font-size: 0.8rem;">
+                        <thead class="table-light text-muted">
+                          <tr>
+                            <th>Product</th>
+                            <th>Variant</th>
+                            <th>SKU</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Regular Price</th>
+                            <th class="text-end">Sale Price</th>
+                            <th class="text-end">Offer Discount</th>
+                            <th>Applied Offer</th>
+                            <th class="text-end">Line Total</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>${itemsHtml}</tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // 5. Update Pagination Bar
+    if (curPageLabel) curPageLabel.textContent = pagination.page || 1;
+    if (totalPagesLabel) totalPagesLabel.textContent = pagination.totalPages || 1;
+    if (totalRecordsLabel) totalRecordsLabel.textContent = pagination.totalOrders || 0;
+
+    if (prevPageItem) {
+      if (pagination.hasPrevPage) prevPageItem.classList.remove("disabled");
+      else prevPageItem.classList.add("disabled");
+    }
+    if (nextPageItem) {
+      if (pagination.hasNextPage) nextPageItem.classList.remove("disabled");
+      else nextPageItem.classList.add("disabled");
+    }
+  };
+
+  // Event Listeners
+  presetButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const preset = btn.getAttribute("data-preset");
+      presetButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      if (preset === "custom") {
+        if (customRangeContainer) customRangeContainer.classList.remove("d-none");
+        currentPreset = "custom";
+      } else {
+        if (customRangeContainer) customRangeContainer.classList.add("d-none");
+        currentPreset = preset;
+        currentStartDate = "";
+        currentEndDate = "";
+        currentPage = 1;
+        fetchReportData();
+      }
+    });
+  });
+
+  if (applyCustomBtn) {
+    applyCustomBtn.addEventListener("click", () => {
+      const s = customStartDateInput?.value;
+      const e = customEndDateInput?.value;
+      if (!s || !e) {
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Dates Required', text: 'Please select both start and end dates.' });
+        return;
+      }
+      if (s > e) {
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Invalid Range', text: 'Start date cannot be after end date.' });
+        return;
+      }
+      currentPreset = "custom";
+      currentStartDate = s;
+      currentEndDate = e;
+      currentPage = 1;
+      fetchReportData();
+    });
+  }
+
+  if (paymentSelect) {
+    paymentSelect.addEventListener("change", () => {
+      currentPaymentMethod = paymentSelect.value;
+      currentPage = 1;
+      fetchReportData();
+    });
+  }
+
+  if (statusSelect) {
+    statusSelect.addEventListener("change", () => {
+      currentOrderStatus = statusSelect.value;
+      currentPage = 1;
+      fetchReportData();
+    });
+  }
+
+  if (groupBySelect) {
+    groupBySelect.addEventListener("change", () => {
+      currentGroupBy = groupBySelect.value;
+      fetchReportData();
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      const val = searchInput.value.trim();
+      if (clearSearchBtn) {
+        if (val) clearSearchBtn.classList.remove("d-none");
+        else clearSearchBtn.classList.add("d-none");
+      }
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        currentSearch = val;
+        currentPage = 1;
+        fetchReportData();
+      }, 350);
+    });
+  }
+
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      clearSearchBtn.classList.add("d-none");
+      currentSearch = "";
+      currentPage = 1;
+      fetchReportData();
+    });
+  }
+
+  if (resetFiltersBtn) {
+    resetFiltersBtn.addEventListener("click", () => {
+      currentPreset = "this_month";
+      currentStartDate = "";
+      currentEndDate = "";
+      currentPaymentMethod = "ALL";
+      currentOrderStatus = "ALL";
+      currentSearch = "";
+      currentGroupBy = "day";
+      currentPage = 1;
+
+      presetButtons.forEach(b => {
+        if (b.getAttribute("data-preset") === "this_month") b.classList.add("active");
+        else b.classList.remove("active");
+      });
+      if (customRangeContainer) customRangeContainer.classList.add("d-none");
+      if (paymentSelect) paymentSelect.value = "ALL";
+      if (statusSelect) statusSelect.value = "ALL";
+      if (groupBySelect) groupBySelect.value = "day";
+      if (searchInput) searchInput.value = "";
+      if (clearSearchBtn) clearSearchBtn.classList.add("d-none");
+
+      fetchReportData();
+    });
+  }
+
+  if (limitSelect) {
+    limitSelect.addEventListener("change", () => {
+      currentLimit = parseInt(limitSelect.value, 10) || 10;
+      currentPage = 1;
+      fetchReportData();
+    });
+  }
+
+  if (prevPageBtn) {
+    prevPageBtn.addEventListener("click", () => {
+      if (currentPage > 1) {
+        currentPage--;
+        fetchReportData();
+      }
+    });
+  }
+
+  if (nextPageBtn) {
+    nextPageBtn.addEventListener("click", () => {
+      currentPage++;
+      fetchReportData();
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      fetchReportData();
+    });
+  }
+
+  updateExportLinks();
+})();
+</script>
+
+<style>
+.kpi-icon-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kpi-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
+}
+.spin-animation {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>

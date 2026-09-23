@@ -1,48 +1,1134 @@
-<div class="dashboard-header">
-  <h2>Dashboard</h2>
-  <p>Admin > Dashboard</p>
+<!-- Admin Dashboard Redesign + Chart.js Analytics -->
+<div class="container-fluid px-0" id="admin-dashboard-view">
+  <!-- Top Navigation & Controls Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+      <h2 class="h3 fw-bold mb-1 text-dark">Dashboard Analytics</h2>
+      <p class="text-muted mb-0 small">
+        <i class="bi bi-clock-history me-1"></i>
+        Authoritative sales, orders, and inventory reporting (IST)
+      </p>
+    </div>
+
+    <!-- Active Range Display & Refresh -->
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-light text-dark border px-3 py-2 fw-medium shadow-sm" id="active-range-badge">
+        <i class="bi bi-calendar-event me-1 text-primary"></i>
+        <span id="active-range-label"><%= initialData?.period?.label || 'This Month' %></span>
+      </span>
+      <button class="btn btn-outline-secondary btn-sm shadow-sm px-3 py-2" id="btn-refresh-dashboard" title="Refresh analytics data">
+        <i class="bi bi-arrow-clockwise me-1" id="refresh-spinner-icon"></i>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Controls Toolbar -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <!-- Preset Buttons -->
+        <div class="btn-group btn-group-sm flex-wrap" role="group" id="preset-buttons-group">
+          <button type="button" class="btn btn-outline-primary" data-preset="today">Today</button>
+          <button type="button" class="btn btn-outline-primary" data-preset="yesterday">Yesterday</button>
+          <button type="button" class="btn btn-outline-primary" data-preset="this_week">This Week</button>
+          <button type="button" class="btn btn-outline-primary active" data-preset="this_month">This Month</button>
+          <button type="button" class="btn btn-outline-primary" data-preset="last_month">Last Month</button>
+          <button type="button" class="btn btn-outline-primary" data-preset="this_year">This Year</button>
+          <button type="button" class="btn btn-outline-primary" data-preset="custom" id="btn-preset-custom">
+            <i class="bi bi-sliders me-1"></i>Custom Range
+          </button>
+        </div>
+
+        <!-- Custom Date Range Form (Hidden by default unless custom is clicked) -->
+        <div id="custom-range-container" class="d-none align-items-center gap-2 flex-wrap">
+          <div class="input-group input-group-sm" style="max-width: 170px;">
+            <span class="input-group-text bg-white"><i class="bi bi-calendar3"></i></span>
+            <input type="date" id="custom-start-date" class="form-control" title="Start Date" />
+          </div>
+          <span class="text-muted small">to</span>
+          <div class="input-group input-group-sm" style="max-width: 170px;">
+            <span class="input-group-text bg-white"><i class="bi bi-calendar3"></i></span>
+            <input type="date" id="custom-end-date" class="form-control" title="End Date" />
+          </div>
+          <button type="button" class="btn btn-sm btn-primary px-3" id="btn-apply-custom">
+            <i class="bi bi-check-lg me-1"></i>Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State Banner -->
+  <div id="dashboard-loading-bar" class="progress mb-3 d-none" style="height: 4px;">
+    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary w-100"></div>
+  </div>
+
+  <!-- 5 KPI Cards Row -->
+  <div class="row g-3 mb-4">
+    <!-- 1. Net Sales -->
+    <div class="col-xl col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Net Sales</span>
+            <div class="kpi-icon-circle bg-success-subtle text-success">
+              <i class="bi bi-currency-rupee fs-5"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold mb-1 text-dark" id="kpi-net-sales">₹<%= Number(initialData?.kpis?.netSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></h3>
+          <p class="text-muted small mb-0">
+            Gross: ₹<span id="kpi-gross-sales"><%= Number(initialData?.kpis?.grossSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Total Orders -->
+    <div class="col-xl col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Total Orders</span>
+            <div class="kpi-icon-circle bg-primary-subtle text-primary">
+              <i class="bi bi-bag-check fs-5"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold mb-1 text-dark" id="kpi-total-orders"><%= Number(initialData?.kpis?.totalOrders || 0).toLocaleString('en-IN') %></h3>
+          <p class="text-muted small mb-0">Finalized qualifying orders</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Units Sold -->
+    <div class="col-xl col-md-4 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Units Sold</span>
+            <div class="kpi-icon-circle bg-info-subtle text-info">
+              <i class="bi bi-box-seam fs-5"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold mb-1 text-dark" id="kpi-units-sold"><%= Number(initialData?.kpis?.unitsSold || 0).toLocaleString('en-IN') %></h3>
+          <p class="text-muted small mb-0">Net fulfilled items</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Total Refunds -->
+    <div class="col-xl col-md-6 col-sm-6">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Total Refunds</span>
+            <div class="kpi-icon-circle bg-danger-subtle text-danger">
+              <i class="bi bi-arrow-counterclockwise fs-5"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold mb-1 text-danger" id="kpi-completed-refunds">₹<%= Number(initialData?.kpis?.completedRefunds || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></h3>
+          <p class="text-muted small mb-0">Completed order & item returns</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Discounts & Savings -->
+    <div class="col-xl col-md-6 col-sm-12">
+      <div class="card border-0 shadow-sm h-100 kpi-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="text-muted small fw-semibold text-uppercase tracking-wider">Discounts & Savings</span>
+            <div class="kpi-icon-circle bg-warning-subtle text-warning">
+              <i class="bi bi-tag fs-5"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold mb-1 text-dark" id="kpi-total-discounts">₹<%= Number(initialData?.kpis?.totalDiscounts || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></h3>
+          <p class="text-muted small mb-0">
+            Coupons: ₹<span id="kpi-coupon-savings"><%= Number(initialData?.kpis?.couponSavings || 0).toLocaleString('en-IN') %></span> | 
+            Offers: ₹<span id="kpi-offer-savings"><%= Number(initialData?.kpis?.offerSavings || 0).toLocaleString('en-IN') %></span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXACTLY THREE CHARTS SECTION -->
+  <!-- Chart 1: Sales Trend (Line Chart) -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="fw-bold mb-0 text-dark">
+          <i class="bi bi-graph-up text-primary me-2"></i>Sales Trend
+        </h5>
+        <span class="text-muted small">Daily net sales realized after completed refunds</span>
+      </div>
+      <span class="badge bg-primary-subtle text-primary fw-medium px-3 py-2">Line Chart</span>
+    </div>
+    <div class="card-body pt-1 pb-3">
+      <div class="position-relative" style="height: 320px;">
+        <canvas id="salesTrendChart"></canvas>
+        <div id="sales-trend-empty" class="position-absolute top-50 start-50 translate-middle text-center d-none">
+          <i class="bi bi-bar-chart text-muted fs-1 mb-2"></i>
+          <p class="text-muted small mb-0">No sales transactions recorded for this period</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row for Chart 2 & Chart 3 -->
+  <div class="row g-4 mb-4">
+    <!-- Chart 3: Top 10 Products by Units Sold (Horizontal Bar Chart) -->
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+          <div>
+            <h5 class="fw-bold mb-0 text-dark">
+              <i class="bi bi-bar-chart-steps text-info me-2"></i>Top 10 Products by Units Sold
+            </h5>
+            <span class="text-muted small">Authoritative historical order item quantities</span>
+          </div>
+          <span class="badge bg-info-subtle text-info fw-medium px-3 py-2">Horizontal Bar</span>
+        </div>
+        <div class="card-body pt-1 pb-3">
+          <div class="position-relative" style="height: 320px;">
+            <canvas id="topProductsChart"></canvas>
+            <div id="top-products-empty" class="position-absolute top-50 start-50 translate-middle text-center d-none">
+              <i class="bi bi-inbox text-muted fs-1 mb-2"></i>
+              <p class="text-muted small mb-0">No product sales in the selected period</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart 2: Orders by Payment Method (Doughnut Chart) -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+          <div>
+            <h5 class="fw-bold mb-0 text-dark">
+              <i class="bi bi-pie-chart text-warning me-2"></i>Payment Methods
+            </h5>
+            <span class="text-muted small">Distribution of finalized orders</span>
+          </div>
+          <span class="badge bg-warning-subtle text-warning fw-medium px-3 py-2">Doughnut</span>
+        </div>
+        <div class="card-body pt-1 pb-3">
+          <div class="position-relative" style="height: 250px;">
+            <canvas id="paymentMethodChart"></canvas>
+            <div id="payment-method-empty" class="position-absolute top-50 start-50 translate-middle text-center d-none">
+              <i class="bi bi-credit-card text-muted fs-1 mb-2"></i>
+              <p class="text-muted small mb-0">No qualifying orders for this period</p>
+            </div>
+          </div>
+
+          <!-- Payment Method Summary Badges -->
+          <div class="row g-2 mt-2 pt-2 border-top text-center" id="payment-method-legend-row">
+            <!-- Will be dynamically populated or rendered via server initialData -->
+            <% const pBreakdown = initialData?.paymentBreakdown || []; %>
+            <% const codEntry = pBreakdown.find(p => p.method === 'COD') || { count: 0, amount: 0, percentage: 0 }; %>
+            <% const razorEntry = pBreakdown.find(p => p.method === 'RAZORPAY') || { count: 0, amount: 0, percentage: 0 }; %>
+            <% const walletEntry = pBreakdown.find(p => p.method === 'WALLET') || { count: 0, amount: 0, percentage: 0 }; %>
+            <div class="col-4">
+              <div class="p-2 rounded bg-light">
+                <span class="badge bg-secondary mb-1">COD</span>
+                <div class="fw-bold small" id="legend-cod-count"><%= codEntry.count %> orders</div>
+                <div class="text-muted" style="font-size: 0.75rem;" id="legend-cod-percent"><%= codEntry.percentage %>%</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-2 rounded bg-light">
+                <span class="badge bg-primary mb-1">Razorpay</span>
+                <div class="fw-bold small" id="legend-razorpay-count"><%= razorEntry.count %> orders</div>
+                <div class="text-muted" style="font-size: 0.75rem;" id="legend-razorpay-percent"><%= razorEntry.percentage %>%</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-2 rounded bg-light">
+                <span class="badge bg-success mb-1">Wallet</span>
+                <div class="fw-bold small" id="legend-wallet-count"><%= walletEntry.count %> orders</div>
+                <div class="text-muted" style="font-size: 0.75rem;" id="legend-wallet-percent"><%= walletEntry.percentage %>%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPPORTING DATA PANELS (TABLES & LISTS - NO ADDITIONAL CHARTS) -->
+  <!-- Row: Top Categories & Recent Refunds -->
+  <div class="row g-4 mb-4">
+    <!-- Top Categories Ranked Table -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-folder2-open text-primary me-2"></i>Top Categories
+          </h5>
+          <span class="text-muted small">Ranked by units sold</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3 py-2 text-muted small">#</th>
+                  <th class="py-2 text-muted small">Category</th>
+                  <th class="py-2 text-muted small text-center">Units Sold</th>
+                  <th class="py-2 text-muted small text-end pe-3">Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="top-categories-body">
+                <% if (initialData?.topCategories && initialData.topCategories.length > 0) { %>
+                  <% initialData.topCategories.forEach((cat, index) => { %>
+                    <tr>
+                      <td class="ps-3 text-muted small fw-bold"><%= index + 1 %></td>
+                      <td class="fw-semibold text-dark"><%= cat.categoryName %></td>
+                      <td class="text-center">
+                        <span class="badge bg-light text-dark border px-2 py-1"><%= cat.unitsSold %></span>
+                      </td>
+                      <td class="text-end pe-3 fw-medium">₹<%= Number(cat.revenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="4" class="text-center py-4 text-muted small">No category sales recorded</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Refunds / Returns Activity -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-arrow-return-left text-danger me-2"></i>Recent Refunds & Returns
+          </h5>
+          <span class="text-muted small">Processed credits</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3 py-2 text-muted small">Order #</th>
+                  <th class="py-2 text-muted small">Customer</th>
+                  <th class="py-2 text-muted small">Amount</th>
+                  <th class="py-2 text-muted small">Method</th>
+                  <th class="py-2 text-muted small text-end pe-3">Date</th>
+                </tr>
+              </thead>
+              <tbody id="recent-refunds-body">
+                <% if (initialData?.recentRefunds && initialData.recentRefunds.length > 0) { %>
+                  <% initialData.recentRefunds.forEach(ref => { %>
+                    <tr>
+                      <td class="ps-3 fw-bold text-dark font-monospace small"><%= ref.orderNumber %></td>
+                      <td class="small text-truncate" style="max-width: 140px;"><%= ref.customerName %></td>
+                      <td class="fw-bold text-danger small">₹<%= Number(ref.refundAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                      <td>
+                        <span class="badge bg-secondary-subtle text-secondary small"><%= ref.refundMethod %></span>
+                      </td>
+                      <td class="text-end pe-3 text-muted small"><%= ref.refundDate %></td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" class="text-center py-4 text-muted small">No recent refunds processed</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row: Recent Orders & Low Stock Alerts -->
+  <div class="row g-4 mb-4">
+    <!-- Recent Qualifying Orders -->
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-clock-history text-success me-2"></i>Recent Orders
+          </h5>
+          <a href="/admin/orders" class="btn btn-outline-primary btn-sm">View All Orders</a>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3 py-2 text-muted small">Order #</th>
+                  <th class="py-2 text-muted small">Customer</th>
+                  <th class="py-2 text-muted small">Payment</th>
+                  <th class="py-2 text-muted small">Amount</th>
+                  <th class="py-2 text-muted small">Status</th>
+                  <th class="py-2 text-muted small text-end pe-3">Action</th>
+                </tr>
+              </thead>
+              <tbody id="recent-orders-body">
+                <% if (initialData?.recentOrders && initialData.recentOrders.length > 0) { %>
+                  <% initialData.recentOrders.forEach(order => { %>
+                    <tr>
+                      <td class="ps-3 fw-bold text-dark font-monospace small"><%= order.orderNumber %></td>
+                      <td class="small">
+                        <div class="fw-medium text-dark"><%= order.customerName %></div>
+                        <div class="text-muted" style="font-size: 0.75rem;"><%= order.date %></div>
+                      </td>
+                      <td>
+                        <span class="badge bg-light text-dark border small"><%= order.paymentMethod %></span>
+                      </td>
+                      <td class="fw-bold small">₹<%= Number(order.finalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                      <td>
+                        <% let badgeClass = 'bg-secondary'; %>
+                        <% if (order.orderStatus === 'DELIVERED') badgeClass = 'bg-success'; %>
+                        <% if (order.orderStatus === 'PLACED' || order.orderStatus === 'CONFIRMED') badgeClass = 'bg-primary'; %>
+                        <% if (order.orderStatus === 'SHIPPED') badgeClass = 'bg-info text-dark'; %>
+                        <% if (order.orderStatus === 'CANCELLED') badgeClass = 'bg-danger'; %>
+                        <span class="badge <%= badgeClass %> small"><%= order.orderStatus %></span>
+                      </td>
+                      <td class="text-end pe-3">
+                        <a href="/admin/orders/<%= order._id %>" class="btn btn-sm btn-light border p-1 px-2" title="View details">
+                          <i class="bi bi-eye"></i>
+                        </a>
+                      </td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="6" class="text-center py-4 text-muted small">No orders recorded in this period</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Low Stock Inventory Alerts -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Low Stock Alerts
+          </h5>
+          <a href="/admin/inventory" class="btn btn-outline-warning btn-sm text-dark">Manage Stock</a>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3 py-2 text-muted small">Product / SKU</th>
+                  <th class="py-2 text-muted small text-center">Stock</th>
+                  <th class="py-2 text-muted small">Status</th>
+                  <th class="py-2 text-muted small text-end pe-3">Action</th>
+                </tr>
+              </thead>
+              <tbody id="low-stock-body">
+                <% if (initialData?.lowStock && initialData.lowStock.length > 0) { %>
+                  <% initialData.lowStock.forEach(item => { %>
+                    <tr>
+                      <td class="ps-3">
+                        <div class="fw-semibold text-dark small text-truncate" style="max-width: 170px;"><%= item.productName %></div>
+                        <div class="text-muted font-monospace" style="font-size: 0.72rem;">
+                          <%= item.sku %> <%= (item.color || item.storage) ? `(${[item.color, item.storage].filter(Boolean).join(' / ')})` : '' %>
+                        </div>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge <%= item.stock === 0 ? 'bg-danger' : 'bg-warning text-dark' %> px-2 py-1">
+                          <%= item.stock %> left
+                        </span>
+                      </td>
+                      <td class="small">
+                        <span class="text-<%= item.stock === 0 ? 'danger fw-bold' : 'warning-emphasis' %>"><%= item.status %></span>
+                      </td>
+                      <td class="text-end pe-3">
+                        <a href="/admin/inventory" class="btn btn-sm btn-outline-secondary p-1 px-2" title="Update Stock">
+                          <i class="bi bi-pencil-square"></i>
+                        </a>
+                      </td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="4" class="text-center py-4 text-success small">
+                      <i class="bi bi-check-circle me-1"></i>All product variant stocks are healthy
+                    </td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="stats-grid">
-  <div class="stats-card">
-    <h4>Total Sales</h4>
-    <h2>$4,235</h2>
-  </div>
+<!-- Embedded Server Initial Data for Instant Render -->
+<script id="initial-dashboard-data" type="application/json">
+  <%- JSON.stringify(initialData || {}) %>
+</script>
 
-  <div class="stats-card">
-    <h4>Customers</h4>
-    <h2>2,571</h2>
-  </div>
+<!-- Load Chart.js v4 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
-  <div class="stats-card">
-    <h4>Orders</h4>
-    <h2>734</h2>
-  </div>
+<!-- Custom Styling for Cards and Tooltips -->
+<style>
+  .kpi-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+  }
+  .kpi-icon-circle {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tracking-wider {
+    letter-spacing: 0.05em;
+  }
+</style>
 
-  <div class="stats-card">
-    <h4>Products</h4>
-    <h2>1,245</h2>
-  </div>
+<!-- Client JavaScript for Dashboard Interactivity & Charts -->
+<script>
+(function() {
+  'use strict';
 
-  <div class="stats-card">
-    <h4>Pending Orders</h4>
-    <h2>54</h2>
-  </div>
+  // Read initial data from embedded JSON
+  let dashboardData = {};
+  try {
+    const rawInitial = document.getElementById('initial-dashboard-data');
+    if (rawInitial && rawInitial.textContent) {
+      dashboardData = JSON.parse(rawInitial.textContent);
+    }
+  } catch (err) {
+    console.error('Failed to parse initial dashboard data:', err);
+  }
 
-  <div class="stats-card">
-    <h4>Returns</h4>
-    <h2>12</h2>
-  </div>
-</div>
+  // Active filter state
+  let currentPreset = dashboardData?.period?.preset || 'this_month';
+  let currentStartDate = dashboardData?.period?.startDate || '';
+  let currentEndDate = dashboardData?.period?.endDate || '';
+  let requestSequenceToken = 0;
 
-<div class="dashboard-widgets">
-  <div class="widget-card large">
-    <h3>Revenue Overview</h3>
-    <p>Chart will be integrated later</p>
-  </div>
+  // Chart instances holders — ALWAYS destroy before recreating
+  let salesTrendChartInstance = null;
+  let paymentMethodChartInstance = null;
+  let topProductsChartInstance = null;
 
-  <div class="widget-card">
-    <h3>Order Status</h3>
-    <p>Analytics widget</p>
-  </div>
-</div>
+  // Currency Formatter
+  function formatINR(amount) {
+    const num = Number(amount) || 0;
+    return '₹' + num.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  // Number Formatter
+  function formatNumber(num) {
+    return Number(num || 0).toLocaleString('en-IN');
+  }
+
+  // 1. Render KPIs
+  function updateKPIs(kpis) {
+    if (!kpis) return;
+    document.getElementById('kpi-net-sales').textContent = formatINR(kpis.netSales);
+    document.getElementById('kpi-gross-sales').textContent = Number(kpis.grossSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('kpi-total-orders').textContent = formatNumber(kpis.totalOrders);
+    document.getElementById('kpi-units-sold').textContent = formatNumber(kpis.unitsSold);
+    document.getElementById('kpi-completed-refunds').textContent = formatINR(kpis.completedRefunds);
+    document.getElementById('kpi-total-discounts').textContent = formatINR(kpis.totalDiscounts);
+    document.getElementById('kpi-coupon-savings').textContent = formatNumber(kpis.couponSavings);
+    document.getElementById('kpi-offer-savings').textContent = formatNumber(kpis.offerSavings);
+  }
+
+  // 2. Render Chart 1: Sales Trend (Line Chart)
+  function renderSalesTrendChart(trendData) {
+    const canvas = document.getElementById('salesTrendChart');
+    const emptyNotice = document.getElementById('sales-trend-empty');
+    if (!canvas) return;
+
+    if (salesTrendChartInstance) {
+      salesTrendChartInstance.destroy();
+      salesTrendChartInstance = null;
+    }
+
+    if (!trendData || trendData.length === 0 || trendData.every(d => d.netSales === 0)) {
+      if (emptyNotice) emptyNotice.classList.remove('d-none');
+    } else {
+      if (emptyNotice) emptyNotice.classList.add('d-none');
+    }
+
+    const labels = (trendData || []).map(d => d.label || d.period);
+    const dataPoints = (trendData || []).map(d => d.netSales);
+    const orderCounts = (trendData || []).map(d => d.orderCount);
+
+    const ctx = canvas.getContext('2d');
+    
+    // Gradient fill under the line
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(13, 110, 253, 0.25)');
+    gradient.addColorStop(1, 'rgba(13, 110, 253, 0.01)');
+
+    salesTrendChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Net Sales',
+          data: dataPoints,
+          borderColor: '#0d6efd',
+          backgroundColor: gradient,
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: true,
+          pointRadius: labels.length > 31 ? 2 : 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#0d6efd',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            padding: 12,
+            cornerRadius: 8,
+            titleFont: { size: 13, weight: 'bold' },
+            bodyFont: { size: 12 },
+            callbacks: {
+              label: function(context) {
+                const index = context.dataIndex;
+                const sales = formatINR(context.raw);
+                const orders = orderCounts[index] || 0;
+                return [
+                  `Net Sales: ${sales}`,
+                  `Orders: ${orders}`
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: { size: 11 },
+              maxTicksLimit: 12
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: '#f0f0f0'
+            },
+            ticks: {
+              font: { size: 11 },
+              callback: function(value) {
+                if (value >= 100000) return '₹' + (value / 100000).toFixed(1) + 'L';
+                if (value >= 1000) return '₹' + (value / 1000).toFixed(0) + 'k';
+                return '₹' + value;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // 3. Render Chart 2: Orders by Payment Method (Doughnut Chart)
+  function renderPaymentMethodChart(breakdown, totalOrders) {
+    const canvas = document.getElementById('paymentMethodChart');
+    const emptyNotice = document.getElementById('payment-method-empty');
+    if (!canvas) return;
+
+    if (paymentMethodChartInstance) {
+      paymentMethodChartInstance.destroy();
+      paymentMethodChartInstance = null;
+    }
+
+    const codEntry = (breakdown || []).find(b => b.method === 'COD') || { count: 0, amount: 0, percentage: 0 };
+    const razorEntry = (breakdown || []).find(b => b.method === 'RAZORPAY') || { count: 0, amount: 0, percentage: 0 };
+    const walletEntry = (breakdown || []).find(b => b.method === 'WALLET') || { count: 0, amount: 0, percentage: 0 };
+
+    // Update legend summary indicators
+    const codCountEl = document.getElementById('legend-cod-count');
+    const codPercentEl = document.getElementById('legend-cod-percent');
+    if (codCountEl) codCountEl.textContent = `${codEntry.count} orders`;
+    if (codPercentEl) codPercentEl.textContent = `${codEntry.percentage}%`;
+
+    const razorCountEl = document.getElementById('legend-razorpay-count');
+    const razorPercentEl = document.getElementById('legend-razorpay-percent');
+    if (razorCountEl) razorCountEl.textContent = `${razorEntry.count} orders`;
+    if (razorPercentEl) razorPercentEl.textContent = `${razorEntry.percentage}%`;
+
+    const walletCountEl = document.getElementById('legend-wallet-count');
+    const walletPercentEl = document.getElementById('legend-wallet-percent');
+    if (walletCountEl) walletCountEl.textContent = `${walletEntry.count} orders`;
+    if (walletPercentEl) walletPercentEl.textContent = `${walletEntry.percentage}%`;
+
+    const totalCount = codEntry.count + razorEntry.count + walletEntry.count;
+    if (totalCount === 0) {
+      if (emptyNotice) emptyNotice.classList.remove('d-none');
+    } else {
+      if (emptyNotice) emptyNotice.classList.add('d-none');
+    }
+
+    const ctx = canvas.getContext('2d');
+    paymentMethodChartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Cash on Delivery (COD)', 'Razorpay Online', 'Electryve Wallet'],
+        datasets: [{
+          data: [codEntry.count, razorEntry.count, walletEntry.count],
+          backgroundColor: ['#6c757d', '#0d6efd', '#198754'],
+          hoverBackgroundColor: ['#5c636a', '#0b5ed7', '#157347'],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const count = context.raw || 0;
+                const percent = totalCount > 0 ? ((count / totalCount) * 100).toFixed(1) : 0;
+                let amt = 0;
+                if (context.dataIndex === 0) amt = codEntry.amount;
+                if (context.dataIndex === 1) amt = razorEntry.amount;
+                if (context.dataIndex === 2) amt = walletEntry.amount;
+                return [
+                  `${label}: ${count} orders (${percent}%)`,
+                  `Volume: ${formatINR(amt)}`
+                ];
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // 4. Render Chart 3: Top 10 Products by Units Sold (Horizontal Bar Chart)
+  function renderTopProductsChart(topProducts) {
+    const canvas = document.getElementById('topProductsChart');
+    const emptyNotice = document.getElementById('top-products-empty');
+    if (!canvas) return;
+
+    if (topProductsChartInstance) {
+      topProductsChartInstance.destroy();
+      topProductsChartInstance = null;
+    }
+
+    if (!topProducts || topProducts.length === 0) {
+      if (emptyNotice) emptyNotice.classList.remove('d-none');
+    } else {
+      if (emptyNotice) emptyNotice.classList.add('d-none');
+    }
+
+    // Chart displays up to 10 products
+    const products = topProducts || [];
+    const fullNames = products.map(p => p.productName || 'Product');
+    const truncatedLabels = fullNames.map(name => name.length > 22 ? name.substring(0, 20) + '...' : name);
+    const unitsData = products.map(p => p.unitsSold || 0);
+    const revenueData = products.map(p => p.revenue || 0);
+
+    const ctx = canvas.getContext('2d');
+    topProductsChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: truncatedLabels,
+        datasets: [{
+          label: 'Units Sold',
+          data: unitsData,
+          backgroundColor: '#0dcaf0',
+          hoverBackgroundColor: '#0baccc',
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              title: function(context) {
+                const idx = context[0].dataIndex;
+                return fullNames[idx] || '';
+              },
+              label: function(context) {
+                const idx = context.dataIndex;
+                const units = context.raw || 0;
+                const rev = formatINR(revenueData[idx]);
+                return [
+                  `Units Sold: ${units}`,
+                  `Total Revenue: ${rev}`
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            grid: {
+              color: '#f0f0f0'
+            },
+            ticks: {
+              font: { size: 11 },
+              precision: 0
+            }
+          },
+          y: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: { size: 11 }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // 5. Render Supporting Tables
+  function renderTopCategoriesTable(categories) {
+    const tbody = document.getElementById('top-categories-body');
+    if (!tbody) return;
+    if (!categories || categories.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted small">No category sales recorded</td></tr>';
+      return;
+    }
+    tbody.innerHTML = categories.map((cat, idx) => `
+      <tr>
+        <td class="ps-3 text-muted small fw-bold">${idx + 1}</td>
+        <td class="fw-semibold text-dark">${escapeHtml(cat.categoryName)}</td>
+        <td class="text-center">
+          <span class="badge bg-light text-dark border px-2 py-1">${cat.unitsSold}</span>
+        </td>
+        <td class="text-end pe-3 fw-medium">${formatINR(cat.revenue)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderRecentRefundsTable(refunds) {
+    const tbody = document.getElementById('recent-refunds-body');
+    if (!tbody) return;
+    if (!refunds || refunds.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">No recent refunds processed</td></tr>';
+      return;
+    }
+    tbody.innerHTML = refunds.map(ref => `
+      <tr>
+        <td class="ps-3 fw-bold text-dark font-monospace small">${escapeHtml(ref.orderNumber)}</td>
+        <td class="small text-truncate" style="max-width: 140px;">${escapeHtml(ref.customerName)}</td>
+        <td class="fw-bold text-danger small">${formatINR(ref.refundAmount)}</td>
+        <td>
+          <span class="badge bg-secondary-subtle text-secondary small">${escapeHtml(ref.refundMethod)}</span>
+        </td>
+        <td class="text-end pe-3 text-muted small">${escapeHtml(ref.refundDate)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderRecentOrdersTable(orders) {
+    const tbody = document.getElementById('recent-orders-body');
+    if (!tbody) return;
+    if (!orders || orders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted small">No orders recorded in this period</td></tr>';
+      return;
+    }
+    tbody.innerHTML = orders.map(order => {
+      let badgeClass = 'bg-secondary';
+      if (order.orderStatus === 'DELIVERED') badgeClass = 'bg-success';
+      if (order.orderStatus === 'PLACED' || order.orderStatus === 'CONFIRMED') badgeClass = 'bg-primary';
+      if (order.orderStatus === 'SHIPPED') badgeClass = 'bg-info text-dark';
+      if (order.orderStatus === 'CANCELLED') badgeClass = 'bg-danger';
+
+      return `
+        <tr>
+          <td class="ps-3 fw-bold text-dark font-monospace small">${escapeHtml(order.orderNumber)}</td>
+          <td class="small">
+            <div class="fw-medium text-dark">${escapeHtml(order.customerName)}</div>
+            <div class="text-muted" style="font-size: 0.75rem;">${escapeHtml(order.date)}</div>
+          </td>
+          <td>
+            <span class="badge bg-light text-dark border small">${escapeHtml(order.paymentMethod)}</span>
+          </td>
+          <td class="fw-bold small">${formatINR(order.finalAmount)}</td>
+          <td>
+            <span class="badge ${badgeClass} small">${escapeHtml(order.orderStatus)}</span>
+          </td>
+          <td class="text-end pe-3">
+            <a href="/admin/orders/${order._id}" class="btn btn-sm btn-light border p-1 px-2" title="View details">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderLowStockTable(lowStock) {
+    const tbody = document.getElementById('low-stock-body');
+    if (!tbody) return;
+    if (!lowStock || lowStock.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-success small"><i class="bi bi-check-circle me-1"></i>All product variant stocks are healthy</td></tr>';
+      return;
+    }
+    tbody.innerHTML = lowStock.map(item => {
+      const isOut = item.stock === 0;
+      const variantDesc = [item.color, item.storage].filter(Boolean).join(' / ');
+      return `
+        <tr>
+          <td class="ps-3">
+            <div class="fw-semibold text-dark small text-truncate" style="max-width: 170px;">${escapeHtml(item.productName)}</div>
+            <div class="text-muted font-monospace" style="font-size: 0.72rem;">
+              ${escapeHtml(item.sku)} ${variantDesc ? `(${escapeHtml(variantDesc)})` : ''}
+            </div>
+          </td>
+          <td class="text-center">
+            <span class="badge ${isOut ? 'bg-danger' : 'bg-warning text-dark'} px-2 py-1">
+              ${item.stock} left
+            </span>
+          </td>
+          <td class="small">
+            <span class="${isOut ? 'text-danger fw-bold' : 'text-warning-emphasis'}">${escapeHtml(item.status)}</span>
+          </td>
+          <td class="text-end pe-3">
+            <a href="/admin/inventory" class="btn btn-sm btn-outline-secondary p-1 px-2" title="Update Stock">
+              <i class="bi bi-pencil-square"></i>
+            </a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // 6. Master update routine
+  function updateDashboardView(data) {
+    if (!data) return;
+
+    // Period label
+    const labelEl = document.getElementById('active-range-label');
+    if (labelEl && data.period && data.period.label) {
+      labelEl.textContent = data.period.label;
+    }
+
+    // Set custom date fields if available
+    if (data.period && data.period.startDate && data.period.endDate) {
+      const sInput = document.getElementById('custom-start-date');
+      const eInput = document.getElementById('custom-end-date');
+      if (sInput && !sInput.value) sInput.value = data.period.startDate;
+      if (eInput && !eInput.value) eInput.value = data.period.endDate;
+    }
+
+    // 1. KPIs
+    updateKPIs(data.kpis);
+
+    // 2. Chart 1: Sales Trend
+    renderSalesTrendChart(data.salesTrend);
+
+    // 3. Chart 2: Payment Method Breakdown
+    renderPaymentMethodChart(data.paymentBreakdown, data.kpis ? data.kpis.totalOrders : 0);
+
+    // 4. Chart 3: Top 10 Products
+    renderTopProductsChart(data.topProducts);
+
+    // 5. Supporting Tables
+    renderTopCategoriesTable(data.topCategories);
+    renderRecentRefundsTable(data.recentRefunds);
+    renderRecentOrdersTable(data.recentOrders);
+    renderLowStockTable(data.lowStock);
+  }
+
+  // 7. AJAX Fetch with request sequence token & race protection
+  async function fetchDashboardAnalytics(preset, startDate, endDate) {
+    const thisToken = ++requestSequenceToken;
+    const loadingBar = document.getElementById('dashboard-loading-bar');
+    const refreshIcon = document.getElementById('refresh-spinner-icon');
+
+    if (loadingBar) loadingBar.classList.remove('d-none');
+    if (refreshIcon) refreshIcon.classList.add('bi-spin');
+
+    try {
+      const params = new URLSearchParams();
+      if (preset) params.set('preset', preset);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
+      const response = await fetch(`/admin/dashboard/data?${params.toString()}`, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      // Ignore out-of-order responses if user clicked another filter
+      if (thisToken !== requestSequenceToken) return;
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to fetch analytics');
+      }
+
+      currentPreset = preset;
+      currentStartDate = startDate || result.period?.startDate || '';
+      currentEndDate = endDate || result.period?.endDate || '';
+
+      updateDashboardView(result);
+
+    } catch (err) {
+      if (thisToken !== requestSequenceToken) return;
+      console.error('Error updating dashboard:', err);
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Analytics Error',
+          text: err.message || 'Unable to update dashboard metrics'
+        });
+      } else {
+        alert(err.message || 'Unable to update dashboard metrics');
+      }
+    } finally {
+      if (thisToken === requestSequenceToken) {
+        if (loadingBar) loadingBar.classList.add('d-none');
+        if (refreshIcon) refreshIcon.classList.remove('bi-spin');
+      }
+    }
+  }
+
+  // 8. Event Listeners
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initial Render
+    updateDashboardView(dashboardData);
+
+    // Preset filter buttons click
+    const presetButtons = document.querySelectorAll('#preset-buttons-group [data-preset]');
+    const customContainer = document.getElementById('custom-range-container');
+
+    presetButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const preset = this.getAttribute('data-preset');
+        presetButtons.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+
+        if (preset === 'custom') {
+          if (customContainer) {
+            customContainer.classList.remove('d-none');
+            customContainer.classList.add('d-flex');
+          }
+        } else {
+          if (customContainer) {
+            customContainer.classList.remove('d-flex');
+            customContainer.classList.add('d-none');
+          }
+          fetchDashboardAnalytics(preset);
+        }
+      });
+    });
+
+    // Custom date range apply button
+    const btnApplyCustom = document.getElementById('btn-apply-custom');
+    if (btnApplyCustom) {
+      btnApplyCustom.addEventListener('click', function() {
+        const s = document.getElementById('custom-start-date')?.value?.trim();
+        const e = document.getElementById('custom-end-date')?.value?.trim();
+
+        if (!s || !e) {
+          if (window.Swal) {
+            Swal.fire({ icon: 'warning', text: 'Please select both start and end dates' });
+          } else {
+            alert('Please select both start and end dates');
+          }
+          return;
+        }
+
+        if (s > e) {
+          if (window.Swal) {
+            Swal.fire({ icon: 'warning', text: 'Start date cannot be after end date' });
+          } else {
+            alert('Start date cannot be after end date');
+          }
+          return;
+        }
+
+        fetchDashboardAnalytics('custom', s, e);
+      });
+    }
+
+    // Refresh button
+    const btnRefresh = document.getElementById('btn-refresh-dashboard');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', function() {
+        if (currentPreset === 'custom') {
+          const s = document.getElementById('custom-start-date')?.value?.trim() || currentStartDate;
+          const e = document.getElementById('custom-end-date')?.value?.trim() || currentEndDate;
+          fetchDashboardAnalytics('custom', s, e);
+        } else {
+          fetchDashboardAnalytics(currentPreset);
+        }
+      });
+    }
+  });
+
+})();
+</script>

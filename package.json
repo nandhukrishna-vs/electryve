@@ -17,6 +17,7 @@
     "cropperjs": "^2.1.1",
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.19.0",
