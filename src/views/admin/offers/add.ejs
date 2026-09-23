@@ -139,8 +139,7 @@
                                 size="6"
                             >
                                 <%(products || []).forEach(p =>{%>
-                                    <%
-                                        const isSelected = offer?.products&&(
+                                    <%const isSelected = offer?.products &&(
                                             Array.isArray(offer.products)
                                                 ? offer.products.some(sel => String(sel._id || sel) === String(p._id))
                                                 : String(offer.products) === String(p._id)
