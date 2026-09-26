@@ -4,6 +4,7 @@ dotenv.config();
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/User.js";
+import * as referralService from "../services/referralService.js";
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
@@ -70,12 +71,7 @@ passport.use(
             return done(null, user);
           }
 
-          const referralCode =
-            profile.displayName
-              .replace(/\s+/g, "")
-              .substring(0, 5)
-              .toUpperCase() +
-            Math.floor(1000 + Math.random() * 9000);
+          const referralCode = await referralService.generateUniqueReferralCode();
 
           const newUser = await User.create({
             fullName: profile.displayName,
@@ -88,6 +84,18 @@ passport.use(
             status: "ACTIVE",
             referralCode
           });
+
+          if (req.session?.referralCode) {
+            try {
+              await referralService.createReferralForUser(
+                newUser._id,
+                req.session.referralCode,
+                req.session
+              );
+            } catch (refErr) {
+              console.error("Error creating referral for Google user:", refErr);
+            }
+          }
 
           return done(null, newUser);
         }

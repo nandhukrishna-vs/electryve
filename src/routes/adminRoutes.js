@@ -14,6 +14,7 @@ import * as couponController from "../controllers/couponController.js";
 import * as inventoryController from "../controllers/inventoryController.js";
 import * as offerController from "../controllers/offerController.js";
 import * as reportController from "../controllers/reportController.js";
+import * as adminReferralController from "../controllers/adminReferralController.js";
 
 import { isAdmin } from "../middlewares/adminMiddleware.js";
 
@@ -71,6 +72,15 @@ router.get("/sales-report", isAdmin, reportController.loadSalesReport);
 router.get("/sales-report/data", isAdmin, reportController.getSalesReportData);
 router.get("/sales-report/pdf", isAdmin, reportController.exportSalesReportPdf);
 router.get("/sales-report/excel", isAdmin, reportController.exportSalesReportExcel);
+
+// Referral Management Routes
+router.get("/referrals", isAdmin, adminReferralController.loadAdminReferrals);
+router.get("/referrals/program", isAdmin, adminReferralController.loadReferralProgram);
+router.post("/referrals/program", isAdmin, adminReferralController.updateReferralProgram);
+router.patch("/referrals/program", isAdmin, adminReferralController.updateReferralProgram);
+router.get("/referrals/:id", isAdmin, adminReferralController.loadAdminReferralDetails);
+router.post("/referrals/:id/retry-reward", isAdmin, adminReferralController.retryReferralReward);
+router.patch("/referrals/:id/retry-reward", isAdmin, adminReferralController.retryReferralReward);
 
 router.get("/logout", isAdmin, adminLogout);
 

@@ -10,6 +10,7 @@ import { getCart } from "./cartService.js";
 import { validateUserCoupon } from "./couponService.js";
 import * as walletService from "./walletService.js";
 import { getBestOfferForItem, consumeOfferUsage, rollbackOfferUsage } from "./offerService.js";
+import * as referralService from "./referralService.js";
 
 /**
  * Calculates remaining refundable amount for the full order from historical snapshot
@@ -674,6 +675,15 @@ const updateOrderStatus = async (orderId, nextStatus) => {
 
   order.orderStatus = nextStatus;
   await order.save();
+
+  if (nextStatus === "DELIVERED") {
+    try {
+      await referralService.handleOrderDelivered(order._id);
+    } catch (refErr) {
+      console.error("[Referral] Error processing referral reward on delivery:", refErr);
+    }
+  }
+
   return { success: true, message: `Order status updated to ${nextStatus}.`, order };
 };
 
@@ -1101,6 +1111,13 @@ const approveReturnRequest = async (orderId) => {
   }
 
   await order.save();
+
+  try {
+    await referralService.handleOrderReturnOrCancel(order._id, { reason: returnReason });
+  } catch (refErr) {
+    console.error("[Referral] Error handling full return reward reversal:", refErr);
+  }
+
   return {
     success: true,
     message: refundResult?.credited
@@ -1237,6 +1254,17 @@ const approveReturnItemRequest = async (orderId, itemId) => {
   }
 
   await order.save();
+
+  try {
+    const remainingOrderAmount = Math.max(0, (order.finalAmount || 0) - (order.refundAmount || 0));
+    await referralService.handleOrderReturnOrCancel(order._id, {
+      isItemReturn: true,
+      remainingOrderAmount
+    });
+  } catch (refErr) {
+    console.error("[Referral] Error handling item return reward reversal:", refErr);
+  }
+
   return {
     success: true,
     message: refundResult?.credited

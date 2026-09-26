@@ -8,7 +8,7 @@ import validateProduct from "../validators/productValidator.js";
 import { uploadImages, deleteImage } from "./imageService.js";
 import { getProductReviewsSummary } from "./reviewService.js";
 import Offer from "../models/Offer.js";
-import { getBestOfferForItem, getOffersForCatalog } from "./offerService.js";
+import { getBestOfferForItem, getOffersForCatalog, getOfferTargetsForCatalog  } from "./offerService.js";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -1093,7 +1093,8 @@ const getProductDetails = async (id) => {
     .limit(8)
     .lean();
 
-    const relatedOffersByTarget = await getOffersForCatalog(rawRelated, now);
+    const relatedOffersByTarget =
+    await getOfferTargetsForCatalog(rawRelated, now);
 
     const relatedProducts = rawRelated.map(rp => {
         const rpVariants = Array.isArray(rp.variants) ? rp.variants : [];

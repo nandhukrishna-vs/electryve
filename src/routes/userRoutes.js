@@ -34,6 +34,7 @@ import * as wishlistValidator from "../validators/wishlistValidator.js";
 import * as orderController from "../controllers/orderController.js";
 import * as addressValidator from "../validators/addressValidator.js";
 import * as walletController from "../controllers/walletController.js";
+import * as referralController from "../controllers/referralController.js";
 
 const router = express.Router();
 
@@ -48,13 +49,18 @@ router.use((req, res, next) => {
   next();
 });
 
+router.get("/signup", (req, res) => {
+  const query = req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "";
+  res.redirect(301, `/auth/signup${query}`);
+});
+
 router.get("/", loadHome);
 
 router.get("/profile", isLoggedIn, loadProfile);
 
 router.get("/shop",productController.loadShop);
 router.get("/shop/data",isLoggedIn, productController.getShopProductsData);
-router.get("/product/:id",isLoggedIn, productController.loadProductDetails);
+router.get("/product/:id", productController.loadProductDetails);
 
 // Cart Routes
 router.get("/cart", isLoggedIn, cartController.loadCart);
@@ -139,6 +145,10 @@ router.post("/wishlist/remove", isLoggedIn, wishlistValidator.validateWishlist, 
 
 // Wallet Routes
 router.get("/wallet", isLoggedIn, walletController.loadWallet);
+
+// Referral Routes
+router.get("/refer-and-earn", isLoggedIn, referralController.loadReferAndEarn);
+router.post("/refer-and-earn/validate", referralController.validateReferralCodeAjax);
 
 // Checkout & Order Routes
 router.get("/checkout", isLoggedIn, orderController.loadCheckout);

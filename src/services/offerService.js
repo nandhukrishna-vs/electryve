@@ -220,58 +220,190 @@ export const getBestOfferForItem = async ({
  * @param {Date} [now=new Date()]
  * @returns {Promise<Map<string, Object>>} Map of productId -> best offer info for default variant
  */
-export const getOffersForCatalog = async (products, now = new Date()) => {
-  const offerMap = new Map();
-  if (!Array.isArray(products) || products.length === 0) {
+export const getOffersForCatalog = async (
+    products,
+    now = new Date()
+) => {
+    const offerMap = new Map();
+
+    if (!Array.isArray(products) || products.length === 0) {
+        return offerMap;
+    }
+
+    const productIds = [];
+    const categoryIds = [];
+
+    for (const product of products) {
+        if (!product || !product._id) {
+            continue;
+        }
+
+        productIds.push(product._id);
+
+        const categoryId =
+            product.category?._id || product.category;
+
+        if (categoryId) {
+            categoryIds.push(categoryId);
+        }
+    }
+
+    const activeOffers = await Offer.find({
+        isDeleted: false,
+        isActive: true,
+        startAt: { $lte: now },
+        expiryAt: { $gte: now },
+        $or: [
+            {
+                scope: "PRODUCT",
+                products: { $in: productIds }
+            },
+            {
+                scope: "CATEGORY",
+                categories: { $in: categoryIds }
+            }
+        ]
+    }).lean();
+
+    for (const product of products) {
+        if (!product || !product._id) {
+            continue;
+        }
+
+        const categoryId =
+            product.category?._id || product.category;
+
+        const defaultVariant = Array.isArray(product.variants)
+            ? product.variants.find(v => v && v.isListed) ||
+              product.variants[0]
+            : null;
+
+        const unitPrice =
+            defaultVariant?.salePrice ||
+            defaultVariant?.regularPrice ||
+            0;
+
+        const evaluation = await getBestOfferForItem({
+            productId: product._id,
+            categoryId,
+            unitPrice,
+            quantity: 1,
+            now,
+            prefetchedOffers: activeOffers
+        });
+
+        offerMap.set(
+            product._id.toString(),
+            evaluation
+        );
+    }
+
     return offerMap;
-  }
-
-  const productIds = [];
-  const categoryIds = [];
-
-  for (const p of products) {
-    if (!p || !p._id) continue;
-    productIds.push(p._id);
-    const catId = p.category?._id || p.category;
-    if (catId) categoryIds.push(catId);
-  }
-
-  // Fetch all active, non-expired offers matching any product or category in the batch
-  const activeOffers = await Offer.find({
-    isDeleted: false,
-    isActive: true,
-    startAt: { $lte: now },
-    expiryAt: { $gte: now },
-    $or: [
-      { scope: "PRODUCT", products: { $in: productIds } },
-      { scope: "CATEGORY", categories: { $in: categoryIds } }
-    ]
-  }).lean();
-
-  for (const p of products) {
-    if (!p || !p._id) continue;
-    const catId = p.category?._id || p.category;
-    const defaultVariant = Array.isArray(p.variants)
-      ? p.variants.find((v) => v && v.isListed) || p.variants[0]
-      : null;
-
-    const unitPrice = defaultVariant?.salePrice || defaultVariant?.regularPrice || 0;
-
-    const evaluation = await getBestOfferForItem({
-      productId: p._id,
-      categoryId: catId,
-      unitPrice,
-      quantity: 1,
-      now,
-      prefetchedOffers: activeOffers
-    });
-
-    offerMap.set(p._id.toString(), evaluation);
-  }
-
-  return offerMap;
 };
+export const getOfferTargetsForCatalog = async (
+    products,
+    now = new Date()
+) => {
+    const productOffersMap = new Map();
+    const categoryOffersMap = new Map();
 
+    if (!Array.isArray(products) || products.length === 0) {
+        return {
+            productOffersMap,
+            categoryOffersMap
+        };
+    }
+
+    const productIds = [];
+    const categoryIds = [];
+
+    for (const product of products) {
+        if (!product || !product._id) {
+            continue;
+        }
+
+        const productId = product._id;
+        const categoryId =
+            product.category?._id || product.category;
+
+        productIds.push(productId);
+
+        if (categoryId) {
+            categoryIds.push(categoryId);
+        }
+    }
+
+    const activeOffers = await Offer.find({
+        isDeleted: false,
+        isActive: true,
+        startAt: { $lte: now },
+        expiryAt: { $gte: now },
+        $or: [
+            {
+                scope: "PRODUCT",
+                products: { $in: productIds }
+            },
+            {
+                scope: "CATEGORY",
+                categories: { $in: categoryIds }
+            }
+        ]
+    }).lean();
+
+    for (const product of products) {
+        if (!product || !product._id) {
+            continue;
+        }
+
+        const productKey = String(product._id);
+
+        const categoryId =
+            product.category?._id || product.category;
+
+        const categoryKey = categoryId
+            ? String(categoryId)
+            : null;
+
+        const productOffers = activeOffers.filter(offer => {
+            return (
+                offer.scope === "PRODUCT" &&
+                Array.isArray(offer.products) &&
+                offer.products.some(
+                    productId =>
+                        String(productId) === productKey
+                )
+            );
+        });
+
+        productOffersMap.set(
+            productKey,
+            productOffers
+        );
+
+        if (categoryKey) {
+            const categoryOffers = activeOffers.filter(offer => {
+                return (
+                    offer.scope === "CATEGORY" &&
+                    Array.isArray(offer.categories) &&
+                    offer.categories.some(
+                        categoryId =>
+                            String(categoryId) === categoryKey
+                    )
+                );
+            });
+
+            categoryOffersMap.set(
+                categoryKey,
+                categoryOffers
+            );
+        }
+    }
+
+    return {
+        productOffersMap,
+        categoryOffersMap
+    };
+};
 /**
  * Atomically consumes usage for an offer if a global limit is configured.
  *

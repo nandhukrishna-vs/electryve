@@ -14,7 +14,18 @@ const loadSignup = (req, res) => {
     return res.redirect("/");
   }
 
-  res.render("auth/signup");
+  if (req.query && req.query.ref) {
+    const code = String(req.query.ref).trim().toUpperCase();
+    if (code) {
+      req.session.referralCode = code;
+    }
+  }
+
+  const referralCode = req.query.ref
+    ? String(req.query.ref).trim().toUpperCase()
+    : (req.session?.referralCode || "");
+
+  res.render("auth/signup", { referralCode });
 };
 
 const loadLogin = (req, res) => {

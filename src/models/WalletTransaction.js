@@ -22,7 +22,7 @@ const walletTransactionSchema = new mongoose.Schema(
     source: {
       type: String,
       required: true,
-      enum: ["REFUND", "ORDER_PAYMENT", "ORDER_REVERSAL"]
+      enum: ["REFUND", "ORDER_PAYMENT", "ORDER_REVERSAL", "REFERRAL_REWARD", "REFERRAL_REVERSAL"]
     },
     amount: {
       type: Number,

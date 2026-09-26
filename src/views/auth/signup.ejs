@@ -79,6 +79,18 @@
         </button>
       </div>
 
+      <div class="input-group">
+        <input
+          type="text"
+          id="referralCode"
+          name="referralCode"
+          placeholder="Referral Code (Optional)"
+          value="<%= typeof referralCode !== 'undefined' && referralCode ? referralCode : '' %>"
+          style="text-transform: uppercase;"
+          autocomplete="off"
+        >
+      </div>
+
       <button type="submit" class="auth-btn">
         SIGN UP
       </button>
@@ -110,4 +122,12 @@
       }
     });
   });
+
+  // Auto-populate referral code from URL query parameter if input is empty
+  const urlParams = new URLSearchParams(window.location.search);
+  const refQuery = urlParams.get("ref");
+  const refInput = document.getElementById("referralCode");
+  if (refQuery && refInput && !refInput.value) {
+    refInput.value = refQuery.trim().toUpperCase();
+  }
 </script>

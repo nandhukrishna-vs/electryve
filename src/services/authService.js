@@ -14,6 +14,7 @@ const OTP_EXPIRY_MS = 60 * 1000;
 import {
   createAndSendOtp
 } from "./helpers/otpHelper.js";
+import * as referralService from "./referralService.js";
 
 const signup = async ({body,session}) => {
 
@@ -50,6 +51,18 @@ const signup = async ({body,session}) => {
 
   }
 
+  // Explicit submitted referral code takes precedence over session referral code
+  const submittedReferralCode = (body.referralCode && typeof body.referralCode === "string" && body.referralCode.trim())
+    ? body.referralCode.trim().toUpperCase()
+    : (session.referralCode ? String(session.referralCode).trim().toUpperCase() : null);
+
+  if (submittedReferralCode) {
+    const refValidation = await referralService.validateReferralCode(submittedReferralCode);
+    if (!refValidation.isValid) {
+      return errorResponse(refValidation.message, "/auth/signup");
+    }
+  }
+
   const hashedPassword = await bcrypt.hash(password, 10);
 
   await createAndSendOtp({
@@ -63,7 +76,8 @@ const signup = async ({body,session}) => {
     fullName,
     email,
     phone,
-    password: hashedPassword
+    password: hashedPassword,
+    referralCode: submittedReferralCode || null
   };
 
     return successResponse(
@@ -73,26 +87,6 @@ const signup = async ({body,session}) => {
 
 };
 
-import generateReferralCode from "../utils/generateReferralCode.js";
-
-const generateUniqueReferralCode = async (fullName) => {
-
-  let referralCode;
-  let exists = true;
-
-  while (exists) {
-
-    referralCode = generateReferralCode(fullName);
-
-    exists = await User.findOne({
-      referralCode
-    });
-
-  }
-
-  return referralCode;
-
-};
 const verifyOtp = async ({ body, session }) => {
 
   const otp = body.otp.trim();
@@ -131,10 +125,7 @@ const verifyOtp = async ({ body, session }) => {
 
   }
 
-  const referralCode =
-    await generateUniqueReferralCode(
-      pendingSignup.fullName
-    );
+  const referralCode = await referralService.generateUniqueReferralCode();
 
   const user = await User.create({
 
@@ -154,6 +145,19 @@ const verifyOtp = async ({ body, session }) => {
 
   });
 
+  // Attribution of referral relationship
+  if (pendingSignup.referralCode) {
+    try {
+      await referralService.createReferralForUser(
+        user._id,
+        pendingSignup.referralCode,
+        session
+      );
+    } catch (refErr) {
+      console.error("Error creating referral for user:", refErr);
+    }
+  }
+
   await Otp.deleteMany({
 
     email: pendingSignup.email,
@@ -163,6 +167,7 @@ const verifyOtp = async ({ body, session }) => {
   });
 
   delete session.pendingSignup;
+  delete session.referralCode;
 
   session.user = {
 

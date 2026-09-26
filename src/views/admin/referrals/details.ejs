@@ -1,0 +1,334 @@
+<div class="container-fluid p-0">
+    <!-- Header & Navigation -->
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <a href="/admin/referrals" class="btn btn-outline-secondary btn-sm rounded-circle p-2 d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h3 fw-bold text-dark mb-0">Referral Relationship Details</h2>
+                    <% if (referral.status === 'COMPLETED') { %>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
+                            <i class="bi bi-check-circle me-1"></i> Completed
+                        </span>
+                    <% } else if (referral.status === 'ORDER_DELIVERED') { %>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1">
+                            <i class="bi bi-box-seam me-1"></i> Delivered
+                        </span>
+                    <% } else if (referral.status === 'QUALIFYING_ORDER_PLACED') { %>
+                        <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-3 py-1">
+                            <i class="bi bi-bag-check me-1"></i> Order Placed
+                        </span>
+                    <% } else if (referral.status === 'REVERSED') { %>
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-3 py-1">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reversed
+                        </span>
+                    <% } else if (referral.status === 'RECOVERY_REQUIRED') { %>
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1">
+                            <i class="bi bi-exclamation-triangle me-1"></i> Recovery Required
+                        </span>
+                    <% } else { %>
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1">
+                            <i class="bi bi-clock me-1"></i> Pending Order
+                        </span>
+                    <% } %>
+                </div>
+                <p class="text-muted small mb-0 font-monospace">Referral ID: <%= referral._id %></p>
+            </div>
+        </div>
+
+        <% if (referral.status === 'ORDER_DELIVERED' || referral.status === 'RECOVERY_REQUIRED') { %>
+            <div>
+                <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3 shadow-sm fw-medium" onclick="retryReward('<%= referral._id %>')">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    <span>Retry Reward Credit</span>
+                </button>
+            </div>
+        <% } %>
+    </div>
+
+    <!-- Alert for Recovery Required or Reversal -->
+    <% if (referral.status === 'RECOVERY_REQUIRED') { %>
+        <div class="alert alert-warning rounded-3 shadow-sm border-0 mb-4" role="alert">
+            <h6 class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Action Required: Recovery Pending</h6>
+            <p class="small mb-0">
+                <%= referral.recoveryReason || 'An automatic reward reversal was attempted because the order was returned/cancelled, but the wallet had insufficient balance to debit without going negative.' %>
+            </p>
+        </div>
+    <% } else if (referral.status === 'REVERSED') { %>
+        <div class="alert alert-secondary rounded-3 shadow-sm border-0 mb-4" role="alert">
+            <h6 class="fw-bold mb-1"><i class="bi bi-info-circle-fill me-2"></i>Reward Reversed</h6>
+            <p class="small mb-0">
+                Reason: <%= referral.reversalReason || 'Qualifying order returned or cancelled' %> (Reversed on <%= referral.reversedAt ? new Date(referral.reversedAt).toLocaleString('en-IN') : 'N/A' %>)
+            </p>
+        </div>
+    <% } %>
+
+    <div class="row g-4 mb-4">
+        <!-- Referrer Card -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-header bg-white border-bottom py-3 px-4 d-flex align-items-center justify-content-between">
+                    <h5 class="fs-6 fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-person-fill text-primary"></i>
+                        Referrer (Existing User)
+                    </h5>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill small">Reward: ₹<%= Number(referral.referrerRewardAmountSnapshot || 200).toLocaleString('en-IN') %></span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="rounded-circle bg-light border text-primary fs-4 d-inline-flex align-items-center justify-content-center fw-bold" style="width: 50px; height: 50px;">
+                            <%= (referral.referrer?.fullName || 'U').charAt(0).toUpperCase() %>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-0"><%= referral.referrer?.fullName || 'Unknown User' %></h6>
+                            <span class="text-muted small"><%= referral.referrer?.email || 'N/A' %></span>
+                        </div>
+                    </div>
+                    <div class="row g-2 pt-2 border-top">
+                        <div class="col-6">
+                            <span class="text-muted small d-block">Phone:</span>
+                            <span class="fw-semibold text-dark small"><%= referral.referrer?.phone || 'Not provided' %></span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted small d-block">Referral Code:</span>
+                            <span class="badge bg-light text-dark font-monospace border"><%= referral.referrer?.referralCode || 'N/A' %></span>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <span class="text-muted small d-block">Account Status:</span>
+                            <span class="badge <%= referral.referrer?.isBlocked ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success' %> rounded-pill">
+                                <%= referral.referrer?.isBlocked ? 'Blocked' : 'Active' %>
+                            </span>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <span class="text-muted small d-block">Member Since:</span>
+                            <span class="text-dark small"><%= referral.referrer?.createdAt ? new Date(referral.referrer.createdAt).toLocaleDateString('en-IN') : 'N/A' %></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Referred User Card -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-header bg-white border-bottom py-3 px-4 d-flex align-items-center justify-content-between">
+                    <h5 class="fs-6 fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-person-plus-fill text-success"></i>
+                        Referred User (New Sign-Up)
+                    </h5>
+                    <span class="badge bg-success-subtle text-success rounded-pill small">Cashback: ₹<%= Number(referral.referredUserRewardAmountSnapshot || 200).toLocaleString('en-IN') %></span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="rounded-circle bg-light border text-success fs-4 d-inline-flex align-items-center justify-content-center fw-bold" style="width: 50px; height: 50px;">
+                            <%= (referral.referredUser?.fullName || 'U').charAt(0).toUpperCase() %>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-0"><%= referral.referredUser?.fullName || 'Unknown User' %></h6>
+                            <span class="text-muted small"><%= referral.referredUser?.email || 'N/A' %></span>
+                        </div>
+                    </div>
+                    <div class="row g-2 pt-2 border-top">
+                        <div class="col-6">
+                            <span class="text-muted small d-block">Phone:</span>
+                            <span class="fw-semibold text-dark small"><%= referral.referredUser?.phone || 'Not provided' %></span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted small d-block">Attributed Code:</span>
+                            <span class="badge bg-light text-dark font-monospace border"><%= referral.referralCodeUsed %></span>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <span class="text-muted small d-block">Account Status:</span>
+                            <span class="badge <%= referral.referredUser?.isBlocked ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success' %> rounded-pill">
+                                <%= referral.referredUser?.isBlocked ? 'Blocked' : 'Active' %>
+                            </span>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <span class="text-muted small d-block">Signup Date:</span>
+                            <span class="text-dark small"><%= referral.createdAt ? new Date(referral.createdAt).toLocaleString('en-IN') : 'N/A' %></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms Snapshot & Qualifying Order -->
+    <div class="row g-4 mb-4">
+        <!-- Qualifying Order Card -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-header bg-white border-bottom py-3 px-4">
+                    <h5 class="fs-6 fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-bag-check-fill text-primary"></i>
+                        First Qualifying Order
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <% if (referral.qualifyingOrder) { %>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <span class="text-muted small d-block">Order Number</span>
+                                <a href="/admin/orders/<%= referral.qualifyingOrder._id %>" class="fw-bold font-monospace text-primary text-decoration-none fs-5">
+                                    #<%= referral.qualifyingOrder.orderNumber %>
+                                </a>
+                            </div>
+                            <div>
+                                <span class="badge bg-light text-dark border px-3 py-1.5 small">
+                                    Status: <%= referral.qualifyingOrder.orderStatus %>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 py-3 border-top border-bottom mb-3">
+                            <div class="col-4">
+                                <span class="text-muted small d-block">Order Subtotal:</span>
+                                <span class="fw-semibold text-dark">₹<%= Number(referral.qualifyingOrder.subtotal || 0).toLocaleString('en-IN') %></span>
+                            </div>
+                            <div class="col-4">
+                                <span class="text-muted small d-block">Coupon Discount:</span>
+                                <span class="fw-semibold text-danger">-₹<%= Number(referral.qualifyingOrder.couponDiscount || 0).toLocaleString('en-IN') %></span>
+                            </div>
+                            <div class="col-4">
+                                <span class="text-muted small d-block">Final Paid Amount:</span>
+                                <span class="fw-bold text-success fs-6">₹<%= Number(referral.qualifyingOrder.finalAmount || 0).toLocaleString('en-IN') %></span>
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <span class="text-muted small d-block">Payment Method / Status:</span>
+                                <span class="badge bg-light text-dark border font-monospace">
+                                    <%= referral.qualifyingOrder.paymentMethod %> (<%= referral.qualifyingOrder.paymentStatus %>)
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted small d-block">Placed At:</span>
+                                <span class="text-dark small"><%= referral.qualifyingOrder.createdAt ? new Date(referral.qualifyingOrder.createdAt).toLocaleString('en-IN') : 'N/A' %></span>
+                            </div>
+                            <% if (referral.qualifyingOrder.refundAmount > 0) { %>
+                                <div class="col-12 mt-2">
+                                    <span class="text-muted small d-block">Refund Amount:</span>
+                                    <span class="text-danger fw-semibold">₹<%= Number(referral.qualifyingOrder.refundAmount).toLocaleString('en-IN') %></span>
+                                </div>
+                            <% } %>
+                        </div>
+                    <% } else { %>
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-cart-x fs-1 d-block mb-2"></i>
+                            <h6 class="fw-semibold text-dark">No Qualifying Order Yet</h6>
+                            <p class="small text-muted mb-0">The referred user has not yet completed a delivered order meeting the minimum ₹<%= Number(referral.minimumOrderAmountSnapshot || 1000).toLocaleString('en-IN') %> threshold.</p>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial Snapshot & Audit -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-header bg-white border-bottom py-3 px-4">
+                    <h5 class="fs-6 fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-shield-lock-fill text-secondary"></i>
+                        Terms Snapshot &amp; Wallet Audit
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <h6 class="text-uppercase text-muted fw-bold small mb-2" style="font-size: 0.72rem; letter-spacing: 0.8px;">Immutable Snapshotted Terms</h6>
+                    <ul class="list-group list-group-flush mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                            <span class="text-muted small">Min Order Threshold</span>
+                            <span class="fw-semibold text-dark">₹<%= Number(referral.minimumOrderAmountSnapshot || 1000).toLocaleString('en-IN') %></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                            <span class="text-muted small">Referrer Reward</span>
+                            <span class="fw-semibold text-success">₹<%= Number(referral.referrerRewardAmountSnapshot || 200).toLocaleString('en-IN') %></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                            <span class="text-muted small">Referred User Cashback</span>
+                            <span class="fw-semibold text-success">₹<%= Number(referral.referredUserRewardAmountSnapshot || 200).toLocaleString('en-IN') %></span>
+                        </li>
+                    </ul>
+
+                    <h6 class="text-uppercase text-muted fw-bold small mb-2" style="font-size: 0.72rem; letter-spacing: 0.8px;">Wallet Transaction IDs</h6>
+                    <div class="mb-3">
+                        <span class="text-muted small d-block">Referrer Wallet Tx:</span>
+                        <% if (referral.referrerRewardTransactionId) { %>
+                            <span class="badge bg-light text-dark font-monospace border"><%= referral.referrerRewardTransactionId %></span>
+                        <% } else { %>
+                            <span class="text-muted small fst-italic">Not yet disbursed</span>
+                        <% } %>
+                    </div>
+                    <div>
+                        <span class="text-muted small d-block">Referred User Wallet Tx:</span>
+                        <% if (referral.referredRewardTransactionId) { %>
+                            <span class="badge bg-light text-dark font-monospace border"><%= referral.referredRewardTransactionId %></span>
+                        <% } else { %>
+                            <span class="text-muted small fst-italic">Not yet disbursed</span>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function retryReward(referralId) {
+    Swal.fire({
+        title: 'Retry Reward Disbursement?',
+        text: 'This will attempt to credit wallet rewards to both the referrer and referred user.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#0d6efd',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Process Reward'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Processing...',
+                text: 'Credit in progress...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch(`/admin/referrals/${referralId}/retry-reward`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: data.message || 'Rewards processed successfully.'
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Failed',
+                        text: data.message || 'Unable to disburse rewards.'
+                    });
+                }
+            })
+            .catch(err => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'An error occurred while contacting the server.'
+                });
+            });
+        }
+    });
+}
+</script>

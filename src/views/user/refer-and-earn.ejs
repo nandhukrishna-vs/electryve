@@ -1,0 +1,389 @@
+<div class="container-xl py-4" style="max-width: 1400px; margin: 0 auto; width: 100%;">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb mb-0" style="font-size: 0.85rem;">
+            <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-secondary">Home</a></li>
+            <li class="breadcrumb-item"><a href="/profile" class="text-decoration-none text-secondary">My Account</a></li>
+            <li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Refer &amp; Earn</li>
+        </ol>
+    </nav>
+
+    <!-- Header Banner -->
+    <div class="row g-4 mb-4 align-items-stretch">
+        <div class="col-lg-7">
+            <div class="card border-0 rounded-4 shadow-sm text-white p-4 p-md-5 h-100" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);">
+                <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-white bg-opacity-10 text-white mb-3" style="width: fit-content; font-size: 0.8rem; letter-spacing: 0.5px;">
+                    <i class="bi bi-gift-fill text-warning"></i>
+                    <span>ELECTRYVE REWARDS PROGRAM</span>
+                </div>
+                <h1 class="display-6 fw-bold text-white mb-2">Refer Friends &amp; Earn Wallet Cash</h1>
+                <p class="text-white-50 mb-4" style="font-size: 0.95rem; max-width: 600px; line-height: 1.6;">
+                    Share your unique referral code or link with friends. When they sign up and complete their first qualifying order of
+                    <strong class="text-white">₹<%= Number(program?.minimumOrderAmount || 1000).toLocaleString('en-IN') %></strong>,
+                    they receive <strong class="text-success">₹<%= Number(program?.referredUserRewardAmount || 200).toLocaleString('en-IN') %></strong>
+                    and you receive <strong class="text-success">₹<%= Number(program?.referrerRewardAmount || 200).toLocaleString('en-IN') %></strong> directly in your Electryve Wallet!
+                </p>
+
+                <!-- Code & Share Box -->
+                <div class="bg-white bg-opacity-10 rounded-4 p-3 p-md-4 mt-auto border border-white border-opacity-10">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-5">
+                            <span class="text-white-50 small d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px;">Your Referral Code</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-black text-warning fs-3 font-monospace tracking-wide" id="referralCodeText"><%= referralCode %></span>
+                                <button type="button" class="btn btn-sm btn-light rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" onclick="copyReferralCode()">
+                                    <i class="bi bi-clipboard" id="copyCodeIcon"></i>
+                                    <span id="copyCodeText">Copy</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-7 border-start-md border-secondary border-opacity-25 ps-md-4">
+                            <span class="text-white-50 small d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px;">Share Referral Link</span>
+                            <div class="input-group">
+                                <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary border-opacity-50" id="referralLinkInput" value="<%= referralLink %>" readonly style="font-size: 0.82rem;">
+                                <button class="btn btn-primary btn-sm px-3 fw-semibold" type="button" onclick="copyReferralLink()">
+                                    <i class="bi bi-link-45deg me-1"></i>Copy Link
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Social Share Buttons -->
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3 border-top border-white border-opacity-10">
+                        <span class="text-white-50 small me-2" style="font-size: 0.78rem;">Quick Share:</span>
+                        <a href="https://api.whatsapp.com/send?text=<%= encodeURIComponent('Join Electryve using my referral link and get ₹' + (program?.referredUserRewardAmount || 200) + ' in your wallet on your first order! ' + referralLink) %>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success rounded-pill px-3 py-1 d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
+                            <i class="bi bi-whatsapp"></i> WhatsApp
+                        </a>
+                        <a href="https://telegram.me/share/url?url=<%= encodeURIComponent(referralLink) %>&text=<%= encodeURIComponent('Join Electryve and get ₹' + (program?.referredUserRewardAmount || 200) + ' wallet reward on your first order!') %>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-info text-white rounded-pill px-3 py-1 d-inline-flex align-items-center gap-1" style="font-size: 0.78rem; background-color: #0088cc;">
+                            <i class="bi bi-telegram"></i> Telegram
+                        </a>
+                        <a href="https://twitter.com/intent/tweet?text=<%= encodeURIComponent('Sign up with Electryve using my code ' + referralCode + ' to get ₹' + (program?.referredUserRewardAmount || 200) + ' wallet cashback!') %>&url=<%= encodeURIComponent(referralLink) %>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-dark border border-secondary rounded-pill px-3 py-1 d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
+                            <i class="bi bi-twitter-x"></i> X (Twitter)
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works Card -->
+        <div class="col-lg-5">
+            <div class="card border-0 rounded-4 shadow-sm p-4 h-100 bg-white">
+                <h3 class="fs-5 fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill text-primary"></i>
+                    How It Works
+                </h3>
+
+                <div class="d-flex flex-column gap-3">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 0.9rem;">
+                            1
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 0.9rem;">Share your code or link</h6>
+                            <p class="text-secondary small mb-0" style="font-size: 0.82rem; line-height: 1.4;">
+                                Send your exclusive referral link or code to friends, family, and colleagues.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 0.9rem;">
+                            2
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 0.9rem;">Friend creates an account</h6>
+                            <p class="text-secondary small mb-0" style="font-size: 0.82rem; line-height: 1.4;">
+                                Your friend signs up with your code. Their account is permanently linked to your referral.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 0.9rem;">
+                            3
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 0.9rem;">Delivered &amp; Rewarded</h6>
+                            <p class="text-secondary small mb-0" style="font-size: 0.82rem; line-height: 1.4;">
+                                When their first order of at least ₹<%= Number(program?.minimumOrderAmount || 1000).toLocaleString('en-IN') %> is successfully delivered, both wallets receive ₹<%= Number(program?.referrerRewardAmount || 200).toLocaleString('en-IN') %> instantly!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto pt-3 border-top">
+                    <div class="d-flex align-items-center justify-content-between text-secondary small" style="font-size: 0.78rem;">
+                        <span><i class="bi bi-wallet2 text-success me-1"></i> Usable across all products</span>
+                        <a href="/wallet" class="text-decoration-none fw-semibold">View Wallet &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 p-md-4 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-primary-subtle text-primary fs-5 d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <div>
+                        <span class="text-secondary small d-block" style="font-size: 0.75rem;">Total Friends Invited</span>
+                        <strong class="text-dark fs-4 fw-bold"><%= Number(stats?.totalReferrals || 0) %></strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 p-md-4 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-warning-subtle text-warning fs-5 d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <div>
+                        <span class="text-secondary small d-block" style="font-size: 0.75rem;">Pending Qualifying Order</span>
+                        <strong class="text-warning fs-4 fw-bold"><%= Number(stats?.pendingReferrals || 0) %></strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 p-md-4 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-success-subtle text-success fs-5 d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    <div>
+                        <span class="text-secondary small d-block" style="font-size: 0.75rem;">Successful Referrals</span>
+                        <strong class="text-success fs-4 fw-bold"><%= Number(stats?.successfulReferrals || 0) %></strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3 p-md-4 bg-white h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-info-subtle text-info fs-5 d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                    <div>
+                        <span class="text-secondary small d-block" style="font-size: 0.75rem;">Total Rewards Earned</span>
+                        <strong class="text-info fs-4 fw-bold">₹<%= Number(stats?.totalRewardsEarned || 0).toLocaleString('en-IN') %></strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referral History Table Card -->
+    <div class="card border-0 rounded-4 shadow-sm bg-white overflow-hidden">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex align-items-center justify-content-between">
+            <div>
+                <h2 class="fs-5 fw-bold text-dark mb-0">Referral Activity</h2>
+                <span class="text-secondary small">Real-time status of your invited friends and wallet bonuses</span>
+            </div>
+            <% if (totalCount > 0) { %>
+                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill small">
+                    <%= totalCount %> <%= totalCount === 1 ? 'Friend' : 'Friends' %> Joined
+                </span>
+            <% } %>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0" style="font-size: 0.88rem;">
+                <thead class="table-light text-secondary text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.6px;">
+                    <tr>
+                        <th class="ps-4 py-3">Friend</th>
+                        <th class="py-3">Date Joined</th>
+                        <th class="py-3">Qualifying Order</th>
+                        <th class="py-3">Status</th>
+                        <th class="pe-4 py-3 text-end">Your Reward</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (referrals && referrals.length > 0) { %>
+                        <% referrals.forEach(ref => { %>
+                            <tr>
+                                <td class="ps-4 py-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-light border text-secondary d-flex align-items-center justify-content-center fw-bold" style="width: 34px; height: 34px; font-size: 0.8rem;">
+                                            <%= (ref.referredUser?.fullName || 'U').charAt(0).toUpperCase() %>
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold text-dark"><%= ref.referredUser?.fullName || 'User' %></div>
+                                            <div class="text-muted small" style="font-size: 0.75rem;">
+                                                <%
+                                                    const email = ref.referredUser?.email || '';
+                                                    const maskedEmail = email.includes('@')
+                                                        ? email.substring(0, 2) + '***@' + email.split('@')[1]
+                                                        : '***';
+                                                %>
+                                                <%= maskedEmail %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-3 text-secondary">
+                                    <%= new Date(ref.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) %>
+                                </td>
+                                <td class="py-3">
+                                    <% if (ref.qualifyingOrder) { %>
+                                        <span class="font-monospace text-dark small fw-semibold">
+                                            #<%= ref.qualifyingOrder.orderNumber || String(ref.qualifyingOrder._id || ref.qualifyingOrder).slice(-8) %>
+                                        </span>
+                                        <% if (ref.qualifyingOrder.finalAmount) { %>
+                                            <div class="text-muted small" style="font-size: 0.75rem;">
+                                                ₹<%= Number(ref.qualifyingOrder.finalAmount).toLocaleString('en-IN') %>
+                                            </div>
+                                        <% } %>
+                                    <% } else { %>
+                                        <span class="text-muted small fst-italic">No order yet</span>
+                                    <% } %>
+                                </td>
+                                <td class="py-3">
+                                    <% if (ref.status === 'COMPLETED') { %>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1">
+                                            <i class="bi bi-check-circle me-1"></i> Reward Credited
+                                        </span>
+                                    <% } else if (ref.status === 'ORDER_DELIVERED') { %>
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1">
+                                            <i class="bi bi-box-seam me-1"></i> Order Delivered
+                                        </span>
+                                    <% } else if (ref.status === 'QUALIFYING_ORDER_PLACED') { %>
+                                        <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2.5 py-1">
+                                            <i class="bi bi-truck me-1"></i> Order In Progress
+                                        </span>
+                                    <% } else if (ref.status === 'REVERSED') { %>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2.5 py-1">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i> Order Returned
+                                        </span>
+                                    <% } else if (ref.status === 'RECOVERY_REQUIRED') { %>
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2.5 py-1">
+                                            <i class="bi bi-exclamation-triangle me-1"></i> Returned
+                                        </span>
+                                    <% } else { %>
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2.5 py-1">
+                                            <i class="bi bi-clock me-1"></i> Pending Order
+                                        </span>
+                                    <% } %>
+                                </td>
+                                <td class="pe-4 py-3 text-end">
+                                    <% if (ref.status === 'COMPLETED') { %>
+                                        <span class="text-success fw-bold">
+                                            +₹<%= Number(ref.referrerRewardAmountSnapshot || program?.referrerRewardAmount || 200).toLocaleString('en-IN') %>
+                                        </span>
+                                    <% } else if (ref.status === 'REVERSED') { %>
+                                        <span class="text-muted text-decoration-line-through small">
+                                            ₹<%= Number(ref.referrerRewardAmountSnapshot || 200).toLocaleString('en-IN') %>
+                                        </span>
+                                    <% } else { %>
+                                        <span class="text-secondary small">
+                                            ₹<%= Number(ref.referrerRewardAmountSnapshot || program?.referrerRewardAmount || 200).toLocaleString('en-IN') %>
+                                        </span>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="5" class="py-5 text-center">
+                                <div class="py-4">
+                                    <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center text-muted mb-3" style="width: 60px; height: 60px;">
+                                        <i class="bi bi-gift fs-2"></i>
+                                    </div>
+                                    <h5 class="fw-bold text-dark mb-1">No referrals yet</h5>
+                                    <p class="text-secondary small mb-3">Share your referral link with friends to start earning rewards today!</p>
+                                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 fw-semibold" onclick="copyReferralLink()">
+                                        <i class="bi bi-share me-1"></i> Copy Referral Link
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <% if (totalPages > 1) { %>
+            <div class="card-footer bg-white border-top py-3 px-4 d-flex justify-content-center">
+                <nav aria-label="Referral pagination">
+                    <ul class="pagination pagination-sm mb-0 gap-1">
+                        <% if (currentPage > 1) { %>
+                            <li class="page-item">
+                                <a class="page-link rounded" href="/refer-and-earn?page=<%= currentPage - 1 %>">&laquo; Prev</a>
+                            </li>
+                        <% } %>
+                        <% for (let p = 1; p <= totalPages; p++) { %>
+                            <li class="page-item <%= p === currentPage ? 'active' : '' %>">
+                                <a class="page-link rounded" href="/refer-and-earn?page=<%= p %>"><%= p %></a>
+                            </li>
+                        <% } %>
+                        <% if (currentPage < totalPages) { %>
+                            <li class="page-item">
+                                <a class="page-link rounded" href="/refer-and-earn?page=<%= currentPage + 1 %>">Next &raquo;</a>
+                            </li>
+                        <% } %>
+                    </ul>
+                </nav>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<script>
+function copyReferralCode() {
+    const code = document.getElementById('referralCodeText').innerText.trim();
+    navigator.clipboard.writeText(code).then(() => {
+        const icon = document.getElementById('copyCodeIcon');
+        const text = document.getElementById('copyCodeText');
+        icon.className = 'bi bi-check2';
+        text.innerText = 'Copied!';
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Referral code copied!',
+                showConfirmButton: false,
+                timer: 2000,
+                timerProgressBar: true
+            });
+        }
+        setTimeout(() => {
+            icon.className = 'bi bi-clipboard';
+            text.innerText = 'Copy';
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy code: ', err);
+    });
+}
+
+function copyReferralLink() {
+    const linkInput = document.getElementById('referralLinkInput');
+    linkInput.select();
+    linkInput.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(linkInput.value).then(() => {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Referral link copied to clipboard!',
+                showConfirmButton: false,
+                timer: 2000,
+                timerProgressBar: true
+            });
+        } else {
+            alert('Referral link copied!');
+        }
+    }).catch(err => {
+        console.error('Failed to copy link: ', err);
+    });
+}
+</script>
