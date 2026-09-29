@@ -542,10 +542,39 @@ const updateProduct = async ({
     const updatedVariants = [];
     const imagesToDelete = [];
     const newlyUploadedImages = [];
+    const existingVariantsList = Array.isArray(product.variants) ? product.variants : [];
+    const matchedExistingIds = new Set();
 
     for (let i = 0; i < variants.length; i++) {
 
         const variant = variants[i];
+
+        // Match existing variant to preserve identity (_id) and listing status
+        let existingVariant = null;
+        if (variant._id && mongoose.Types.ObjectId.isValid(variant._id)) {
+            existingVariant = existingVariantsList.find(
+                ev => ev._id.toString() === variant._id.toString() && !matchedExistingIds.has(ev._id.toString())
+            );
+        }
+        if (!existingVariant && variant.sku) {
+            existingVariant = existingVariantsList.find(
+                ev => ev.sku?.trim().toUpperCase() === variant.sku.trim().toUpperCase() && !matchedExistingIds.has(ev._id.toString())
+            );
+        }
+        if (!existingVariant && variant.color && variant.storage) {
+            existingVariant = existingVariantsList.find(
+                ev => ev.color?.trim().toLowerCase() === variant.color.trim().toLowerCase() &&
+                      ev.storage?.trim().toLowerCase() === variant.storage.trim().toLowerCase() &&
+                      !matchedExistingIds.has(ev._id.toString())
+            );
+        }
+        if (!existingVariant && i < existingVariantsList.length && variants.length === existingVariantsList.length && !matchedExistingIds.has(existingVariantsList[i]._id.toString())) {
+            existingVariant = existingVariantsList[i];
+        }
+
+        if (existingVariant) {
+            matchedExistingIds.add(existingVariant._id.toString());
+        }
 
         let imageUrls = [];
 
@@ -576,7 +605,7 @@ const updateProduct = async ({
         }
 
         const oldImages =
-            product.variants[i]?.images || [];
+            existingVariant ? (existingVariant.images || []) : (product.variants[i]?.images || []);
 
         const deletedImages =
             oldImages.filter(
@@ -600,7 +629,7 @@ const updateProduct = async ({
 
         }
 
-        updatedVariants.push({
+        const variantObj = {
 
             color:
                 variant.color.trim(),
@@ -621,9 +650,19 @@ const updateProduct = async ({
                 Number(variant.stock),
 
             images:
-                imageUrls
+                imageUrls,
 
-        });
+            isListed: (variant.isListed !== undefined)
+                ? Boolean(variant.isListed)
+                : (existingVariant && existingVariant.isListed !== undefined ? existingVariant.isListed : true)
+
+        };
+
+        if (existingVariant) {
+            variantObj._id = existingVariant._id;
+        }
+
+        updatedVariants.push(variantObj);
 
     }
 

@@ -12,7 +12,7 @@ const fallbackSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/
 /**
  * Reusable validation helper for checking item viability
  */
-const validateCartItem = async (productId, variantId) => {
+const validateCartItem = async (productId, variantId, options = {}) => {
     if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(variantId)) {
         return { isValid: false, error: "Invalid product or variant ID format." };
     }
@@ -37,13 +37,30 @@ const validateCartItem = async (productId, variantId) => {
     }
 
     const rawVariants = Array.isArray(product.variants) ? product.variants : [];
-    const variant = rawVariants.find(v => v && v._id.toString() === variantId.toString() && v.isListed);
+    let variant = rawVariants.find(v => v && v._id.toString() === variantId.toString() && v.isListed);
+    let reconciled = false;
+
+    // Resilient reconciliation: if variantId was orphaned from prior admin updates
+    if (!variant && options.variantSnapshot) {
+        const parts = options.variantSnapshot.split("/").map(s => s.trim().toLowerCase());
+        if (parts.length === 2) {
+            const matched = rawVariants.find(v => 
+                v && v.isListed && 
+                v.color?.trim().toLowerCase() === parts[0] && 
+                v.storage?.trim().toLowerCase() === parts[1]
+            );
+            if (matched) {
+                variant = matched;
+                reconciled = true;
+            }
+        }
+    }
 
     if (!variant) {
         return { isValid: false, error: "Selected product variant is unavailable." };
     }
 
-    return { isValid: true, product, variant, error: null };
+    return { isValid: true, product, variant, reconciled, error: null };
 };
 
 /**
@@ -81,7 +98,7 @@ const getCart = async (userId, options = {}) => {
 
     // Validate and process each item
     for (let item of cart.items) {
-        const check = await validateCartItem(item.product, item.variantId);
+        const check = await validateCartItem(item.product, item.variantId, { variantSnapshot: item.variantSnapshot });
         
         if (!check.isValid) {
             hasUnavailableItems = true;
@@ -93,20 +110,36 @@ const getCart = async (userId, options = {}) => {
                 variantSnapshot: item.variantSnapshot,
                 quantity: item.quantity,
                 priceSnapshot: item.priceSnapshot,
+                currentUnitPrice: item.priceSnapshot,
+                previousUnitPrice: item.priceSnapshot,
+                priceChanged: false,
                 effectiveItemPrice: item.priceSnapshot,
                 unitOfferDiscount: 0,
                 offerDiscount: 0,
                 itemTotal: item.quantity * item.priceSnapshot,
+                stock: 0,
+                availableStock: 0,
+                isAvailable: false,
                 isUnavailable: true,
                 isOutOfStock: false,
-                statusMessage: "This product is no longer available."
+                statusMessage: check.error || "This product is no longer available.",
+                availabilityReason: check.error || "This product is no longer available."
             });
             continue;
         }
 
-        const { product, variant } = check;
+        const { product, variant, reconciled } = check;
+
+        // Auto-heal variantId in persistent cart if reconciled from prior admin update
+        if (reconciled && variant._id.toString() !== item.variantId.toString()) {
+            item.variantId = variant._id;
+            isModified = true;
+        }
+
         let itemQuantity = item.quantity;
         let itemPrice = variant.salePrice;
+        const previousPrice = item.priceSnapshot;
+        const priceChanged = (previousPrice !== itemPrice);
 
         // Stock Revalidation
         let isItemOutOfStock = false;
@@ -123,14 +156,30 @@ const getCart = async (userId, options = {}) => {
             priceChanges.push(`Quantity of "${product.name}" reduced to ${variant.stock} due to stock limits.`);
         }
 
-        // Price Snapshot updates
-        if (item.priceSnapshot !== itemPrice) {
+        // Price Snapshot & Metadata updates
+        if (priceChanged) {
             item.priceSnapshot = itemPrice;
             item.nameSnapshot = product.name; // Keep name snap current
             item.variantSnapshot = `${variant.color} / ${variant.storage}`;
             item.imageSnapshot = (Array.isArray(variant.images) && variant.images.length > 0) ? variant.images[0] : fallbackSvg;
             isModified = true;
             priceChanges.push(`The price of "${product.name} (${variant.color}/${variant.storage})" has changed. Your cart has been updated.`);
+        } else {
+            // Keep name, image, variant snapshots fresh even if price didn't change
+            if (item.nameSnapshot !== product.name) {
+                item.nameSnapshot = product.name;
+                isModified = true;
+            }
+            const currentImg = (Array.isArray(variant.images) && variant.images.length > 0) ? variant.images[0] : fallbackSvg;
+            if (item.imageSnapshot !== currentImg) {
+                item.imageSnapshot = currentImg;
+                isModified = true;
+            }
+            const currentVarSnap = `${variant.color} / ${variant.storage}`;
+            if (item.variantSnapshot !== currentVarSnap) {
+                item.variantSnapshot = currentVarSnap;
+                isModified = true;
+            }
         }
 
         // Server-authoritative best offer evaluation
@@ -167,6 +216,9 @@ const getCart = async (userId, options = {}) => {
             variantSnapshot: `${variant.color} / ${variant.storage}`,
             quantity: itemQuantity,
             priceSnapshot: itemPrice,
+            currentUnitPrice: itemPrice,
+            previousUnitPrice: previousPrice,
+            priceChanged,
             regularPrice: variant.regularPrice || itemPrice,
             discountPercentage: (variant.regularPrice > 0 && itemPrice < variant.regularPrice) ? Math.round(((variant.regularPrice - itemPrice) / variant.regularPrice) * 100) : 0,
             appliedOffer: offerEval.bestOffer,
@@ -175,9 +227,12 @@ const getCart = async (userId, options = {}) => {
             effectiveItemPrice: offerEval.effectiveItemPrice,
             itemTotal: offerEval.itemTotal,
             stock: variant.stock,
+            availableStock: variant.stock,
+            isAvailable: true,
             isUnavailable: false,
             isOutOfStock: isItemOutOfStock,
-            statusMessage: statusMessage
+            statusMessage: statusMessage,
+            availabilityReason: isItemOutOfStock ? "Out of Stock" : null
         });
     }
 
@@ -312,13 +367,36 @@ const updateQuantity = async (userId, productId, variantId, quantity) => {
             return { success: false, message: `Quantity must be an integer between 1 and ${MAX_CART_QUANTITY}.` };
         }
 
-        // 1. Run centralized validation checks
-        const check = await validateCartItem(productId, variantId);
+        const cart = await Cart.findOne({ user: userId });
+        if (!cart) {
+            return { success: false, message: "Cart not found." };
+        }
+
+        let item = cart.items.find(
+            i => i.product.toString() === productId.toString() && i.variantId.toString() === variantId.toString()
+        );
+
+        // 1. Run centralized validation checks with snapshot fallback
+        const check = await validateCartItem(productId, variantId, { variantSnapshot: item?.variantSnapshot });
         if (!check.isValid) {
             return { success: false, message: check.error };
         }
 
-        const { variant } = check;
+        const { variant, reconciled } = check;
+
+        if (!item && reconciled) {
+            item = cart.items.find(
+                i => i.product.toString() === productId.toString() && i.variantId.toString() === variant._id.toString()
+            );
+        }
+
+        if (!item) {
+            return { success: false, message: "Cart item not found." };
+        }
+
+        if (reconciled && item.variantId.toString() !== variant._id.toString()) {
+            item.variantId = variant._id;
+        }
 
         // 2. Stock Revalidation (Concurrent update safe)
         if (variant.stock <= 0) {
@@ -329,19 +407,6 @@ const updateQuantity = async (userId, productId, variantId, quantity) => {
             return { success: false, message: `Only ${variant.stock} items are available in stock.` };
         }
 
-        const cart = await Cart.findOne({ user: userId });
-        if (!cart) {
-            return { success: false, message: "Cart not found." };
-        }
-
-        const item = cart.items.find(
-            i => i.product.toString() === productId.toString() && i.variantId.toString() === variantId.toString()
-        );
-
-        if (!item) {
-            return { success: false, message: "Cart item not found." };
-        }
-
         item.quantity = parsedQty;
         item.priceSnapshot = variant.salePrice; // Sync current price snapshot
         await cart.save();
@@ -350,7 +415,7 @@ const updateQuantity = async (userId, productId, variantId, quantity) => {
         const count = await getCartCount(userId);
 
         const matchingItem = refreshedCart.items.find(
-            it => it.product?._id?.toString() === productId.toString() && it.variantId?.toString() === variantId.toString()
+            it => it.product?._id?.toString() === productId.toString() && it.variantId?.toString() === variant._id.toString()
         );
 
         return {
@@ -376,9 +441,18 @@ const removeItem = async (userId, productId, variantId) => {
             return { success: false, message: "Cart not found." };
         }
 
+        const initialCount = cart.items.length;
         cart.items = cart.items.filter(
             i => !(i.product.toString() === productId.toString() && i.variantId.toString() === variantId.toString())
         );
+
+        // Fallback: If not removed by exact variantId match, remove by productId if only 1 item exists for this product
+        if (cart.items.length === initialCount) {
+            const productItems = cart.items.filter(i => i.product.toString() === productId.toString());
+            if (productItems.length === 1) {
+                cart.items = cart.items.filter(i => i.product.toString() !== productId.toString());
+            }
+        }
 
         await cart.save();
 

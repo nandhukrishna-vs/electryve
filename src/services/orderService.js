@@ -175,9 +175,19 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
       }
 
       const rawVariants = Array.isArray(product.variants) ? product.variants : [];
-      const variant = rawVariants.find(
+      let variant = rawVariants.find(
         (v) => v && v._id.toString() === vId.toString() && v.isListed
       );
+      if (!variant && item.variantSnapshot) {
+        const parts = item.variantSnapshot.split("/").map(s => s.trim().toLowerCase());
+        if (parts.length === 2) {
+          variant = rawVariants.find(
+            (v) => v && v.isListed &&
+            v.color?.trim().toLowerCase() === parts[0] &&
+            v.storage?.trim().toLowerCase() === parts[1]
+          );
+        }
+      }
 
       if (!variant) {
         throw new Error(`Selected variant for "${product.name}" is no longer available.`);
@@ -1396,9 +1406,19 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
     }
 
     const rawVariants = Array.isArray(product.variants) ? product.variants : [];
-    const variant = rawVariants.find(
+    let variant = rawVariants.find(
       (v) => v && v._id.toString() === vId.toString() && v.isListed
     );
+    if (!variant && item.variantSnapshot) {
+      const parts = item.variantSnapshot.split("/").map(s => s.trim().toLowerCase());
+      if (parts.length === 2) {
+        variant = rawVariants.find(
+          (v) => v && v.isListed &&
+          v.color?.trim().toLowerCase() === parts[0] &&
+          v.storage?.trim().toLowerCase() === parts[1]
+        );
+      }
+    }
 
     if (!variant) {
       return {
