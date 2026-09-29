@@ -319,9 +319,14 @@
                 <div class="card details-card shadow-sm p-4 mb-4">
                     <h5 class="fw-bold text-dark mb-3">Payment Summary</h5>
                     <div class="d-flex flex-column gap-2.5 mb-3" style="font-size: 0.85rem;">
+                        <%
+                        const itemsBaseTotal = (order.items && order.items.length > 0)
+                            ? order.items.reduce((acc, it) => acc + ((it.salePrice || 0) * (it.quantity || 1)), 0)
+                            : (order.subtotal + (order.totalOfferDiscount || 0));
+                        %>
                         <div class="d-flex justify-content-between text-secondary">
                             <span>Subtotal</span>
-                            <span class="text-dark fw-medium">₹<%= order.subtotal.toLocaleString('en-IN') %></span>
+                            <span class="text-dark fw-medium">₹<%= (itemsBaseTotal || order.subtotal).toLocaleString('en-IN') %></span>
                         </div>
                         <% if (order.totalOfferDiscount && order.totalOfferDiscount > 0) { %>
                             <div class="d-flex justify-content-between text-success fw-medium">
@@ -329,10 +334,18 @@
                                 <span>-₹<%= order.totalOfferDiscount.toLocaleString('en-IN') %></span>
                             </div>
                         <% } %>
-                        <% if (order.discount > 0) { %>
-                            <div class="d-flex justify-content-between text-danger">
-                                <span>Discount</span>
-                                <span>-₹<%= order.discount.toLocaleString('en-IN') %></span>
+                        <%
+                        const couponDiscAmount = (order.coupon && order.coupon.discountAmount > 0)
+                            ? order.coupon.discountAmount
+                            : (order.couponDiscount || 0);
+                        const couponCodeDisplay = (order.coupon && order.coupon.code)
+                            ? order.coupon.code
+                            : (order.couponSnapshot && order.couponSnapshot.code ? order.couponSnapshot.code : 'COUPON');
+                        %>
+                        <% if (couponDiscAmount > 0) { %>
+                            <div class="d-flex justify-content-between text-success fw-medium">
+                                <span>Coupon (<span class="fw-bold font-monospace"><%= couponCodeDisplay %></span>)</span>
+                                <span>-₹<%= couponDiscAmount.toLocaleString('en-IN') %></span>
                             </div>
                         <% } %>
                         <div class="d-flex justify-content-between text-secondary">
@@ -340,21 +353,39 @@
                             <% if (order.shippingCharge === 0) { %>
                                 <span class="text-success fw-medium">FREE</span>
                             <% } else { %>
-                                <span class="text-dark fw-medium">₹<%= order.shippingCharge.toLocaleString() %></span>
+                                <span class="text-dark fw-medium">₹<%= order.shippingCharge.toLocaleString('en-IN') %></span>
                             <% } %>
                         </div>
                         <div class="d-flex justify-content-between text-secondary">
                             <span>Tax</span>
-                            <span class="text-dark fw-medium">₹<%= order.tax.toLocaleString() %></span>
+                            <span class="text-dark fw-medium">₹<%= (order.tax || 0).toLocaleString('en-IN') %></span>
                         </div>
                     </div>
 
                     <hr class="my-3 text-muted opacity-25">
 
-                    <div class="d-flex justify-content-between text-dark fs-6 fw-bold mb-4 align-items-center">
+                    <div class="d-flex justify-content-between text-dark fs-6 fw-bold mb-3 align-items-center">
                         <span>Total Paid</span>
-                        <span>₹<%= order.finalAmount.toLocaleString() %></span>
+                        <span>₹<%= order.finalAmount.toLocaleString('en-IN') %></span>
                     </div>
+
+                    <%
+                    const catalogSavings = order.discount || 0;
+                    const offerSavings = order.totalOfferDiscount || 0;
+                    const couponSavings = couponDiscAmount;
+                    const totalSavings = catalogSavings + offerSavings + couponSavings;
+                    if (totalSavings > 0) {
+                    %>
+                        <div class="alert alert-success border-0 px-3 py-2 d-flex align-items-center gap-2 mb-3 rounded-3" style="font-size: 0.8rem;">
+                            <i class="bi bi-tag-fill text-success fs-6 flex-shrink-0"></i>
+                            <div>
+                                <span>Total Savings: <strong class="text-success">₹<%= totalSavings.toLocaleString('en-IN') %></strong></span>
+                                <% if (catalogSavings > 0 && (offerSavings > 0 || couponSavings > 0)) { %>
+                                    <div class="text-muted" style="font-size: 0.72rem;">(Includes ₹<%= catalogSavings.toLocaleString('en-IN') %> catalog discount)</div>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% } %>
 
                     <div class="border rounded-3 p-3 bg-light text-center small mb-3">
                         <span class="text-secondary d-block mb-1">Payment Method</span>

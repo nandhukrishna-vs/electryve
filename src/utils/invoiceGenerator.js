@@ -217,14 +217,25 @@ export const generateInvoicePDF = (order, res) => {
     totalsY += 16;
   };
 
-  drawTotalLine("Subtotal:", `INR ${order.subtotal.toLocaleString("en-IN")}`);
+  const itemsBaseTotal = (order.items && order.items.length > 0)
+    ? order.items.reduce((acc, it) => acc + ((it.salePrice || 0) * (it.quantity || 1)), 0)
+    : (order.subtotal + (order.totalOfferDiscount || 0));
 
-  if (order.discount > 0) {
-    drawTotalLine("Discount:", `-INR ${order.discount.toLocaleString("en-IN")}`);
+  drawTotalLine("Subtotal:", `INR ${(itemsBaseTotal || order.subtotal).toLocaleString("en-IN")}`);
+
+  if (order.totalOfferDiscount && order.totalOfferDiscount > 0) {
+    drawTotalLine("Offer Savings:", `-INR ${order.totalOfferDiscount.toLocaleString("en-IN")}`);
   }
 
-  if (order.coupon && order.coupon.discountAmount > 0) {
-    drawTotalLine(`Coupon (${order.coupon.code}):`, `-INR ${order.coupon.discountAmount.toLocaleString("en-IN")}`);
+  const couponDiscAmount = (order.coupon && order.coupon.discountAmount > 0)
+    ? order.coupon.discountAmount
+    : (order.couponDiscount || 0);
+  const couponCodeDisplay = (order.coupon && order.coupon.code)
+    ? order.coupon.code
+    : (order.couponSnapshot && order.couponSnapshot.code ? order.couponSnapshot.code : "COUPON");
+
+  if (couponDiscAmount > 0) {
+    drawTotalLine(`Coupon (${couponCodeDisplay}):`, `-INR ${couponDiscAmount.toLocaleString("en-IN")}`);
   }
 
   const shippingText = order.shippingCharge === 0 ? "FREE" : `INR ${order.shippingCharge.toLocaleString("en-IN")}`;
