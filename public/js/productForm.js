@@ -40,6 +40,15 @@ function createVariant(data = {}) {
     const card = clone.querySelector(".variant-card");
 
     // Populate field values
+    let idField = card.querySelector('[data-field="_id"]');
+    if (!idField) {
+        idField = document.createElement("input");
+        idField.type = "hidden";
+        idField.dataset.field = "_id";
+        card.appendChild(idField);
+    }
+    idField.value = data._id || "";
+
     const colorField = card.querySelector('[data-field="color"]');
     if (colorField) colorField.value = data.color || "";
 
