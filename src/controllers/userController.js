@@ -1,23 +1,23 @@
 import User from "../models/User.js";
 import Address from "../models/Address.js";
 import * as userService from "../services/userService.js";
+import * as homeService from "../services/homeService.js";
 import Category from "../models/Category.js";
-const loadHome = async (req, res) => {
+
+const loadHome = async (req, res, next) => {
   try {
-
-    const categories = await Category.find({
-      isListed: true,
-      isDeleted: false
+    const homeData = await homeService.getHomePageData({
+      userId: req.session?.user?.id
     });
-    
+
     res.render("user/home", {
-      categories,
-      
+      layout: "layouts/user-layout",
+      title: "Electryve | Premium Electronics Store",
+      ...homeData
     });
-
   } catch (error) {
-    console.error(error);
-    res.status(500).render("error");
+    console.error("[User Controller] Error loading homepage:", error);
+    next(error);
   }
 };
 

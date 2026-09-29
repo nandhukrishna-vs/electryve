@@ -167,7 +167,6 @@ body {
   overflow-x: hidden;
   padding: 30px;
   background: #f3f4f6;
-  z-index: 1;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
@@ -522,4 +521,269 @@ body {
 .pagination .active .page-link{
     background:#000;
     border-color:#000;
+}
+
+/* ========================================================
+   Product Image Management & Cropper Modal Styles
+   ======================================================== */
+.crop-modal-dialog {
+  max-width: min(94vw, 1120px) !important;
+  width: 94vw;
+  margin: 0.5rem auto !important;
+  max-height: calc(100vh - 1rem) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+@media (min-height: 700px) {
+  .crop-modal-dialog {
+    margin: 1.25rem auto !important;
+    max-height: calc(100vh - 2.5rem) !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .crop-modal-dialog {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+  }
+}
+
+.crop-modal-content {
+  border-radius: 14px;
+  overflow: hidden;
+  max-height: calc(100vh - 1rem) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100%;
+  background: #ffffff;
+}
+
+@media (min-height: 700px) {
+  .crop-modal-content {
+    max-height: calc(100vh - 2.5rem) !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .crop-modal-content {
+    border-radius: 0 !important;
+    max-height: 100vh !important;
+    height: 100% !important;
+  }
+}
+
+.crop-modal-icon-badge {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.crop-modal-content .modal-header {
+  flex-shrink: 0;
+  padding: 0.6rem 1.25rem !important;
+}
+
+@media (max-height: 600px) {
+  .crop-modal-content .modal-header {
+    padding: 0.35rem 1rem !important;
+  }
+  .crop-modal-content .modal-header h5 {
+    font-size: 0.95rem;
+  }
+  .crop-modal-content .modal-header small {
+    display: none;
+  }
+}
+
+.crop-modal-body,
+.crop-modal-content .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0.75rem 1rem !important;
+}
+
+@media (max-height: 600px) {
+  .crop-modal-body,
+  .crop-modal-content .modal-body {
+    padding: 0.35rem 0.75rem !important;
+  }
+}
+
+.crop-toolbar {
+  flex-shrink: 0;
+  margin-bottom: 0.5rem !important;
+}
+
+.crop-toolbar .card-body {
+  padding: 0.35rem 0.5rem !important;
+}
+
+@media (max-height: 600px) {
+  .crop-toolbar {
+    margin-bottom: 0.25rem !important;
+  }
+  .crop-toolbar .card-body {
+    padding: 0.2rem 0.4rem !important;
+  }
+  .crop-toolbar .btn {
+    padding: 0.15rem 0.45rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+.crop-workspace-container {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 180px;
+  max-height: 65vh;
+  height: clamp(180px, calc(100vh - 230px), 56vh);
+  background-color: #0f172a;
+  background-image:
+    linear-gradient(45deg, #1e293b 25%, transparent 25%),
+    linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1e293b 75%),
+    linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-height: 600px) {
+  .crop-workspace-container {
+    min-height: 160px;
+    height: clamp(160px, calc(100vh - 200px), 54vh);
+  }
+}
+
+@media (max-height: 480px) {
+  .crop-workspace-container {
+    min-height: 150px;
+    height: clamp(150px, calc(100vh - 170px), 50vh);
+  }
+}
+
+.crop-helper-note {
+  flex-shrink: 0;
+  margin-top: 0.35rem !important;
+}
+
+@media (max-height: 500px) {
+  .crop-helper-note {
+    display: none !important;
+  }
+}
+
+.crop-modal-content .modal-footer {
+  flex-shrink: 0;
+  padding: 0.5rem 1.25rem !important;
+}
+
+@media (max-height: 600px) {
+  .crop-modal-content .modal-footer {
+    padding: 0.35rem 1rem !important;
+  }
+  .crop-modal-content .modal-footer .btn {
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+.crop-workspace-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.crop-workspace-container .cropper-container {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  touch-action: none !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+}
+
+.crop-workspace-container .cropper-wrap-box,
+.crop-workspace-container .cropper-canvas,
+.crop-workspace-container .cropper-drag-box,
+.crop-workspace-container .cropper-crop-box {
+  pointer-events: auto !important;
+}
+
+.image-preview-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  background: #ffffff;
+  position: relative;
+}
+
+.image-preview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.image-preview-thumb {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  background: #f8fafc;
+}
+
+.image-action-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 5;
+}
+
+.image-action-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  backdrop-filter: blur(4px);
+  transition: transform 0.1s ease;
+}
+
+.image-action-btn:hover {
+  transform: scale(1.1);
+}
+
+.image-status-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  z-index: 5;
 }

@@ -1,6 +1,9 @@
 import * as productService from "../services/productService.js";
 import Category from "../models/Category.js";
 import Brand from "../models/Brand.js";
+import Product from "../models/Product.js";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import s3 from "../config/s3.js";
 
 const getProductFormData = async () => {
 
@@ -325,6 +328,55 @@ const loadProductDetails = async (req, res, next) => {
     }
 };
 
+const proxyProductImage = async (req, res, next) => {
+    try {
+        const { url } = req.query;
+        if (!url || typeof url !== "string") {
+            return res.status(400).send("Image URL is required");
+        }
+
+        const bucketName = process.env.AWS_BUCKET_NAME;
+        const s3HostSuffix = `.amazonaws.com/`;
+        if (!url.includes(s3HostSuffix) || !url.includes(bucketName)) {
+            return res.status(403).send("Unauthorized image host");
+        }
+
+        const key = url.split(s3HostSuffix)[1];
+        if (!key || !key.startsWith("products/")) {
+            return res.status(403).send("Invalid image path");
+        }
+
+        const isReferenced = await Product.exists({
+            isDeleted: false,
+            "variants.images": url
+        });
+
+        if (!isReferenced) {
+            return res.status(404).send("Image not found on any active product");
+        }
+
+        const command = new GetObjectCommand({
+            Bucket: bucketName,
+            Key: key
+        });
+
+        const s3Response = await s3.send(command);
+        const byteArray = await s3Response.Body.transformToByteArray();
+
+        res.setHeader("Content-Type", s3Response.ContentType || "image/webp");
+        res.setHeader("Cache-Control", "private, max-age=3600");
+        res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+
+        res.send(Buffer.from(byteArray));
+    } catch (error) {
+        console.error("Proxy Product Image Error:", error);
+        if (error.name === "NoSuchKey") {
+            return res.status(404).send("Image not found in storage");
+        }
+        res.status(500).send("Failed to retrieve image");
+    }
+};
+
 export {
     loadProducts,
     loadAddProduct,
@@ -335,5 +387,6 @@ export {
     deleteProduct,
     loadShop,
     getShopProductsData,
-    loadProductDetails
+    loadProductDetails,
+    proxyProductImage
 };

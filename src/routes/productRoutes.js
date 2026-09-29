@@ -9,9 +9,10 @@ const router = express.Router();
 router.use(isAdmin); // Apply isAdmin middleware to all routes in this router
 
 // Product List
-
-
 router.get("/", productController.loadProducts);
+
+// Secure Same-Origin Image Proxy for Admin Cropper
+router.get("/image-proxy", productController.proxyProductImage);
 
 // Add Product
 

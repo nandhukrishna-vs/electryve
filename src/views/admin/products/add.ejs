@@ -478,70 +478,113 @@
 </div>
 
 </div>
-<div class="modal fade" id="cropModal" tabindex="-1">
-
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-
-        <div class="modal-content">
-
-            <div class="modal-header">
-
-                <h5 class="modal-title">
-                    Crop Image
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close"
-                    data-bs-dismiss="modal">
-                </button>
-
+<!-- ================= Image Crop Modal ================= -->
+<div class="modal fade crop-modal-wrapper" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered crop-modal-dialog">
+        <div class="modal-content border-0 shadow-lg crop-modal-content">
+            <!-- Modal Header -->
+            <div class="modal-header bg-dark text-white px-4 py-3 border-0">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="crop-modal-icon-badge">
+                        <i class="bi bi-crop text-white"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-white" id="cropModalLabel">
+                            <span id="cropModalTitle">Crop & Adjust Image</span>
+                        </h5>
+                        <small class="text-white-50" id="cropImageInfo">Standardize product image to 1:1 aspect ratio</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-secondary text-light px-2 py-1" id="cropBatchIndicator" style="display: none;">
+                        Image 1 of 3
+                    </span>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="cropModalCloseBtn"></button>
+                </div>
             </div>
 
-            <div class="modal-body">
+            <!-- Modal Body -->
+            <div class="modal-body crop-modal-body p-3 p-md-4 bg-light">
+                <!-- Controls Toolbar -->
+                <div class="crop-toolbar card border-0 shadow-sm mb-3">
+                    <div class="card-body p-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <!-- Zoom Controls -->
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Zoom controls">
+                            <button type="button" class="btn btn-outline-secondary" id="cropZoomInBtn" title="Zoom In">
+                                <i class="bi bi-zoom-in"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="cropZoomOutBtn" title="Zoom Out">
+                                <i class="bi bi-zoom-out"></i>
+                            </button>
+                        </div>
 
-    <div
-        style="
-            width:100%;
-            max-height:70vh;
-            overflow:hidden;
-        ">
+                        <!-- Rotation Controls -->
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Rotation controls">
+                            <button type="button" class="btn btn-outline-secondary" id="cropRotateLeftBtn" title="Rotate Counterclockwise 90°">
+                                <i class="bi bi-arrow-counterclockwise"></i> Rotate -90°
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="cropRotateRightBtn" title="Rotate Clockwise 90°">
+                                <i class="bi bi-arrow-clockwise"></i> Rotate +90°
+                            </button>
+                        </div>
 
-        <img
-            id="cropImage"
-            style="
-                display:block;
-                max-width:100%;
-            ">
+                        <!-- Flip Controls -->
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Flip controls">
+                            <button type="button" class="btn btn-outline-secondary" id="cropFlipHBtn" title="Flip Horizontal">
+                                <i class="bi bi-symmetry-vertical"></i> Flip H
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="cropFlipVBtn" title="Flip Vertical">
+                                <i class="bi bi-symmetry-horizontal"></i> Flip V
+                            </button>
+                        </div>
 
-    </div>
+                        <!-- Aspect Ratio Presets -->
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Aspect ratio">
+                            <button type="button" class="btn btn-dark active" id="cropAspect11Btn" title="Product Square 1:1">
+                                1:1 Square
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="cropAspectFreeBtn" title="Free Aspect Ratio">
+                                Free
+                            </button>
+                        </div>
 
-</div>
+                        <!-- Reset -->
+                        <button type="button" class="btn btn-outline-danger btn-sm ms-auto" id="cropResetBtn" title="Reset Changes">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </button>
+                    </div>
+                </div>
 
-            <div class="modal-footer">
+                <!-- Canvas Workspace Container -->
+                <div class="crop-workspace-container">
+                    <img id="cropImage" class="crop-workspace-image" src="" alt="To be cropped">
+                </div>
 
-                <button
-                    class="btn btn-secondary"
-                    data-bs-dismiss="modal">
+                <!-- Helper Footer Note -->
+                <div class="crop-helper-note d-flex justify-content-between align-items-center mt-2 px-1">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i> Drag to reposition or resize the crop area. Scroll to zoom.
+                    </small>
+                    <small class="text-muted fw-semibold" id="cropResolutionInfo">
+                        Output: 800 × 800 px (WebP)
+                    </small>
+                </div>
+            </div>
 
+            <!-- Modal Footer -->
+            <div class="modal-footer bg-white px-4 py-3 border-top">
+                <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal" id="cropCancelBtn">
                     Cancel
-
                 </button>
-
-                <button
-                    class="btn btn-primary"
-                    id="cropSaveBtn">
-
-                    Save
-
+                <button type="button" class="btn btn-secondary px-3" id="cropSkipBtn" style="display: none;">
+                    Skip This Image
                 </button>
-
+                <button type="button" class="btn btn-primary px-4 fw-semibold shadow-sm" id="cropSaveBtn">
+                    <i class="bi bi-check-lg me-1"></i> Apply Crop
+                </button>
             </div>
-
         </div>
-
     </div>
-
 </div>
 
 

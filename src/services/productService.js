@@ -563,7 +563,7 @@ const updateProduct = async ({
             const oldUrl = imageUrls[j];
             const targetUrl = body[`replaceTarget_${i}_${j}`];
             
-            if (targetUrl && oldUrl === targetUrl) {
+            if (targetUrl && (oldUrl === targetUrl || decodeURIComponent(oldUrl) === decodeURIComponent(targetUrl))) {
                 const replacementFile = (files || []).find(
                     file => file.fieldname === `replaceImage_${i}_${j}`
                 );
@@ -702,21 +702,34 @@ const updateProduct = async ({
         throw error;
     }
     
-    for (const image of imagesToDelete) {
+    const uniqueImagesToDelete = [...new Set(imagesToDelete)];
+    for (const image of uniqueImagesToDelete) {
+        // Ensure image is not still referenced by any variant of the current product
+        const isStillInProduct = product.variants.some(
+            v => v.images && v.images.includes(image)
+        );
+        if (isStillInProduct) {
+            continue;
+        }
+
+        // Ensure image is not referenced by any other product in the database
+        const isReferencedElsewhere = await Product.exists({
+            _id: { $ne: product._id },
+            isDeleted: false,
+            "variants.images": image
+        });
+        if (isReferencedElsewhere) {
+            continue;
+        }
 
         try {
-
             await deleteImage(image);
-
         } catch (error) {
-
             console.error(
                 "Failed to delete image:",
                 image
             );
-
         }
-
     }
     return {
 
