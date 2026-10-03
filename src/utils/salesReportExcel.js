@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { formatOrderStatus } from "./orderStatusFormatter.js";
 
 /**
  * Generates a comprehensive 4-sheet Excel sales workbook and returns a Buffer.
@@ -198,7 +199,7 @@ export const generateSalesReportExcel = async ({ summary, grouped, orders = [] }
       customerPhone: ord.customerPhone,
       paymentMethod: ord.paymentMethod,
       paymentStatus: ord.paymentStatus,
-      orderStatus: ord.orderStatus,
+      orderStatus: formatOrderStatus(ord.orderStatus),
       unitsCount: ord.unitsCount,
       itemsCount: ord.itemsCount,
       subtotal: ord.subtotal,
@@ -270,7 +271,7 @@ export const generateSalesReportExcel = async ({ summary, grouped, orders = [] }
         offerDiscount: it.offerDiscount || 0,
         appliedOfferName: it.appliedOfferName || "—",
         itemTotal: it.itemTotal,
-        itemStatus: it.itemStatus,
+        itemStatus: formatOrderStatus(it.itemStatus),
         returnRequestStatus: it.returnRequestStatus || "NONE"
       });
 

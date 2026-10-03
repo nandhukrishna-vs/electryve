@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { formatOrderStatus } from "./orderStatusFormatter.js";
 
 /**
  * Generates and streams a professional PDF invoice for an order.
@@ -101,7 +102,7 @@ export const generateInvoicePDF = (order, res) => {
     .fillColor("#4B5563")
     .text(`Payment Method: ${order.paymentMethod}`, 350, startInfoY + 16)
     .text(`Payment Status: ${order.paymentStatus}`, 350, startInfoY + 28)
-    .text(`Order Status: ${order.orderStatus}`, 350, startInfoY + 40);
+    .text(`Order Status: ${formatOrderStatus(order.orderStatus)}`, 350, startInfoY + 40);
 
   if (order.cancellationReason) {
     doc.fillColor("#DC2626").text(`Cancel Reason: ${order.cancellationReason}`, 350, startInfoY + 54);
@@ -133,7 +134,7 @@ export const generateInvoicePDF = (order, res) => {
     .text("VARIANT", 240, tableHeaderY + 6)
     .text("UNIT PRICE", 330, tableHeaderY + 6, { width: 50, align: "right" })
     .text("QTY", 390, tableHeaderY + 6, { width: 30, align: "center" })
-    .text("STATUS", 430, tableHeaderY + 6, { width: 55, align: "center" })
+    .text("STATUS", 425, tableHeaderY + 6, { width: 65, align: "center" })
     .text("TOTAL", 495, tableHeaderY + 6, { width: 55, align: "right" });
 
   let rowY = tableHeaderY + 25;
@@ -165,12 +166,13 @@ export const generateInvoicePDF = (order, res) => {
       .text(String(item.quantity), 390, rowY, { width: 30, align: "center" });
 
     // Status text with color
+    const formattedItemStatus = formatOrderStatus(itemStatus);
     if (isCancelled) {
-      doc.fillColor("#DC2626").text("CANCELLED", 430, rowY, { width: 55, align: "center" });
+      doc.fillColor("#DC2626").text(formattedItemStatus, 425, rowY, { width: 65, align: "center" });
     } else if (isReturned) {
-      doc.fillColor("#4B5563").text("RETURNED", 430, rowY, { width: 55, align: "center" });
+      doc.fillColor("#4B5563").text(formattedItemStatus, 425, rowY, { width: 65, align: "center" });
     } else {
-      doc.fillColor("#059669").text("ACTIVE", 430, rowY, { width: 55, align: "center" });
+      doc.fillColor("#059669").text(formattedItemStatus, 425, rowY, { width: 65, align: "center" });
     }
 
     doc

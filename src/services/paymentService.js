@@ -291,23 +291,24 @@ export const createRazorpayOrder = async (userId, addressId, couponCode, checkou
   let couponDiscount = 0;
   if (couponCode) {
     const couponValidation = await validateUserCoupon(userId, couponCode, subtotal);
-    if (couponValidation.success) {
-      couponDiscount = couponValidation.discountAmount;
-      couponSnapshot = {
-        couponId: couponValidation.coupon._id,
-        code: couponValidation.coupon.code,
-        discountType: couponValidation.coupon.discountType,
-        discountValue: couponValidation.coupon.discountValue,
-        discountAmount: couponDiscount
-      };
+    if (!couponValidation.success) {
+      return { success: false, message: couponValidation.message };
     }
+    couponDiscount = couponValidation.discountAmount;
+    couponSnapshot = {
+      couponId: couponValidation.coupon._id,
+      code: couponValidation.coupon.code,
+      discountType: couponValidation.coupon.discountType,
+      discountValue: couponValidation.coupon.discountValue,
+      discountAmount: couponDiscount
+    };
   }
 
   const finalAmount = Math.max(0, subtotal - couponDiscount) + shippingCharge + tax;
   const amountInPaise = Math.round(finalAmount * 100);
 
   if (amountInPaise <= 0 || !Number.isInteger(amountInPaise)) {
-    return { success: false, message: "Invalid order amount." };
+    return { success: false, message: "Orders with zero payable amount are not supported." };
   }
 
   // 5. Create Razorpay Order via SDK
@@ -697,7 +698,7 @@ export const finalizeSuccessfulPayment = async ({
       offerDiscount: it.offerDiscount || 0,
       effectiveItemPrice: it.effectiveItemPrice || it.salePrice,
       itemTotal: it.itemTotal,
-      itemStatus: "ACTIVE",
+      itemStatus: "PLACED",
       isStockRestored: false
     }));
 

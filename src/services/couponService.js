@@ -291,6 +291,14 @@ export const validateUserCoupon = async (userId, couponCode, subtotal) => {
     discountAmount = coupon.discountValue;
   }
 
+  // Zero-payable rule: A coupon must NOT result in a final payable amount of 0 or less
+  if (discountAmount >= subtotal) {
+    return {
+      success: false,
+      message: "This coupon cannot be applied because it would make the payable amount zero."
+    };
+  }
+
   // Ensure discount never exceeds subtotal and is never negative
   discountAmount = Math.max(0, Math.min(discountAmount, subtotal));
 
@@ -478,6 +486,25 @@ export const getEligibleCouponsForUser = async (userId, { subtotal = 0, appliedC
     } else if (coupon.discountType === "FIXED") {
       projectedDiscount = coupon.discountValue;
     }
+
+    // Zero-payable check: coupon must not reduce payable amount to zero
+    if (projectedDiscount >= numericSubtotal) {
+      ineligibleCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minPurchaseAmount: minPurchase,
+        maxDiscountAmount: coupon.maxDiscountAmount || null,
+        startDate: coupon.startDate,
+        expiryDate: coupon.expiryDate,
+        isApplied,
+        isEligible: false,
+        ineligibleReason: "This coupon cannot be applied because it would make the payable amount zero."
+      });
+      continue;
+    }
+
     projectedDiscount = Math.max(0, Math.min(projectedDiscount, numericSubtotal));
 
     eligibleCoupons.push({

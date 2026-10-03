@@ -95,8 +95,12 @@
           <select class="form-select form-select-sm" id="filter-order-status">
             <option value="ALL" <%= (!query.orderStatus || query.orderStatus === 'ALL') ? 'selected' : '' %>>All Statuses</option>
             <option value="PENDING" <%= query.orderStatus === 'PENDING' ? 'selected' : '' %>>Pending</option>
+            <option value="PLACED" <%= query.orderStatus === 'PLACED' ? 'selected' : '' %>>Placed</option>
             <option value="PROCESSING" <%= query.orderStatus === 'PROCESSING' ? 'selected' : '' %>>Processing</option>
+            <option value="PARTIALLY_SHIPPED" <%= query.orderStatus === 'PARTIALLY_SHIPPED' ? 'selected' : '' %>>Partially Shipped</option>
             <option value="SHIPPED" <%= query.orderStatus === 'SHIPPED' ? 'selected' : '' %>>Shipped</option>
+            <option value="OUT_FOR_DELIVERY" <%= query.orderStatus === 'OUT_FOR_DELIVERY' ? 'selected' : '' %>>Out for Delivery</option>
+            <option value="PARTIALLY_DELIVERED" <%= query.orderStatus === 'PARTIALLY_DELIVERED' ? 'selected' : '' %>>Partially Delivered</option>
             <option value="DELIVERED" <%= query.orderStatus === 'DELIVERED' ? 'selected' : '' %>>Delivered</option>
             <option value="CANCELLED" <%= query.orderStatus === 'CANCELLED' ? 'selected' : '' %>>Cancelled</option>
             <option value="RETURNED" <%= query.orderStatus === 'RETURNED' ? 'selected' : '' %>>Returned</option>
@@ -126,9 +130,10 @@
         </div>
 
         <!-- Clear All Filters Button -->
-        <div class="col-xl-2 col-md-2 col-sm-12 text-md-end mt-md-4">
+        <div class="col-xl-2 col-md-2 col-sm-12">
+          <label class="form-label text-muted small fw-semibold mb-1 d-none d-md-block">&nbsp;</label>
           <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btn-reset-filters">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters
           </button>
         </div>
       </div>
@@ -349,37 +354,45 @@
                 <td class="small text-muted"><%= order.formattedDate %></td>
                 <td>
                   <div class="fw-medium text-dark"><%= order.customerName %></div>
-                  <div class="text-muted small" style="font-size: 0.75rem;"><%= order.customerEmail %></div>
+                  <div class="text-muted small" style="font-size: 0.72rem;">
+                    <%= order.customerEmail %>
+                    <% if (order.customerPhone && order.customerPhone !== '—') { %> • <%= order.customerPhone %><% } %>
+                  </div>
                 </td>
                 <td>
                   <span class="badge bg-light text-dark border">
                     <%= order.paymentMethod %>
                   </span>
+                  <% if (order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED') { %>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size: 0.65rem;">Paid</span>
+                  <% } else if (order.paymentStatus === 'FAILED') { %>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size: 0.65rem;">Failed</span>
+                  <% } else { %>
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1" style="font-size: 0.65rem;">Pending</span>
+                  <% } %>
                 </td>
                 <td>
-                  <% if (order.orderStatus === 'DELIVERED') { %>
-                    <span class="badge bg-success-subtle text-success">Delivered</span>
-                  <% } else if (order.orderStatus === 'SHIPPED') { %>
-                    <span class="badge bg-primary-subtle text-primary">Shipped</span>
-                  <% } else if (order.orderStatus === 'PROCESSING') { %>
-                    <span class="badge bg-info-subtle text-info">Processing</span>
-                  <% } else if (order.orderStatus === 'CANCELLED') { %>
-                    <span class="badge bg-danger-subtle text-danger">Cancelled</span>
-                  <% } else if (order.orderStatus === 'RETURNED') { %>
-                    <span class="badge bg-warning-subtle text-warning">Returned</span>
-                  <% } else { %>
-                    <span class="badge bg-secondary-subtle text-secondary"><%= order.orderStatus %></span>
-                  <% } %>
+                  <span class="badge <%= getOrderStatusBadgeClass(order.orderStatus) %>">
+                    <%= formatOrderStatus(order.orderStatus) %>
+                  </span>
                 </td>
                 <td class="text-end"><%= order.unitsCount %></td>
-                <td class="text-end">₹<%= Number(order.grossSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end fw-semibold">₹<%= Number(order.grossSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
                 <td class="text-end text-warning">
-                  ₹<%= Number(order.totalDiscounts || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %>
+                  <div>₹<%= Number(order.totalDiscounts || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></div>
                   <% if (order.couponCode) { %>
-                    <span class="badge bg-warning-subtle text-dark border ms-1" style="font-size: 0.65rem;"><%= order.couponCode %></span>
+                    <span class="badge bg-warning-subtle text-dark border" style="font-size: 0.65rem;"><%= order.couponCode %></span>
+                  <% } %>
+                  <% if (order.couponSavings > 0 || order.offerSavings > 0) { %>
+                    <div class="text-muted small" style="font-size: 0.68rem;">Cpn: ₹<%= Number(order.couponSavings || 0).toLocaleString('en-IN') %> | Off: ₹<%= Number(order.offerSavings || 0).toLocaleString('en-IN') %></div>
                   <% } %>
                 </td>
-                <td class="text-end text-danger">₹<%= Number(order.refundAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+                <td class="text-end text-danger">
+                  <div>₹<%= Number(order.refundAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></div>
+                  <% if (order.refundAmount > 0) { %>
+                    <div class="small text-muted" style="font-size: 0.68rem;"><%= order.refundStatus || 'COMPLETED' %></div>
+                  <% } %>
+                </td>
                 <td class="text-end fw-bold text-success">₹<%= Number(order.netSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
                 <td class="text-center pe-4">
                   <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#items-row-<%= idx %>" aria-expanded="false" title="View Item Details">
@@ -422,13 +435,9 @@
                                 <td><%= item.appliedOfferName || '—' %></td>
                                 <td class="text-end fw-bold">₹<%= Number(item.itemTotal || 0).toLocaleString('en-IN') %></td>
                                 <td>
-                                  <% if (item.itemStatus === 'ACTIVE') { %>
-                                    <span class="badge bg-success-subtle text-success">Active</span>
-                                  <% } else if (item.itemStatus === 'CANCELLED') { %>
-                                    <span class="badge bg-danger-subtle text-danger">Cancelled</span>
-                                  <% } else if (item.itemStatus === 'RETURNED') { %>
-                                    <span class="badge bg-warning-subtle text-warning">Returned</span>
-                                  <% } %>
+                                  <span class="badge <%= getOrderStatusBadgeClass(item.itemStatus) %>">
+                                    <%= formatOrderStatus(item.itemStatus) %>
+                                  </span>
                                 </td>
                               </tr>
                             <% }); %>
@@ -540,6 +549,55 @@
 
   const formatINR = (val) => {
     return '₹' + Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const formatOrderStatusClient = (status) => {
+    const map = {
+      PLACED: 'Placed',
+      PROCESSING: 'Processing',
+      SHIPPED: 'Shipped',
+      OUT_FOR_DELIVERY: 'Out for Delivery',
+      DELIVERED: 'Delivered',
+      CANCELLED: 'Cancelled',
+      RETURNED: 'Returned',
+      RETURN_REQUESTED: 'Return Requested',
+      RETURN_APPROVED: 'Return Approved',
+      RETURN_REJECTED: 'Return Rejected',
+      PARTIALLY_SHIPPED: 'Partially Shipped',
+      PARTIALLY_DELIVERED: 'Partially Delivered',
+      PARTIALLY_FULFILLED: 'Partially Fulfilled',
+      PENDING: 'Pending',
+      ACTIVE: 'Active'
+    };
+    if (!status) return '—';
+    return map[status] || (status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' '));
+  };
+
+  const getStatusBadgeClassClient = (status) => {
+    switch (status) {
+      case 'DELIVERED':
+      case 'ACTIVE':
+        return 'bg-success-subtle text-success';
+      case 'SHIPPED':
+      case 'OUT_FOR_DELIVERY':
+      case 'PARTIALLY_SHIPPED':
+      case 'PARTIALLY_DELIVERED':
+        return 'bg-primary-subtle text-primary';
+      case 'PLACED':
+      case 'PROCESSING':
+      case 'PARTIALLY_FULFILLED':
+      case 'PENDING':
+        return 'bg-info-subtle text-info';
+      case 'RETURN_REQUESTED':
+      case 'RETURN_APPROVED':
+      case 'RETURN_REJECTED':
+      case 'RETURNED':
+        return 'bg-warning-subtle text-warning';
+      case 'CANCELLED':
+        return 'bg-danger-subtle text-danger';
+      default:
+        return 'bg-secondary-subtle text-secondary';
+    }
   };
 
   const updateExportLinks = () => {
@@ -660,12 +718,8 @@
         ordersTbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted"><i class="bi bi-inbox fs-4 d-block mb-1"></i>No matching order transactions found</td></tr>`;
       } else {
         ordersTbody.innerHTML = orders.map((o, idx) => {
-          let statusBadgeClass = 'bg-secondary-subtle text-secondary';
-          if (o.orderStatus === 'DELIVERED') statusBadgeClass = 'bg-success-subtle text-success';
-          else if (o.orderStatus === 'SHIPPED') statusBadgeClass = 'bg-primary-subtle text-primary';
-          else if (o.orderStatus === 'PROCESSING') statusBadgeClass = 'bg-info-subtle text-info';
-          else if (o.orderStatus === 'CANCELLED') statusBadgeClass = 'bg-danger-subtle text-danger';
-          else if (o.orderStatus === 'RETURNED') statusBadgeClass = 'bg-warning-subtle text-warning';
+          const statusBadgeClass = getStatusBadgeClassClient(o.orderStatus);
+          const statusLabel = formatOrderStatusClient(o.orderStatus);
 
           const couponBadge = o.couponCode ? `<span class="badge bg-warning-subtle text-dark border ms-1" style="font-size: 0.65rem;">${o.couponCode}</span>` : '';
 
@@ -681,12 +735,28 @@
               <td>${it.appliedOfferName || '—'}</td>
               <td class="text-end fw-bold">${formatINR(it.itemTotal)}</td>
               <td>
-                <span class="badge ${it.itemStatus === 'ACTIVE' ? 'bg-success-subtle text-success' : (it.itemStatus === 'CANCELLED' ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning')}">
-                  ${it.itemStatus}
+                <span class="badge ${getStatusBadgeClassClient(it.itemStatus)}">
+                  ${formatOrderStatusClient(it.itemStatus)}
                 </span>
               </td>
             </tr>
           `).join('');
+
+          const paymentStatusBadge = (o.paymentStatus === 'PAID' || o.paymentStatus === 'COMPLETED')
+            ? '<span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size: 0.65rem;">Paid</span>'
+            : (o.paymentStatus === 'FAILED'
+              ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size: 0.65rem;">Failed</span>'
+              : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1" style="font-size: 0.65rem;">Pending</span>');
+
+          const breakdownHtml = (o.couponSavings > 0 || o.offerSavings > 0)
+            ? `<div class="text-muted small" style="font-size: 0.68rem;">Cpn: ${formatINR(o.couponSavings)} | Off: ${formatINR(o.offerSavings)}</div>`
+            : '';
+
+          const refundStatusHtml = (o.refundAmount > 0)
+            ? `<div class="small text-muted" style="font-size: 0.68rem;">${o.refundStatus || 'COMPLETED'}</div>`
+            : '';
+
+          const phoneHtml = (o.customerPhone && o.customerPhone !== '—') ? ` • ${o.customerPhone}` : '';
 
           return `
             <tr>
@@ -694,14 +764,23 @@
               <td class="small text-muted">${o.formattedDate}</td>
               <td>
                 <div class="fw-medium text-dark">${o.customerName}</div>
-                <div class="text-muted small" style="font-size: 0.75rem;">${o.customerEmail}</div>
+                <div class="text-muted small" style="font-size: 0.72rem;">${o.customerEmail}${phoneHtml}</div>
               </td>
-              <td><span class="badge bg-light text-dark border">${o.paymentMethod}</span></td>
-              <td><span class="badge ${statusBadgeClass}">${o.orderStatus}</span></td>
+              <td>
+                <span class="badge bg-light text-dark border">${o.paymentMethod}</span>
+                ${paymentStatusBadge}
+              </td>
+              <td><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
               <td class="text-end">${o.unitsCount}</td>
-              <td class="text-end">${formatINR(o.grossSales)}</td>
-              <td class="text-end text-warning">${formatINR(o.totalDiscounts)} ${couponBadge}</td>
-              <td class="text-end text-danger">${formatINR(o.refundAmount)}</td>
+              <td class="text-end fw-semibold">${formatINR(o.grossSales)}</td>
+              <td class="text-end text-warning">
+                <div>${formatINR(o.totalDiscounts)} ${couponBadge}</div>
+                ${breakdownHtml}
+              </td>
+              <td class="text-end text-danger">
+                <div>${formatINR(o.refundAmount)}</div>
+                ${refundStatusHtml}
+              </td>
               <td class="text-end fw-bold text-success">${formatINR(o.netSales)}</td>
               <td class="text-center pe-4">
                 <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#items-row-dyn-${idx}" aria-expanded="false" title="View Item Details">

@@ -82,8 +82,8 @@ const orderItemSchema = new mongoose.Schema({
   },
   itemStatus: {
     type: String,
-    enum: ["ACTIVE", "CANCELLED", "RETURNED"],
-    default: "ACTIVE"
+    enum: ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED", "ACTIVE"],
+    default: "PLACED"
   },
   cancellationReason: {
     type: String,
@@ -318,7 +318,7 @@ const orderSchema = new mongoose.Schema(
     orderStatus: {
       type: String,
       required: true,
-      enum: ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"],
+      enum: ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED", "PARTIALLY_SHIPPED", "PARTIALLY_DELIVERED", "PARTIALLY_FULFILLED"],
       default: "PLACED"
     },
     cancellationReason: {

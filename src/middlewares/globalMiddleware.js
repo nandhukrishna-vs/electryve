@@ -1,3 +1,5 @@
+import { formatOrderStatus, getOrderStatusBadgeClass } from "../utils/orderStatusFormatter.js";
+
 const globalMiddleware = (req, res, next) => {
   if (req.path.startsWith("/admin")) {
     res.locals.user = req.session?.admin || null;
@@ -11,6 +13,10 @@ const globalMiddleware = (req, res, next) => {
 
   res.locals.errorMessage = req.session?.errorMessage || null;
   res.locals.successMessage = req.session?.successMessage || null;
+
+  // Global view formatting helpers
+  res.locals.formatOrderStatus = formatOrderStatus;
+  res.locals.getOrderStatusBadgeClass = getOrderStatusBadgeClass;
 
   if (req.session) {
     delete req.session.errorMessage;

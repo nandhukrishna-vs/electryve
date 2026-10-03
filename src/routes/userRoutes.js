@@ -58,8 +58,8 @@ router.get("/", loadHome);
 
 router.get("/profile", isLoggedIn, loadProfile);
 
-router.get("/shop",productController.loadShop);
-router.get("/shop/data",isLoggedIn, productController.getShopProductsData);
+router.get("/shop", productController.loadShop);
+router.get("/shop/data", productController.getShopProductsData);
 router.get("/product/:id", productController.loadProductDetails);
 
 // Cart Routes

@@ -180,10 +180,32 @@ const rejectReturnItemRequest = async (req, res, next) => {
   }
 };
 
+const updateOrderItemStatus = async (req, res, next) => {
+  try {
+    const { id, itemId } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: "Status is required." });
+    }
+
+    const result = await orderService.updateOrderItemStatus(id, itemId, status);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Admin Update Order Item Status Error:", error);
+    res.status(500).json({ success: false, message: error.message || "Failed to update item status." });
+  }
+};
+
 export {
   loadAdminOrders,
   loadAdminOrderDetails,
   updateOrderStatus,
+  updateOrderItemStatus,
   cancelOrder,
   cancelOrderItem,
   approveReturnRequest,

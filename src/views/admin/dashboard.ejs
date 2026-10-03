@@ -388,12 +388,9 @@
                       </td>
                       <td class="fw-bold small">₹<%= Number(order.finalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
                       <td>
-                        <% let badgeClass = 'bg-secondary'; %>
-                        <% if (order.orderStatus === 'DELIVERED') badgeClass = 'bg-success'; %>
-                        <% if (order.orderStatus === 'PLACED' || order.orderStatus === 'CONFIRMED') badgeClass = 'bg-primary'; %>
-                        <% if (order.orderStatus === 'SHIPPED') badgeClass = 'bg-info text-dark'; %>
-                        <% if (order.orderStatus === 'CANCELLED') badgeClass = 'bg-danger'; %>
-                        <span class="badge <%= badgeClass %> small"><%= order.orderStatus %></span>
+                        <span class="badge <%= getOrderStatusBadgeClass(order.orderStatus) %> small">
+                          <%= formatOrderStatus(order.orderStatus) %>
+                        </span>
                       </td>
                       <td class="text-end pe-3">
                         <a href="/admin/orders/<%= order._id %>" class="btn btn-sm btn-light border p-1 px-2" title="View details">
@@ -880,6 +877,35 @@
     `).join('');
   }
 
+  const STATUS_LABELS = {
+    PLACED: "Placed",
+    SHIPPED: "Shipped",
+    OUT_FOR_DELIVERY: "Out for Delivery",
+    DELIVERED: "Delivered",
+    CANCELLED: "Cancelled",
+    RETURNED: "Returned",
+    PARTIALLY_SHIPPED: "Partially Shipped",
+    PARTIALLY_DELIVERED: "Partially Delivered",
+    PARTIALLY_FULFILLED: "Partially Fulfilled"
+  };
+
+  function formatStatus(status) {
+    if (!status) return "";
+    const upper = String(status).trim().toUpperCase();
+    if (STATUS_LABELS[upper]) return STATUS_LABELS[upper];
+    return String(status).split(/[_\s]+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  }
+
+  function getStatusBadgeClass(status) {
+    const upper = String(status || "").trim().toUpperCase();
+    if (upper === 'DELIVERED') return 'bg-success';
+    if (upper === 'SHIPPED' || upper === 'PARTIALLY_SHIPPED') return 'bg-info text-dark';
+    if (upper === 'OUT_FOR_DELIVERY' || upper === 'PARTIALLY_DELIVERED') return 'bg-warning text-dark';
+    if (upper === 'PLACED' || upper === 'CONFIRMED' || upper === 'PROCESSING') return 'bg-primary';
+    if (upper === 'CANCELLED') return 'bg-danger';
+    return 'bg-secondary';
+  }
+
   function renderRecentOrdersTable(orders) {
     const tbody = document.getElementById('recent-orders-body');
     if (!tbody) return;
@@ -888,11 +914,8 @@
       return;
     }
     tbody.innerHTML = orders.map(order => {
-      let badgeClass = 'bg-secondary';
-      if (order.orderStatus === 'DELIVERED') badgeClass = 'bg-success';
-      if (order.orderStatus === 'PLACED' || order.orderStatus === 'CONFIRMED') badgeClass = 'bg-primary';
-      if (order.orderStatus === 'SHIPPED') badgeClass = 'bg-info text-dark';
-      if (order.orderStatus === 'CANCELLED') badgeClass = 'bg-danger';
+      const badgeClass = getStatusBadgeClass(order.orderStatus);
+      const displayStatus = formatStatus(order.orderStatus);
 
       return `
         <tr>
@@ -906,7 +929,7 @@
           </td>
           <td class="fw-bold small">${formatINR(order.finalAmount)}</td>
           <td>
-            <span class="badge ${badgeClass} small">${escapeHtml(order.orderStatus)}</span>
+            <span class="badge ${badgeClass} small">${escapeHtml(displayStatus)}</span>
           </td>
           <td class="text-end pe-3">
             <a href="/admin/orders/${order._id}" class="btn btn-sm btn-light border p-1 px-2" title="View details">

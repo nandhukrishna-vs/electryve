@@ -269,14 +269,23 @@ const applyCoupon = async (req, res, next) => {
       });
     }
 
+    const shippingCharge = cart.cartSummary.shipping;
+    const finalAmount = Math.max(0, subtotal - result.discountAmount) + shippingCharge;
+
+    if (finalAmount <= 0) {
+      delete req.session.appliedCoupon;
+      return res.status(400).json({
+        success: false,
+        message: "This coupon cannot be applied because it would make the payable amount zero."
+      });
+    }
+
     // Store minimal identifying information in session
     req.session.appliedCoupon = {
       code: result.coupon.code,
       couponId: result.coupon._id
     };
 
-    const shippingCharge = cart.cartSummary.shipping;
-    const finalAmount = Math.max(0, subtotal - result.discountAmount) + shippingCharge;
     const walletBalance = await walletService.getWalletBalance(userId);
     const canPayWithWallet = walletBalance >= finalAmount;
 

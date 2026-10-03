@@ -14,31 +14,9 @@
                 <h2 class="fw-bold text-dark mb-0 font-monospace" style="font-size: 1.5rem;">
                     <%= order.orderNumber %>
                 </h2>
-                <% if (order.orderStatus === 'PLACED') { %>
-                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1.5 fw-semibold">
-                        PLACED
-                    </span>
-                <% } else if (order.orderStatus === 'SHIPPED') { %>
-                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-3 py-1.5 fw-semibold">
-                        SHIPPED
-                    </span>
-                <% } else if (order.orderStatus === 'OUT_FOR_DELIVERY') { %>
-                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1.5 fw-semibold">
-                        OUT FOR DELIVERY
-                    </span>
-                <% } else if (order.orderStatus === 'DELIVERED') { %>
-                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1.5 fw-semibold">
-                        DELIVERED
-                    </span>
-                <% } else if (order.orderStatus === 'CANCELLED') { %>
-                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1.5 fw-semibold">
-                        CANCELLED
-                    </span>
-                <% } else if (order.orderStatus === 'RETURNED') { %>
-                    <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-3 py-1.5 fw-semibold">
-                        RETURNED
-                    </span>
-                <% } %>
+                <span class="badge <%= getOrderStatusBadgeClass(order.orderStatus) %> rounded-pill px-3 py-1.5 fw-semibold">
+                    <%= formatOrderStatus(order.orderStatus) %>
+                </span>
             </div>
             <p class="text-muted small mb-0">
                 Placed on <%= new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
@@ -128,29 +106,32 @@
                     <h5 class="fw-bold text-dark mb-0 fs-6">
                         <i class="bi bi-arrow-repeat me-2 text-muted"></i>Order Lifecycle
                     </h5>
-                    <% if (order.orderStatus === 'DELIVERED') { %>
-                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">DELIVERED</span>
-                    <% } else if (order.orderStatus === 'CANCELLED') { %>
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">CANCELLED</span>
-                    <% } else if (order.orderStatus === 'RETURNED') { %>
-                        <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">RETURNED</span>
+                    <% if (['DELIVERED', 'CANCELLED', 'RETURNED'].includes(order.orderStatus)) { %>
+                        <span class="badge <%= getOrderStatusBadgeClass(order.orderStatus) %> rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;"><%= formatOrderStatus(order.orderStatus) %></span>
                     <% } %>
                 </div>
                 <div class="card-body py-3">
-                    <% if (['PLACED', 'SHIPPED', 'OUT_FOR_DELIVERY'].includes(order.orderStatus)) { %>
+                    <% if (['PLACED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'PARTIALLY_SHIPPED', 'PARTIALLY_DELIVERED'].includes(order.orderStatus)) { %>
                     <div class="row g-3 align-items-center">
                         <div class="col-md-7">
                             <label for="nextStatusSelect" class="form-label small text-muted mb-1 fw-semibold">Next Allowed Status</label>
                             <select id="nextStatusSelect" class="form-select rounded-3">
                                 <% if (order.orderStatus === 'PLACED') { %>
-                                    <option value="SHIPPED">Mark as SHIPPED</option>
-                                    <option value="CANCELLED">Mark as CANCELLED</option>
+                                    <option value="SHIPPED">Mark as Shipped</option>
+                                    <option value="CANCELLED">Mark as Cancelled</option>
+                                <% } else if (order.orderStatus === 'PARTIALLY_SHIPPED') { %>
+                                    <option value="SHIPPED">Mark as Shipped</option>
+                                    <option value="DELIVERED">Mark as Delivered</option>
+                                    <option value="CANCELLED">Mark as Cancelled</option>
                                 <% } else if (order.orderStatus === 'SHIPPED') { %>
-                                    <option value="OUT_FOR_DELIVERY">Mark as OUT FOR DELIVERY</option>
-                                    <option value="CANCELLED">Mark as CANCELLED</option>
+                                    <option value="OUT_FOR_DELIVERY">Mark as Out for Delivery</option>
+                                    <option value="CANCELLED">Mark as Cancelled</option>
                                 <% } else if (order.orderStatus === 'OUT_FOR_DELIVERY') { %>
-                                    <option value="DELIVERED">Mark as DELIVERED</option>
-                                    <option value="CANCELLED">Mark as CANCELLED</option>
+                                    <option value="DELIVERED">Mark as Delivered</option>
+                                    <option value="CANCELLED">Mark as Cancelled</option>
+                                <% } else if (order.orderStatus === 'PARTIALLY_DELIVERED') { %>
+                                    <option value="DELIVERED">Mark as Delivered</option>
+                                    <option value="CANCELLED">Mark as Cancelled</option>
                                 <% } %>
                             </select>
                         </div>
@@ -165,7 +146,7 @@
                         <div>
                             <span class="text-muted small d-block mb-1">Current Status</span>
                             <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1.5 fw-bold fs-7">
-                                🟢 DELIVERED
+                                🟢 Delivered
                             </span>
                         </div>
                         <p class="text-muted small mb-0 text-end">
@@ -177,7 +158,7 @@
                         <div>
                             <span class="text-muted small d-block mb-1">Current Status</span>
                             <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-3 py-1.5 fw-bold fs-7">
-                                ↩️ RETURNED
+                                ↩️ Returned
                             </span>
                         </div>
                         <p class="text-muted small mb-0 text-end">
@@ -189,7 +170,7 @@
                         <div>
                             <span class="text-muted small d-block mb-1">Current Status</span>
                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1.5 fw-bold fs-7">
-                                🔴 CANCELLED
+                                🔴 Cancelled
                             </span>
                         </div>
                         <p class="text-muted small mb-0 text-end">
@@ -224,10 +205,10 @@
                             <tbody>
                                 <% order.items.forEach((item, index) => { %>
                                 <% 
-                                    const itemStatus = item.itemStatus || 'ACTIVE';
-                                    const isItemActive = itemStatus === 'ACTIVE';
+                                    const itemStatus = item.itemStatus || 'PLACED';
                                     const isItemCancelled = itemStatus === 'CANCELLED';
                                     const isItemReturned = itemStatus === 'RETURNED';
+                                    const isItemActive = !isItemCancelled && !isItemReturned;
                                 %>
                                 <tr>
                                     <td class="ps-4">
@@ -288,7 +269,7 @@
                                     <td class="text-center">
                                         <% if (isItemCancelled) { %>
                                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
-                                                CANCELLED
+                                                Cancelled
                                             </span>
                                             <% if (item.refundAmount && item.refundAmount > 0) { %>
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-1.5 py-0.5 d-block mt-1" style="font-size: 0.6rem;">
@@ -297,7 +278,7 @@
                                             <% } %>
                                         <% } else if (isItemReturned) { %>
                                             <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
-                                                RETURNED
+                                                Returned
                                             </span>
                                             <% if (item.refundAmount && item.refundAmount > 0) { %>
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-1.5 py-0.5 d-block mt-1" style="font-size: 0.6rem;">
@@ -306,20 +287,20 @@
                                             <% } %>
                                         <% } else if (item.returnRequest && item.returnRequest.status === 'PENDING') { %>
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
-                                                RETURN REQUESTED
+                                                Return Requested
                                             </span>
                                         <% } else if (item.returnRequest && item.returnRequest.status === 'REJECTED') { %>
                                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
-                                                RETURN REJECTED
+                                                Return Rejected
                                             </span>
                                         <% } else { %>
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
-                                                ACTIVE
+                                            <span class="badge <%= getOrderStatusBadgeClass(itemStatus) %> rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">
+                                                <%= formatOrderStatus(itemStatus) %>
                                             </span>
                                         <% } %>
                                     </td>
                                     <td class="pe-4 text-end">
-                                        <%if (isItemActive && item.returnRequest && item.returnRequest.status === 'PENDING') { %>
+                                        <% if (item.returnRequest && item.returnRequest.status === 'PENDING') { %>
                                             <div class="d-flex flex-column gap-1 align-items-end">
                                                 <button type="button" class="btn btn-sm btn-success rounded-3 py-1 px-2 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.72rem;" onclick="acceptItemReturnRequest('<%= order._id %>', '<%= item._id %>')">
                                                     <i class="bi bi-check-lg"></i> Accept Return
@@ -328,13 +309,29 @@
                                                     <i class="bi bi-x-lg"></i> Reject Return
                                                 </button>
                                             </div>
-                                        <% } else if (isItemActive && (order.orderStatus === 'PLACED' || order.orderStatus === 'SHIPPED' || order.orderStatus === 'OUT_FOR_DELIVERY')) { %>
-                                            <button type="button" class="btn btn-sm btn-outline-danger rounded-3 py-1 px-2" style="font-size: 0.72rem;" onclick='promptCancelItem("<%= order._id %>", "<%= item._id %>", <%- JSON.stringify(item.productName) %>)'>
-                                                Cancel
-                                            </button>
+                                        <% } else if (['PLACED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'ACTIVE'].includes(itemStatus)) { %>
+                                            <div class="d-flex align-items-center justify-content-end gap-1">
+                                                <div class="input-group input-group-sm" style="max-width: 175px;">
+                                                    <select id="item-status-<%= item._id %>" class="form-select form-select-sm" style="font-size: 0.7rem; padding: 0.25rem 0.5rem;">
+                                                        <% if (itemStatus === 'PLACED' || itemStatus === 'ACTIVE') { %>
+                                                            <option value="SHIPPED">Mark as Shipped</option>
+                                                            <option value="CANCELLED">Cancel Item</option>
+                                                        <% } else if (itemStatus === 'SHIPPED') { %>
+                                                            <option value="OUT_FOR_DELIVERY">Mark as Out for Delivery</option>
+                                                            <option value="CANCELLED">Cancel Item</option>
+                                                        <% } else if (itemStatus === 'OUT_FOR_DELIVERY') { %>
+                                                            <option value="DELIVERED">Mark as Delivered</option>
+                                                            <option value="CANCELLED">Cancel Item</option>
+                                                        <% } %>
+                                                    </select>
+                                                    <button type="button" class="btn btn-dark btn-sm px-2" style="font-size: 0.7rem;" onclick="submitItemStatusUpdate('<%= order._id %>', '<%= item._id %>')" title="Update Item Status">
+                                                        <i class="bi bi-arrow-right"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
                                         <% } else { %>
                                             <span class="text-muted small" style="font-size: 0.75rem;">—</span>
-                                        <%} %>
+                                        <% } %>
                                     </td>
                                 </tr>
                                 <% }) %>
@@ -550,15 +547,36 @@
 </div>
 
 <script>
+// Client-side status label helper
+const STATUS_LABELS = {
+    PLACED: "Placed",
+    SHIPPED: "Shipped",
+    OUT_FOR_DELIVERY: "Out for Delivery",
+    DELIVERED: "Delivered",
+    CANCELLED: "Cancelled",
+    RETURNED: "Returned",
+    PARTIALLY_SHIPPED: "Partially Shipped",
+    PARTIALLY_DELIVERED: "Partially Delivered",
+    PARTIALLY_FULFILLED: "Partially Fulfilled"
+};
+
+function formatStatus(status) {
+    if (!status) return "";
+    const upper = String(status).trim().toUpperCase();
+    if (STATUS_LABELS[upper]) return STATUS_LABELS[upper];
+    return String(status).split(/[_\s]+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+}
+
 // 1. Status Update AJAX
 async function submitStatusUpdate(orderId) {
     const select = document.getElementById("nextStatusSelect");
     if (!select) return;
     const status = select.value;
+    const displayLabel = formatStatus(status);
 
     const confirm = await Swal.fire({
         title: "Update Order Status?",
-        text: `Are you sure you want to update this order's status to "${status}"?`,
+        text: `Are you sure you want to update this order's status to "${displayLabel}"?`,
         icon: "question",
         showCancelButton: true,
         confirmButtonColor: "#111827",
@@ -593,6 +611,54 @@ async function submitStatusUpdate(orderId) {
         }
     } catch (err) {
         console.error("Status update error:", err);
+        Swal.fire({ icon: "error", title: "Error", text: "Network or server error." });
+    }
+}
+
+// 1b. Item Status Update AJAX
+async function submitItemStatusUpdate(orderId, itemId) {
+    const select = document.getElementById(`item-status-${itemId}`);
+    if (!select) return;
+    const status = select.value;
+    const displayLabel = formatStatus(status);
+
+    const confirm = await Swal.fire({
+        title: "Update Item Status?",
+        text: `Are you sure you want to update this item's status to "${displayLabel}"?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#111827",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Yes, Update"
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+        const res = await fetch(`/admin/orders/${orderId}/items/${itemId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (data.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Updated",
+                text: data.message,
+                timer: 1500,
+                showConfirmButton: false
+            });
+            window.location.reload();
+        } else {
+            Swal.fire({
+                icon: "error",
+                title: "Update Failed",
+                text: data.message || "Failed to update item status."
+            });
+        }
+    } catch (err) {
+        console.error("Item status update error:", err);
         Swal.fire({ icon: "error", title: "Error", text: "Network or server error." });
     }
 }

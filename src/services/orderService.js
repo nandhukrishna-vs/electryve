@@ -42,7 +42,7 @@ export const calculateItemRefundableAmount = (order, item) => {
 
   // Check how many active items remain besides this one
   const remainingActiveItems = order.items.filter(
-    (it) => it._id.toString() !== item._id.toString() && it.itemStatus === "ACTIVE"
+    (it) => it._id.toString() !== item._id.toString() && it.itemStatus !== "CANCELLED" && it.itemStatus !== "RETURNED"
   );
 
   // If this is the last active item, refund exact remaining refundable balance (including shipping/rounding)
@@ -277,7 +277,7 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
         offerDiscount,
         effectiveItemPrice,
         itemTotal,
-        itemStatus: "ACTIVE",
+        itemStatus: "PLACED",
         isStockRestored: false
       });
     }
@@ -336,6 +336,9 @@ const executeOrderCreation = async (userId, address, cartInfo, session, couponCo
     }
 
     const finalAmount = Math.max(0, subtotal - couponDiscount) + shippingCharge + tax;
+    if (finalAmount <= 0) {
+      throw new Error("Orders with zero payable amount are not supported.");
+    }
     const orderNumber = await generateOrderNumber(opts);
 
     const shippingAddress = {
@@ -603,7 +606,7 @@ const getAdminOrders = async ({ search = "", page = 1, limit = 10, status = "" }
     ];
   }
 
-  if (status && ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED"].includes(status)) {
+  if (status && ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RETURNED", "PARTIALLY_SHIPPED", "PARTIALLY_DELIVERED"].includes(status)) {
     query.orderStatus = status;
   }
 
@@ -638,6 +641,159 @@ const getAdminOrderById = async (orderId) => {
   return await Order.findById(orderId).populate("user", "fullName email phone");
 };
 
+/**
+ * Authoritatively derives the overall orderStatus from the statuses of its individual items.
+ */
+const deriveOrderStatusFromItems = (items) => {
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return "PLACED";
+  }
+
+  // Check if every item is CANCELLED
+  if (items.every((it) => it.itemStatus === "CANCELLED")) {
+    return "CANCELLED";
+  }
+
+  // Check if every item is RETURNED
+  if (items.every((it) => it.itemStatus === "RETURNED")) {
+    return "RETURNED";
+  }
+
+  // Active fulfilling items: not cancelled and not returned
+  const activeItems = items.filter(
+    (it) => it.itemStatus !== "CANCELLED" && it.itemStatus !== "RETURNED"
+  );
+
+  // If no fulfilling items remain (mixed cancelled and returned)
+  if (activeItems.length === 0) {
+    const hasReturned = items.some((it) => it.itemStatus === "RETURNED");
+    return hasReturned ? "RETURNED" : "CANCELLED";
+  }
+
+  // Check if all active items are DELIVERED
+  const allDelivered = activeItems.every((it) => it.itemStatus === "DELIVERED");
+  if (allDelivered) {
+    return "DELIVERED";
+  }
+
+  // Check if some active items are DELIVERED
+  const hasDelivered = activeItems.some((it) => it.itemStatus === "DELIVERED");
+  if (hasDelivered) {
+    return "PARTIALLY_DELIVERED";
+  }
+
+  // None is DELIVERED. Check SHIPPED or OUT_FOR_DELIVERY
+  const hasShippedOrOut = activeItems.some(
+    (it) => it.itemStatus === "SHIPPED" || it.itemStatus === "OUT_FOR_DELIVERY"
+  );
+
+  if (hasShippedOrOut) {
+    const allShippedOrOut = activeItems.every(
+      (it) => it.itemStatus === "SHIPPED" || it.itemStatus === "OUT_FOR_DELIVERY"
+    );
+
+    if (allShippedOrOut) {
+      const allOut = activeItems.every((it) => it.itemStatus === "OUT_FOR_DELIVERY");
+      return allOut ? "OUT_FOR_DELIVERY" : "SHIPPED";
+    }
+
+    return "PARTIALLY_SHIPPED";
+  }
+
+  return "PLACED";
+};
+
+const updateOrderItemStatus = async (orderId, itemId, nextStatus) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(itemId)) {
+    return { success: false, message: "Invalid order or item ID." };
+  }
+
+  const validStatuses = ["PLACED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"];
+  if (!validStatuses.includes(nextStatus)) {
+    return { success: false, message: `Invalid item status "${nextStatus}".` };
+  }
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    return { success: false, message: "Order not found." };
+  }
+
+  const item = order.items.id(itemId);
+  if (!item) {
+    return { success: false, message: "Item not found in this order." };
+  }
+
+  const currentStatus = item.itemStatus || "PLACED";
+  if (currentStatus === nextStatus) {
+    return {
+      success: true,
+      message: `Item is already ${nextStatus}.`,
+      order,
+      itemStatus: nextStatus,
+      orderStatus: order.orderStatus
+    };
+  }
+
+  // If canceling the item, delegate to cancelOrderItem which handles stock restoration, refund, etc.
+  if (nextStatus === "CANCELLED") {
+    const cancelRes = await cancelOrderItem(orderId, itemId, "Cancelled by Admin");
+    if (!cancelRes.success) return cancelRes;
+    return {
+      success: true,
+      message: "Item cancelled successfully.",
+      order: cancelRes.order,
+      itemStatus: "CANCELLED",
+      orderStatus: cancelRes.order.orderStatus
+    };
+  }
+
+  const allowedTransitions = {
+    PLACED: ["SHIPPED", "CANCELLED"],
+    ACTIVE: ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"],
+    SHIPPED: ["OUT_FOR_DELIVERY", "CANCELLED"],
+    OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
+    DELIVERED: [],
+    CANCELLED: [],
+    RETURNED: []
+  };
+
+  const validNext = allowedTransitions[currentStatus] || [];
+  if (!validNext.includes(nextStatus)) {
+    return {
+      success: false,
+      message: `Invalid status transition from "${currentStatus}" to "${nextStatus}".`
+    };
+  }
+
+  item.itemStatus = nextStatus;
+
+  const previousOrderStatus = order.orderStatus;
+  const derivedStatus = deriveOrderStatusFromItems(order.items);
+  order.orderStatus = derivedStatus;
+
+  if (derivedStatus === "DELIVERED" && order.paymentMethod === "COD") {
+    order.paymentStatus = "COMPLETED";
+  }
+
+  await order.save();
+
+  if (derivedStatus === "DELIVERED" && previousOrderStatus !== "DELIVERED") {
+    try {
+      await referralService.handleOrderDelivered(order._id);
+    } catch (refErr) {
+      console.error("[Referral] Error processing referral reward on delivery:", refErr);
+    }
+  }
+
+  return {
+    success: true,
+    message: `Item status updated to ${nextStatus}.`,
+    order,
+    itemStatus: nextStatus,
+    orderStatus: order.orderStatus
+  };
+};
+
 const updateOrderStatus = async (orderId, nextStatus) => {
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
     return { success: false, message: "Invalid order ID." };
@@ -660,8 +816,10 @@ const updateOrderStatus = async (orderId, nextStatus) => {
 
   const allowedTransitions = {
     PLACED: ["SHIPPED", "CANCELLED"],
+    PARTIALLY_SHIPPED: ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"],
     SHIPPED: ["OUT_FOR_DELIVERY", "CANCELLED"],
     OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
+    PARTIALLY_DELIVERED: ["DELIVERED", "CANCELLED"],
     DELIVERED: [],
     CANCELLED: [],
     RETURNED: []
@@ -684,6 +842,14 @@ const updateOrderStatus = async (orderId, nextStatus) => {
   }
 
   order.orderStatus = nextStatus;
+
+  // Cascade to non-cancelled, non-returned items
+  order.items.forEach((item) => {
+    if (item.itemStatus !== "CANCELLED" && item.itemStatus !== "RETURNED") {
+      item.itemStatus = nextStatus;
+    }
+  });
+
   await order.save();
 
   if (nextStatus === "DELIVERED") {
@@ -720,7 +886,7 @@ const cancelOrder = async (orderId, reason = "") => {
 
   // Stock restoration with atomic rollback protection
   const itemsToRestore = order.items.filter(
-    (item) => item.itemStatus === "ACTIVE" && !item.isStockRestored
+    (item) => item.itemStatus !== "CANCELLED" && item.itemStatus !== "RETURNED" && item.itemStatus !== "DELIVERED" && !item.isStockRestored
   );
 
   const restoredItems = [];
@@ -847,12 +1013,22 @@ const cancelOrderItem = async (orderId, itemId, reason = "") => {
   item.cancellationReason = reason || "Item cancelled by Admin";
   item.cancelledAt = now;
 
-  // Check if ALL items in order are now cancelled
-  const allCancelled = order.items.every((it) => it.itemStatus === "CANCELLED");
-  if (allCancelled) {
-    order.orderStatus = "CANCELLED";
-    order.cancellationReason = "All items in order were cancelled.";
-    order.cancelledAt = now;
+  const previousOrderStatus = order.orderStatus;
+  const derivedStatus = deriveOrderStatusFromItems(order.items);
+  order.orderStatus = derivedStatus;
+
+  if (derivedStatus === "CANCELLED") {
+    order.cancellationReason = order.cancellationReason || "All items in order were cancelled.";
+    order.cancelledAt = order.cancelledAt || now;
+  } else if (derivedStatus === "DELIVERED" && previousOrderStatus !== "DELIVERED") {
+    if (order.paymentMethod === "COD") {
+      order.paymentStatus = "COMPLETED";
+    }
+    try {
+      await referralService.handleOrderDelivered(order._id);
+    } catch (refErr) {
+      console.error("[Referral] Error processing referral reward on delivery:", refErr);
+    }
   }
 
   // Process item-level wallet refund if order was paid (RAZORPAY or WALLET)
@@ -901,7 +1077,7 @@ const cancelOrderItem = async (orderId, itemId, reason = "") => {
 
 const restoreOrderReturnStock = async (order, reason) => {
   const itemsToReturn = order.items.filter(
-    (item) => item.itemStatus === "ACTIVE" && !item.isStockRestored
+    (item) => item.itemStatus !== "CANCELLED" && item.itemStatus !== "RETURNED" && !item.isStockRestored
   );
 
   const restoredItems = [];
@@ -1002,20 +1178,21 @@ const requestReturnItem = async (orderId, userId, itemId, reason) => {
     return { success: false, message: "Order not found." };
   }
 
-  if (order.orderStatus !== "DELIVERED") {
-    return { success: false, message: `Return request is only allowed for delivered orders (current status: "${order.orderStatus}").` };
+  const item = order.items.id(itemId);
+  if (!item) {
+    return { success: false, message: "Item not found in this order." };
+  }
+
+  const isItemDelivered = item.itemStatus === "DELIVERED" || (order.orderStatus === "DELIVERED" && item.itemStatus === "ACTIVE");
+  if (!isItemDelivered) {
+    return { success: false, message: `Return request is only allowed for delivered items (current status: "${item.itemStatus}").` };
   }
 
   if (order.returnRequest && order.returnRequest.status === "PENDING") {
     return { success: false, message: "A full order return request is already pending review for this order." };
   }
 
-  const item = order.items.id(itemId);
-  if (!item) {
-    return { success: false, message: "Item not found in this order." };
-  }
-
-  if (item.itemStatus !== "ACTIVE") {
+  if (item.itemStatus === "CANCELLED" || item.itemStatus === "RETURNED") {
     return { success: false, message: `Cannot return an item with status "${item.itemStatus}".` };
   }
 
@@ -1176,20 +1353,21 @@ const approveReturnItemRequest = async (orderId, itemId) => {
     return { success: false, message: "Order not found." };
   }
 
-  if (order.orderStatus !== "DELIVERED") {
-    return { success: false, message: `Only delivered orders can have item returns approved (current status: "${order.orderStatus}").` };
-  }
-
   const item = order.items.id(itemId);
   if (!item) {
     return { success: false, message: "Item not found in this order." };
+  }
+
+  const isItemDelivered = item.itemStatus === "DELIVERED" || (order.orderStatus === "DELIVERED" && item.itemStatus === "ACTIVE");
+  if (!isItemDelivered) {
+    return { success: false, message: `Only delivered items can have returns approved (current status: "${item.itemStatus}").` };
   }
 
   if (!item.returnRequest || item.returnRequest.status !== "PENDING") {
     return { success: false, message: `No pending return request found for this item (current status: "${item.returnRequest?.status || "NONE"}").` };
   }
 
-  if (item.itemStatus !== "ACTIVE" || item.isStockRestored) {
+  if (item.itemStatus === "RETURNED" || item.isStockRestored) {
     return { success: false, message: "Item is not eligible for return approval." };
   }
 
@@ -1215,9 +1393,9 @@ const approveReturnItemRequest = async (orderId, itemId) => {
   item.returnRequest.status = "APPROVED";
   item.returnRequest.reviewedAt = now;
 
-  // If NO active items remain in the order, mark order as RETURNED
-  const hasActiveItems = order.items.some((it) => it.itemStatus === "ACTIVE");
-  if (!hasActiveItems) {
+  // If NO active fulfilling items remain in the order, mark order as RETURNED
+  const nonTerminalItems = order.items.filter((it) => it.itemStatus !== "CANCELLED" && it.itemStatus !== "RETURNED");
+  if (nonTerminalItems.length === 0) {
     order.orderStatus = "RETURNED";
     order.returnReason = "All items in order were returned.";
     order.returnedAt = now;
@@ -1225,6 +1403,8 @@ const approveReturnItemRequest = async (orderId, itemId) => {
       order.returnRequest.status = "APPROVED";
       order.returnRequest.reviewedAt = now;
     }
+  } else {
+    order.orderStatus = deriveOrderStatusFromItems(order.items);
   }
 
   // Process item-level wallet refund if order was paid (RAZORPAY or WALLET)
@@ -1299,13 +1479,14 @@ const rejectReturnItemRequest = async (orderId, itemId, rejectionReason) => {
     return { success: false, message: "Order not found." };
   }
 
-  if (order.orderStatus !== "DELIVERED") {
-    return { success: false, message: `Only delivered orders can have item returns rejected (current status: "${order.orderStatus}").` };
-  }
-
   const item = order.items.id(itemId);
   if (!item) {
     return { success: false, message: "Item not found in this order." };
+  }
+
+  const isItemDelivered = item.itemStatus === "DELIVERED" || (order.orderStatus === "DELIVERED" && item.itemStatus === "ACTIVE");
+  if (!isItemDelivered) {
+    return { success: false, message: `Only delivered items can have item returns rejected (current status: "${item.itemStatus}").` };
   }
 
   if (!item.returnRequest || item.returnRequest.status !== "PENDING") {
@@ -1477,7 +1658,7 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
       offerDiscount,
       effectiveItemPrice,
       itemTotal,
-      itemStatus: "ACTIVE",
+      itemStatus: "PLACED",
       isStockRestored: false
     });
   }
@@ -1518,6 +1699,9 @@ const createWalletOrder = async (userIdOrOptions, addressIdArg = null, couponCod
 
   const finalAmount = Math.max(0, subtotal - couponDiscount) + shippingCharge + tax;
   const roundedFinalAmount = Math.round(finalAmount * 100) / 100;
+  if (roundedFinalAmount <= 0) {
+    return { success: false, message: "Orders with zero payable amount are not supported." };
+  }
 
   // 8. Verify wallet balance
   const walletBalance = await walletService.getWalletBalance(userId);
@@ -1693,6 +1877,8 @@ export {
   getAdminOrders,
   getAdminOrderById,
   updateOrderStatus,
+  deriveOrderStatusFromItems,
+  updateOrderItemStatus,
   cancelOrder,
   cancelOrderItem,
   requestReturn,
