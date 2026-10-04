@@ -23,13 +23,13 @@ const router = express.Router();
 
 router.get("/", isAdmin, loadCategories);
 
-router.get("/add", isAdmin, loadAddCategory);
+router.route("/add")
+  .get(isAdmin, loadAddCategory)
+  .post(isAdmin, addCategory);
 
-router.post("/add", isAdmin, addCategory);
-
-router.get("/edit/:id", isAdmin, loadEditCategory);
-
-router.post("/edit/:id", isAdmin, editCategory);
+router.route("/edit/:id")
+  .get(isAdmin, loadEditCategory)
+  .post(isAdmin, editCategory);
 
 router.patch("/:id/toggle", isAdmin, toggleCategoryStatus);
 

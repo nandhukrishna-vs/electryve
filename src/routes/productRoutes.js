@@ -16,23 +16,15 @@ router.get("/image-proxy", productController.proxyProductImage);
 
 // Add Product
 
-router.get("/add", productController.loadAddProduct);
-
-router.post(
-    "/add",
-    upload.any(),
-    productController.addProduct
-);
+router.route("/add")
+    .get(productController.loadAddProduct)
+    .post(upload.any(), productController.addProduct);
 
 // Edit Product
 
-router.get("/edit/:id", productController.loadEditProduct);
-
-router.post(
-    "/edit/:id",
-    upload.any(),
-    productController.editProduct
-);
+router.route("/edit/:id")
+    .get(productController.loadEditProduct)
+    .post(upload.any(), productController.editProduct);
 
 
 // Toggle Product Status

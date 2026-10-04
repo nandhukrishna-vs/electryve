@@ -20,8 +20,9 @@ import { isAdmin } from "../middlewares/adminMiddleware.js";
 
 const router = express.Router();
 
-router.get("/login", loadAdminLogin);
-router.post("/login", adminLogin);
+router.route("/login")
+  .get(loadAdminLogin)
+  .post(adminLogin);
 
 router.get("/dashboard", isAdmin, loadDashboard);
 router.get("/dashboard/data", isAdmin, getDashboardData);
@@ -51,9 +52,10 @@ router.get("/inventory", isAdmin, inventoryController.loadInventory);
 router.patch("/inventory/:productId/:variantId", isAdmin, inventoryController.updateStock);
 
 // Coupon Management Routes
-router.get("/coupons", isAdmin, couponController.loadCoupons);
+router.route("/coupons")
+  .get(isAdmin, couponController.loadCoupons)
+  .post(isAdmin, couponController.createCoupon);
 router.get("/coupons/add", isAdmin, couponController.loadAddCoupon);
-router.post("/coupons", isAdmin, couponController.createCoupon);
 router.get("/coupons/:id/edit", isAdmin, couponController.loadEditCoupon);
 router.post("/coupons/:id/edit", isAdmin, couponController.updateCoupon);
 router.patch("/coupons/:id/status", isAdmin, couponController.toggleCouponStatus);
@@ -76,12 +78,14 @@ router.get("/sales-report/excel", isAdmin, reportController.exportSalesReportExc
 
 // Referral Management Routes
 router.get("/referrals", isAdmin, adminReferralController.loadAdminReferrals);
-router.get("/referrals/program", isAdmin, adminReferralController.loadReferralProgram);
-router.post("/referrals/program", isAdmin, adminReferralController.updateReferralProgram);
-router.patch("/referrals/program", isAdmin, adminReferralController.updateReferralProgram);
+router.route("/referrals/program")
+  .get(isAdmin, adminReferralController.loadReferralProgram)
+  .post(isAdmin, adminReferralController.updateReferralProgram)
+  .patch(isAdmin, adminReferralController.updateReferralProgram);
 router.get("/referrals/:id", isAdmin, adminReferralController.loadAdminReferralDetails);
-router.post("/referrals/:id/retry-reward", isAdmin, adminReferralController.retryReferralReward);
-router.patch("/referrals/:id/retry-reward", isAdmin, adminReferralController.retryReferralReward);
+router.route("/referrals/:id/retry-reward")
+  .post(isAdmin, adminReferralController.retryReferralReward)
+  .patch(isAdmin, adminReferralController.retryReferralReward);
 
 router.get("/logout", isAdmin, adminLogout);
 

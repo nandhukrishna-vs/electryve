@@ -68,34 +68,17 @@ router.get("/cart/count", cartController.getCartCount);
 router.post("/cart/add", cartController.addToCart);
 router.patch("/cart/update-qty", isLoggedIn, cartController.updateQuantity);
 router.post("/cart/update-quantity", isLoggedIn, cartController.updateQuantity);
-router.delete("/cart/remove", isLoggedIn, cartController.removeItem);
-router.post("/cart/remove", isLoggedIn, cartController.removeItem);
+router.route("/cart/remove")
+  .post(isLoggedIn, cartController.removeItem)
+  .delete(isLoggedIn, cartController.removeItem);
 
-router.get(
-  "/profile/edit",
-  isLoggedIn,
-  loadEditProfile
-);
+router.route("/profile/edit")
+  .get(isLoggedIn, loadEditProfile)
+  .post(isLoggedIn, validateProfileUpdate, updateProfile);
 
-router.post(
-  "/profile/edit",
-  isLoggedIn,
-  validateProfileUpdate,
-  updateProfile
-);
-
-router.get(
-  "/profile/change-password",
-  isLoggedIn,
-  loadChangePassword
-);
-
-router.post(
-  "/profile/change-password",
-  isLoggedIn,
-  validateChangePassword,
-  changePassword
-);
+router.route("/profile/change-password")
+  .get(isLoggedIn, loadChangePassword)
+  .post(isLoggedIn, validateChangePassword, changePassword);
 
 
 
@@ -108,27 +91,13 @@ router.post(
 
 router.get("/addresses", isLoggedIn, loadAddresses);
 
-router.get("/addresses/add", isLoggedIn, loadAddAddress);
+router.route("/addresses/add")
+  .get(isLoggedIn, loadAddAddress)
+  .post(isLoggedIn, validateAddress, addAddress);
 
-router.post(
-  "/addresses/add",
-  isLoggedIn,
-  validateAddress,
-  addAddress
-);
-
-router.get(
-  "/addresses/:id/edit",
-  isLoggedIn,
-  loadEditAddress
-);
-
-router.patch(
-  "/addresses/:id/edit",
-  isLoggedIn,
-  validateAddress,
-  updateAddress
-);
+router.route("/addresses/:id/edit")
+  .get(isLoggedIn, loadEditAddress)
+  .patch(isLoggedIn, validateAddress, updateAddress);
 
 router.delete(
   "/addresses/:id/delete",

@@ -26,16 +26,8 @@ router.post(
   paymentController.verifyPayment
 );
 
-router.post(
-  "/failure",
-  isLoggedIn,
-  paymentController.recordFailure
-);
-
-router.get(
-  "/failure",
-  isLoggedIn,
-  paymentController.loadPaymentFailure
-);
+router.route("/failure")
+  .post(isLoggedIn, paymentController.recordFailure)
+  .get(isLoggedIn, paymentController.loadPaymentFailure);
 
 export default router;

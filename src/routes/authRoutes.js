@@ -26,38 +26,26 @@ import {
 
 const router = express.Router();
 
-router.get("/signup", loadSignup);
-router.post(
-  "/signup",
-  validateSignup,
-  signup
-);
+router.route("/signup")
+  .get(loadSignup)
+  .post(validateSignup, signup);
 
 router.get("/verify-otp", loadOtpPage);
 router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
 
-router.get("/login", loadLogin);
-router.post(
-  "/login",
-  validateLogin,
-  login
-);
+router.route("/login")
+  .get(loadLogin)
+  .post(validateLogin, login);
 router.get("/logout", logout);
 
-router.get("/forgot-password", loadForgotPassword);
-router.post(
-  "/forgot-password",
-  validateForgotPassword,
-  forgotPassword
-);
+router.route("/forgot-password")
+  .get(loadForgotPassword)
+  .post(validateForgotPassword, forgotPassword);
 
-router.get("/reset-password", loadResetPassword);
-router.post(
-  "/reset-password",
-  validateResetPassword,
-  resetPassword
-);
+router.route("/reset-password")
+  .get(loadResetPassword)
+  .post(validateResetPassword, resetPassword);
 
 router.get(
   "/google",

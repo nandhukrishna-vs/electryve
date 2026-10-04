@@ -4,8 +4,10 @@ import { isLoggedIn } from "../middlewares/userMiddleware.js";
 
 const router = express.Router();
 
-// Public routes
-router.get("/product/:productId/reviews", reviewController.getProductReviews);
+// Public & Protected Product Reviews
+router.route("/product/:productId/reviews")
+    .get(reviewController.getProductReviews)
+    .post(isLoggedIn, reviewController.createReview);
 
 // Private routes (require authentication)
 router.get(
@@ -14,22 +16,8 @@ router.get(
     reviewController.getUserProductReview
 );
 
-router.post(
-    "/product/:productId/reviews",
-    isLoggedIn,
-    reviewController.createReview
-);
-
-router.patch(
-    "/product/:productId/reviews/:reviewId",
-    isLoggedIn,
-    reviewController.updateReview
-);
-
-router.delete(
-    "/product/:productId/reviews/:reviewId",
-    isLoggedIn,
-    reviewController.deleteReview
-);
+router.route("/product/:productId/reviews/:reviewId")
+    .patch(isLoggedIn, reviewController.updateReview)
+    .delete(isLoggedIn, reviewController.deleteReview);
 
 export default router;

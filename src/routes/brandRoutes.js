@@ -16,13 +16,13 @@ const router = express.Router();
 
 router.get("/", isAdmin, loadBrands);
 
-router.get("/add", isAdmin, loadAddBrand);
+router.route("/add")
+  .get(isAdmin, loadAddBrand)
+  .post(isAdmin, addBrand);
 
-router.post("/add", isAdmin, addBrand);
-
-router.get("/edit/:id", isAdmin, loadEditBrand);
-
-router.post("/edit/:id", isAdmin, editBrand);
+router.route("/edit/:id")
+  .get(isAdmin, loadEditBrand)
+  .post(isAdmin, editBrand);
 
 router.patch("/:id/toggle", isAdmin, toggleBrandStatus);
 
