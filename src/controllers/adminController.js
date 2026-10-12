@@ -101,7 +101,7 @@ const loadUsers = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
-
+    {$group:{_id:"$userId"}totalUser:{$sum:1}};
     const totalUsers = await User.countDocuments(filter);
     const totalPages = Math.ceil(totalUsers / limit);
 
@@ -110,7 +110,8 @@ const loadUsers = async (req, res) => {
       users,
       currentPage: page,
       totalPages,
-      search
+      search,
+      totalUsers
     });
   } catch (error) {
     console.error("Load Users Error:", error);

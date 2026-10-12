@@ -243,7 +243,7 @@
                                     <% } %>
 
                                     <!-- Item-level Actions -->
-                                    <% if (item.itemStatus === 'PLACED' || (order.orderStatus === 'PLACED' && item.itemStatus === 'ACTIVE')) { %>
+                                    <% if (!['CANCELLED', 'RETURNED'].includes(order.orderStatus) && !item.isStockRestored && (item.itemStatus === 'PLACED' || (order.orderStatus === 'PLACED' && item.itemStatus === 'ACTIVE'))) { %>
                                         <button
                                             type="button"
                                             class="btn btn-outline-danger btn-sm rounded-3 py-1 px-2 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"

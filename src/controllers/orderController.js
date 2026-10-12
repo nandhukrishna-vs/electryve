@@ -636,55 +636,14 @@ const cancelOrderItem = async (req, res, next) => {
     const { id: orderId, itemId } = req.params;
     const { reason } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(itemId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order or item ID."
-      });
-    }
-
-    // Strictly verify ownership by matching BOTH order ID and user ID
-    const order = await Order.findOne({
-      _id: orderId,
-      user: userId
-    });
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found."
-      });
-    }
-
-    if (order.orderStatus !== "PLACED") {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot cancel an item from an order with status "${order.orderStatus}". Items can only be cancelled while the order is PLACED.`
-      });
-    }
-
-    const item = order.items.id(itemId);
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: "Item not found in this order."
-      });
-    }
-
-    if (item.itemStatus !== "ACTIVE" || item.isStockRestored) {
-      return res.status(400).json({
-        success: false,
-        message: `Item is already ${item.itemStatus.toLowerCase()}.`
-      });
-    }
-
     const cancellationReason = (typeof reason === "string" && reason.trim().length > 0)
       ? reason.trim()
       : "Cancelled by User";
 
-    const result = await orderService.cancelOrderItem(orderId, itemId, cancellationReason);
+    const result = await orderService.cancelOrderItem(orderId, itemId, cancellationReason, userId);
     if (!result.success) {
-      return res.status(400).json(result);
+      const statusCode = (result.message === "Order not found." || result.message === "Item not found in this order.") ? 404 : 400;
+      return res.status(statusCode).json(result);
     }
 
     return res.json({

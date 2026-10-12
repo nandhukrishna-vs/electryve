@@ -972,18 +972,44 @@ const cancelOrder = async (orderId, reason = "") => {
   };
 };
 
-const cancelOrderItem = async (orderId, itemId, reason = "") => {
+const cancelOrderItem = async (orderId, itemId, reasonOrUserId = "", maybeReasonOrUserId = null) => {
   if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(itemId)) {
     return { success: false, message: "Invalid order or item ID." };
   }
 
-  const order = await Order.findById(orderId);
-  if (!order) {
-    return { success: false, message: "Order not found." };
+  let reason = "";
+  let userId = null;
+
+  // Flexible argument handling:
+  // (orderId, itemId, reason, userId) OR (orderId, itemId, userId, reason) OR (orderId, itemId, reason)
+  if (maybeReasonOrUserId !== null && maybeReasonOrUserId !== undefined) {
+    if (mongoose.Types.ObjectId.isValid(reasonOrUserId) && typeof maybeReasonOrUserId === "string" && !mongoose.Types.ObjectId.isValid(maybeReasonOrUserId)) {
+      userId = reasonOrUserId;
+      reason = maybeReasonOrUserId;
+    } else {
+      reason = typeof reasonOrUserId === "string" ? reasonOrUserId : "";
+      userId = maybeReasonOrUserId;
+    }
+  } else if (reasonOrUserId) {
+    if (mongoose.Types.ObjectId.isValid(reasonOrUserId) && typeof reasonOrUserId !== "string") {
+      userId = reasonOrUserId;
+    } else {
+      reason = typeof reasonOrUserId === "string" ? reasonOrUserId : "";
+    }
   }
 
-  if (order.orderStatus === "DELIVERED" || order.orderStatus === "RETURNED") {
-    return { success: false, message: `Cannot cancel an item from a "${order.orderStatus}" order.` };
+  if (userId === "USER" || userId === "ADMIN") {
+    userId = null;
+  }
+
+  const query = { _id: orderId };
+  if (userId) {
+    query.user = userId;
+  }
+
+  const order = await Order.findOne(query);
+  if (!order) {
+    return { success: false, message: "Order not found." };
   }
 
   const item = order.items.id(itemId);
@@ -991,8 +1017,36 @@ const cancelOrderItem = async (orderId, itemId, reason = "") => {
     return { success: false, message: "Item not found in this order." };
   }
 
-  if (item.itemStatus === "CANCELLED" || item.isStockRestored) {
-    return { success: false, message: "Item is already cancelled." };
+  // Authoritatively evaluate item lifecycle status
+  const currentItemStatus = item.itemStatus || "PLACED";
+  const effectiveStatus = currentItemStatus === "ACTIVE" ? (order.orderStatus || "PLACED") : currentItemStatus;
+
+  if (effectiveStatus === "RETURNED" || order.orderStatus === "RETURNED") {
+    return { success: false, message: "This item has already been returned." };
+  }
+
+  if (effectiveStatus === "CANCELLED" || item.isStockRestored || order.orderStatus === "CANCELLED") {
+    return { success: false, message: "This item has already been cancelled." };
+  }
+
+  if (effectiveStatus === "DELIVERED" || order.orderStatus === "DELIVERED") {
+    return { success: false, message: "This item has been delivered. Please request a return instead." };
+  }
+
+  if (effectiveStatus === "OUT_FOR_DELIVERY") {
+    return { success: false, message: "This item cannot be cancelled because shipment is already in progress." };
+  }
+
+  if (effectiveStatus === "SHIPPED") {
+    return { success: false, message: "This item cannot be cancelled because it has already shipped." };
+  }
+
+  if (item.returnRequest && (item.returnRequest.status === "PENDING" || item.returnRequest.status === "APPROVED")) {
+    return { success: false, message: "This item cannot be cancelled because a return request has already been submitted." };
+  }
+
+  if (effectiveStatus !== "PLACED") {
+    return { success: false, message: `Cannot cancel an item with status "${effectiveStatus}".` };
   }
 
   try {
@@ -1008,9 +1062,12 @@ const cancelOrderItem = async (orderId, itemId, reason = "") => {
   }
 
   const now = new Date();
+  const defaultReason = userId ? "Cancelled by User" : "Item cancelled by Admin";
+  const trimmedReason = (typeof reason === "string" && reason.trim().length > 0) ? reason.trim() : defaultReason;
+
   item.isStockRestored = true;
   item.itemStatus = "CANCELLED";
-  item.cancellationReason = reason || "Item cancelled by Admin";
+  item.cancellationReason = trimmedReason;
   item.cancelledAt = now;
 
   const previousOrderStatus = order.orderStatus;
@@ -1018,7 +1075,7 @@ const cancelOrderItem = async (orderId, itemId, reason = "") => {
   order.orderStatus = derivedStatus;
 
   if (derivedStatus === "CANCELLED") {
-    order.cancellationReason = order.cancellationReason || "All items in order were cancelled.";
+    order.cancellationReason = order.cancellationReason || `All items cancelled (${trimmedReason}).`;
     order.cancelledAt = order.cancelledAt || now;
   } else if (derivedStatus === "DELIVERED" && previousOrderStatus !== "DELIVERED") {
     if (order.paymentMethod === "COD") {
