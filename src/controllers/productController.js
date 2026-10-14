@@ -179,7 +179,7 @@ const editProduct = async (req, res, next) => {
         }
 
         const originalProduct = await productService.getProductById(req.params.id);
-        
+
         let product = {};
         if (originalProduct) {
             product = originalProduct.toObject();
@@ -308,8 +308,9 @@ const getShopProductsData = async (req, res, next) => {
 
 const loadProductDetails = async (req, res, next) => {
     try {
-        const result = await productService.getProductDetails(req.params.id);
-        
+        const userId = req.session?.user?.id || req.session?.user?._id;
+        const result = await productService.getProductDetails(req.params.id, userId);
+
         if (!result) {
             req.session.errorMessage = "This product is no longer available.";
             return res.redirect("/shop");

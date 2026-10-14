@@ -34,7 +34,7 @@ const getCartCount = async (req, res, next) => {
         return res.json({ success: true, count });
     } catch (error) {
         console.error("Get Cart Count Error:", error);
-        return res.status(500).json({ success: false, message: "Server error checking cart count." });
+        return res.status(500).json({ success: false, message: "Unable to retrieve cart count. Please try again." });
     }
 };
 
@@ -60,7 +60,7 @@ const addToCart = async (req, res, next) => {
         return res.json(result);
     } catch (error) {
         console.error("Add to Cart Controller Error:", error);
-        return res.status(500).json({ success: false, message: "Internal server error adding to cart." });
+        return res.status(500).json({ success: false, message: "Unable to add item to cart. Please try again." });
     }
 };
 
@@ -90,7 +90,7 @@ const updateQuantity = async (req, res, next) => {
         return res.json(result);
     } catch (error) {
         console.error("Update Cart Quantity Controller Error:", error);
-        return res.status(500).json({ success: false, message: "Internal server error updating quantity." });
+        return res.status(500).json({ success: false, message: "Unable to update item quantity. Please try again." });
     }
 };
 
@@ -115,7 +115,7 @@ const removeItem = async (req, res, next) => {
         return res.json(result);
     } catch (error) {
         console.error("Remove Cart Item Controller Error:", error);
-        return res.status(500).json({ success: false, message: "Internal server error removing item." });
+        return res.status(500).json({ success: false, message: "Unable to remove item from cart. Please try again." });
     }
 };
 

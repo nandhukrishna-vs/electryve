@@ -962,11 +962,20 @@ const cancelOrder = async (orderId, reason = "") => {
   }
 
   await order.save();
+  const formattedRefundAmount = refundResult?.amount ? refundResult.amount.toLocaleString("en-IN") : null;
+  const userMessage = refundResult?.credited
+    ? `Your order has been cancelled successfully. ₹${formattedRefundAmount} has been refunded to your Electryve Wallet.`
+    : "Your order has been cancelled successfully.";
+  const adminMessage = refundResult?.credited
+    ? `Order cancelled and inventory restored. Wallet refund of ₹${formattedRefundAmount} credited successfully.`
+    : "Order cancelled successfully. Inventory restored.";
+
   return {
     success: true,
-    message: refundResult?.credited
-      ? `Order cancelled, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to your Electryve Wallet.`
-      : "Order cancelled and stock restored successfully.",
+    title: "Order Cancelled Successfully",
+    message: userMessage,
+    userMessage,
+    adminMessage,
     order,
     refund: refundResult
   };
@@ -1122,11 +1131,20 @@ const cancelOrderItem = async (orderId, itemId, reasonOrUserId = "", maybeReason
   }
 
   await order.save();
+  const formattedRefundAmount = refundResult?.amount ? refundResult.amount.toLocaleString("en-IN") : null;
+  const userMessage = refundResult?.credited
+    ? `Your item has been cancelled successfully. ₹${formattedRefundAmount} has been refunded to your Electryve Wallet.`
+    : "Your item has been cancelled successfully.";
+  const adminMessage = refundResult?.credited
+    ? `Item cancelled and inventory restored. Wallet refund of ₹${formattedRefundAmount} credited successfully.`
+    : "Item cancelled successfully. Inventory restored.";
+
   return {
     success: true,
-    message: refundResult?.credited
-      ? `Item cancelled, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to your Electryve Wallet.`
-      : "Item cancelled and stock restored successfully.",
+    title: "Item Cancelled Successfully",
+    message: userMessage,
+    userMessage,
+    adminMessage,
     order,
     refund: refundResult
   };
@@ -1188,7 +1206,11 @@ const requestReturn = async (orderId, userId, reason) => {
   }
 
   if (order.orderStatus !== "DELIVERED") {
-    return { success: false, message: `Return request is only allowed for delivered orders (current status: "${order.orderStatus}").` };
+    return {
+      success: false,
+      message: "Returns can only be requested for orders that have been delivered.",
+      userMessage: "Returns can only be requested for orders that have been delivered."
+    };
   }
 
   const currentReturnStatus = order.returnRequest?.status || "NONE";
@@ -1218,7 +1240,12 @@ const requestReturn = async (orderId, userId, reason) => {
   };
 
   await order.save();
-  return { success: true, message: "Return request submitted successfully.", order };
+  return {
+    success: true,
+    message: "Return request submitted successfully.",
+    userMessage: "Return request submitted successfully.",
+    order
+  };
 };
 
 const requestReturnItem = async (orderId, userId, itemId, reason) => {
@@ -1242,15 +1269,31 @@ const requestReturnItem = async (orderId, userId, itemId, reason) => {
 
   const isItemDelivered = item.itemStatus === "DELIVERED" || (order.orderStatus === "DELIVERED" && item.itemStatus === "ACTIVE");
   if (!isItemDelivered) {
-    return { success: false, message: `Return request is only allowed for delivered items (current status: "${item.itemStatus}").` };
+    return {
+      success: false,
+      message: "Returns can only be requested for items that have been delivered.",
+      userMessage: "Returns can only be requested for items that have been delivered."
+    };
   }
 
   if (order.returnRequest && order.returnRequest.status === "PENDING") {
-    return { success: false, message: "A full order return request is already pending review for this order." };
+    return {
+      success: false,
+      message: "A full order return request is already pending review for this order.",
+      userMessage: "A full order return request is already pending review for this order."
+    };
   }
 
   if (item.itemStatus === "CANCELLED" || item.itemStatus === "RETURNED") {
-    return { success: false, message: `Cannot return an item with status "${item.itemStatus}".` };
+    return {
+      success: false,
+      message: item.itemStatus === "CANCELLED"
+        ? "This item has been cancelled and cannot be returned."
+        : "This item has already been returned.",
+      userMessage: item.itemStatus === "CANCELLED"
+        ? "This item has been cancelled and cannot be returned."
+        : "This item has already been returned."
+    };
   }
 
   const itemReturnStatus = item.returnRequest?.status || "NONE";
@@ -1362,11 +1405,19 @@ const approveReturnRequest = async (orderId) => {
     console.error("[Referral] Error handling full return reward reversal:", refErr);
   }
 
+  const formattedRefundAmount = refundResult?.amount ? refundResult.amount.toLocaleString("en-IN") : null;
+  const adminMessage = refundResult?.credited
+    ? `Return request approved, order marked as returned, inventory restored, and ₹${formattedRefundAmount} credited to user wallet.`
+    : "Return request approved, order marked as returned, and inventory restored.";
+  const userMessage = refundResult?.credited
+    ? `Your return request has been approved. ₹${formattedRefundAmount} has been refunded to your Electryve Wallet.`
+    : "Your return request has been approved.";
+
   return {
     success: true,
-    message: refundResult?.credited
-      ? `Return request approved, order marked as returned, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to user wallet.`
-      : "Return request approved, order marked as returned, and stock restored.",
+    message: adminMessage,
+    adminMessage,
+    userMessage,
     order,
     refund: refundResult
   };
@@ -1512,11 +1563,19 @@ const approveReturnItemRequest = async (orderId, itemId) => {
     console.error("[Referral] Error handling item return reward reversal:", refErr);
   }
 
+  const formattedRefundAmount = refundResult?.amount ? refundResult.amount.toLocaleString("en-IN") : null;
+  const adminMessage = refundResult?.credited
+    ? `Item return request approved, item marked as returned, inventory restored, and ₹${formattedRefundAmount} credited to user wallet.`
+    : "Item return request approved, item marked as returned, and inventory restored.";
+  const userMessage = refundResult?.credited
+    ? `Your item return request has been approved. ₹${formattedRefundAmount} has been refunded to your Electryve Wallet.`
+    : "Your item return request has been approved.";
+
   return {
     success: true,
-    message: refundResult?.credited
-      ? `Item return request approved, stock restored, and ₹${refundResult.amount.toLocaleString("en-IN")} credited to user wallet.`
-      : "Item return request approved and stock restored.",
+    message: adminMessage,
+    adminMessage,
+    userMessage,
     order,
     refund: refundResult
   };

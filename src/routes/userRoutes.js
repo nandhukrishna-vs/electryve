@@ -49,9 +49,18 @@ router.use((req, res, next) => {
   next();
 });
 
+router.get("/login", (req, res) => {
+  const query = req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "";
+  res.redirect(301, `/auth/login${query}`);
+});
+
 router.get("/signup", (req, res) => {
   const query = req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "";
   res.redirect(301, `/auth/signup${query}`);
+});
+
+router.get("/profile/addresses", (req, res) => {
+  res.redirect(301, "/addresses");
 });
 
 router.get("/", loadHome);

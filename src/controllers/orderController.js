@@ -510,12 +510,15 @@ const returnOrder = async (req, res, next) => {
 
     if (!result.success) {
       const statusCode = result.message === "Order not found." ? 404 : 400;
-      return res.status(statusCode).json(result);
+      return res.status(statusCode).json({
+        success: false,
+        message: result.userMessage || result.message
+      });
     }
 
     return res.json({
       success: true,
-      message: result.message || "Return request submitted successfully.",
+      message: result.userMessage || result.message || "Return request submitted successfully.",
       order: result.order
     });
   } catch (error) {
@@ -592,9 +595,21 @@ const cancelOrder = async (req, res, next) => {
 
     // User can cancel only while PLACED
     if (order.orderStatus !== "PLACED") {
+      let friendlyMessage = "This order can no longer be cancelled because processing or shipping is underway.";
+      if (order.orderStatus === "SHIPPED") {
+        friendlyMessage = "This order cannot be cancelled because it has already shipped.";
+      } else if (order.orderStatus === "OUT_FOR_DELIVERY") {
+        friendlyMessage = "This order cannot be cancelled because shipment is already in progress.";
+      } else if (order.orderStatus === "DELIVERED") {
+        friendlyMessage = "This order has been delivered. Please request a return instead.";
+      } else if (order.orderStatus === "CANCELLED") {
+        friendlyMessage = "This order has already been cancelled.";
+      } else if (order.orderStatus === "RETURNED") {
+        friendlyMessage = "This order has already been returned.";
+      }
       return res.status(400).json({
         success: false,
-        message: `Cannot cancel an order with status "${order.orderStatus}". Orders can only be cancelled while PLACED.`
+        message: friendlyMessage
       });
     }
 
@@ -606,13 +621,18 @@ const cancelOrder = async (req, res, next) => {
     const result = await orderService.cancelOrder(orderId, cancellationReason);
 
     if (!result.success) {
-      return res.status(400).json(result);
+      return res.status(400).json({
+        success: false,
+        message: result.userMessage || result.message || "Unable to cancel order. Please try again or contact customer support."
+      });
     }
 
     return res.json({
       success: true,
-      message: result.message || "Order cancelled successfully.",
-      order: result.order
+      message: result.userMessage || result.message || "Order cancelled successfully.",
+      title: result.title || "Order Cancelled Successfully",
+      order: result.order,
+      refund: result.refund
     });
   } catch (error) {
     console.error("User Cancel Order Controller Error:", error);
@@ -643,13 +663,18 @@ const cancelOrderItem = async (req, res, next) => {
     const result = await orderService.cancelOrderItem(orderId, itemId, cancellationReason, userId);
     if (!result.success) {
       const statusCode = (result.message === "Order not found." || result.message === "Item not found in this order.") ? 404 : 400;
-      return res.status(statusCode).json(result);
+      return res.status(statusCode).json({
+        success: false,
+        message: result.userMessage || result.message || "Unable to cancel item. Please try again or contact customer support."
+      });
     }
 
     return res.json({
       success: true,
-      message: result.message || "Item cancelled successfully.",
-      order: result.order
+      message: result.userMessage || result.message || "Item cancelled successfully.",
+      title: result.title || "Item Cancelled Successfully",
+      order: result.order,
+      refund: result.refund
     });
   } catch (error) {
     console.error("User Cancel Order Item Controller Error:", error);
@@ -690,12 +715,15 @@ const requestReturnItem = async (req, res, next) => {
     const result = await orderService.requestReturnItem(orderId, userId, itemId, reason.trim());
     if (!result.success) {
       const statusCode = result.message === "Order not found." || result.message === "Item not found in this order." ? 404 : 400;
-      return res.status(statusCode).json(result);
+      return res.status(statusCode).json({
+        success: false,
+        message: result.userMessage || result.message
+      });
     }
 
     return res.json({
       success: true,
-      message: result.message || "Item return request submitted successfully.",
+      message: result.userMessage || result.message || "Item return request submitted successfully.",
       order: result.order
     });
   } catch (error) {

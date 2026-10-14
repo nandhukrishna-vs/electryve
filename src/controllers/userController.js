@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import Address from "../models/Address.js";
 import * as userService from "../services/userService.js";
@@ -187,6 +188,11 @@ const addAddress = async (req, res) => {
 
 const loadEditAddress = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      req.session.errorMessage = "Address not found";
+      return res.redirect("/addresses");
+    }
+
     const address = await Address.findOne({
       _id: req.params.id,
       userId: req.session.user.id

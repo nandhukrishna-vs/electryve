@@ -43,12 +43,46 @@
         object-fit: contain;
         padding: 0.25rem;
     }
-    /* Offers section formatting */
+    /* Offers section responsive layout */
+    .pdp-offers-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        margin: 0;
+    }
+    @media (min-width: 576px) {
+        .pdp-offers-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    /* Ensure nested Bootstrap .row and .col styles do not introduce negative margins or unexpected widths */
+    .pdp-offers-grid.row,
+    .pdp-offers-grid .row {
+        margin-left: 0;
+        margin-right: 0;
+    }
+    .pdp-offers-grid > .col,
+    .pdp-offers-grid .col {
+        padding-left: 0;
+        padding-right: 0;
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        flex: none;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .pdp-offers-grid > * {
+        min-width: 0;
+    }
     .pdp-offer-card {
         background-color: #ffffff;
         border: 1px solid #e5e7eb;
         border-radius: 12px;
         transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+        width: 100%;
     }
     .pdp-offer-card:hover {
         transform: translateY(-2px);
@@ -144,15 +178,15 @@
         </nav>
 
         <div class="row g-4 mb-5">
-            
+
             <!-- Left Column: Product Image Gallery -->
             <div class="col-md-6 col-lg-5">
-                
+
                 <!-- Main viewport image container -->
                 <div class="pdp-main-image-viewport shadow-sm" id="pdpMainImgContainer">
-                    <img 
-                        src="<%= product.defaultVariant.display.image %>" 
-                        id="pdpMainProductImg" 
+                    <img
+                        src="<%= product.defaultVariant.display.image %>"
+                        id="pdpMainProductImg"
                         alt="<%= product.name %>"
                     >
                 </div>
@@ -170,11 +204,11 @@
                 <div class="card border-0 shadow-sm rounded-4 p-3.5 mt-4 bg-white">
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="fw-bold text-dark small">Product Options</span>
-                        
+
                         <!-- Share and Wishlist placeholder UI buttons -->
                         <div class="d-flex gap-2">
-                            <!-- Share Product (UI Only Placeholder) -->
-                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5" title="Share Product" onclick="alert('Feature coming soon!')">
+                            <!-- Share Product -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5" id="pdpShareBtn" title="Share Product" onclick="shareProduct()">
                                 <i class="bi bi-share"></i> Share
                             </button>
                             <!-- Wishlist -->
@@ -190,7 +224,7 @@
             <!-- Right Column: Product Detail Attributes -->
             <div class="col-md-6 col-lg-7">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                    
+
                     <!-- Brand information -->
                     <span class="text-uppercase text-muted fw-bold small tracking-wider mb-1 d-block">
                         <%= product.brand.name %>
@@ -229,17 +263,17 @@
                         <span class="fw-bold fs-2 <%= defHasOffer ? 'text-success' : 'text-dark' %>" id="pdpDisplaySalePrice">
                             ₹<%= (defHasOffer ? product.defaultVariant.display.effectiveSalePrice : product.defaultVariant.display.salePrice).toLocaleString('en-IN') %>
                         </span>
-                        
-                        <span 
-                            class="text-muted text-decoration-line-through fs-6" 
+
+                        <span
+                            class="text-muted text-decoration-line-through fs-6"
                             id="pdpDisplayRegularPrice"
                             style="<%= (defHasOffer || product.defaultVariant.display.discountPercentage > 0) ? '' : 'display: none;' %>"
                         >
                             ₹<%= (defHasOffer ? product.defaultVariant.display.salePrice : product.defaultVariant.display.regularPrice).toLocaleString('en-IN') %>
                         </span>
-                        
-                        <span 
-                            class="badge bg-danger rounded-3 px-2.5 py-1.5 fw-semibold ms-2" 
+
+                        <span
+                            class="badge bg-danger rounded-3 px-2.5 py-1.5 fw-semibold ms-2"
                             id="pdpDisplayDiscountBadge"
                             style="<%= (!defHasOffer && product.defaultVariant.display.discountPercentage > 0) ? '' : 'display: none;' %>"
                         >
@@ -257,19 +291,19 @@
 
                     <!-- Stock indicator badges -->
                     <div class="mb-4">
-                        <span 
+                        <span
                             id="pdpDisplayStockBadge"
-                            class="badge rounded-pill px-3 py-1.5 fw-semibold border <%= 
-                                product.defaultVariant.display.stockStatus === 'In Stock' ? 'bg-success-subtle text-success border-success-subtle' : 
-                                product.defaultVariant.display.stockStatus === 'Low Stock' ? 'bg-warning-subtle text-warning-emphasis border-warning-subtle' : 
-                                'bg-danger-subtle text-danger border-danger-subtle' 
+                            class="badge rounded-pill px-3 py-1.5 fw-semibold border <%=
+                                product.defaultVariant.display.stockStatus === 'In Stock' ? 'bg-success-subtle text-success border-success-subtle' :
+                                product.defaultVariant.display.stockStatus === 'Low Stock' ? 'bg-warning-subtle text-warning-emphasis border-warning-subtle' :
+                                'bg-danger-subtle text-danger border-danger-subtle'
                             %>"
                             style="font-size: 0.8rem;"
                         >
-                            <%= 
-                                product.defaultVariant.display.stockStatus === 'In Stock' ? '🟢 In Stock' : 
-                                product.defaultVariant.display.stockStatus === 'Low Stock' ? '🟡 Low Stock' : 
-                                '🔴 Out of Stock' 
+                            <%=
+                                product.defaultVariant.display.stockStatus === 'In Stock' ? '🟢 In Stock' :
+                                product.defaultVariant.display.stockStatus === 'Low Stock' ? '🟡 Low Stock' :
+                                '🔴 Out of Stock'
                             %>
                         </span>
                     </div>
@@ -280,8 +314,8 @@
                             <label class="form-label fw-bold text-dark small mb-2">Select variant</label>
                             <div class="d-flex flex-wrap gap-2" id="pdpVariantSelector">
                                 <% product.variants.forEach((v, idx) => { %>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         class="btn btn-sm btn-outline-dark rounded-3 px-3 py-2 text-start pdp-variant-opt-btn <%= v.sku === product.defaultVariant.display.sku ? 'active' : '' %>"
                                         data-index="<%= idx %>"
                                     >
@@ -303,7 +337,7 @@
                             <i class="bi bi-tags text-success fs-5"></i>
                             Available Offers
                         </h6>
-                        <div class="row row-cols-1 row-cols-md-3 g-2.5">
+                        <div class="pdp-offers-grid">
                             <% if (product.bestOffer && product.unitOfferDiscount > 0) { %>
                                 <div class="col">
                                     <div class="p-3 pdp-offer-card h-100 border-success bg-success-subtle">
@@ -316,7 +350,7 @@
                                     </div>
                                 </div>
                             <% } %>
-                            
+
                             <div class="col">
                                 <div class="p-3 pdp-offer-card h-100">
                                     <div class="fw-bold text-dark mb-1.5 small">
@@ -361,14 +395,14 @@
                                 <button class="btn btn-outline-secondary btn-sm px-2.5" type="button" id="qtyBtnMinus" onclick="changePdpQty(-1)">
                                     <i class="bi bi-dash"></i>
                                 </button>
-                                <input 
-                                    type="number" 
-                                    id="quantity" 
-                                    name="quantity" 
-                                    value="<%= product.defaultVariant.display.stock > 0 ? 1 : 0 %>" 
-                                    min="<%= product.defaultVariant.display.stock > 0 ? 1 : 0 %>" 
-                                    max="<%= product.defaultVariant.display.stock %>" 
-                                    class="form-control text-center bg-white border-secondary-subtle" 
+                                <input
+                                    type="number"
+                                    id="quantity"
+                                    name="quantity"
+                                    value="<%= product.defaultVariant.display.stock > 0 ? 1 : 0 %>"
+                                    min="<%= product.defaultVariant.display.stock > 0 ? 1 : 0 %>"
+                                    max="<%= product.defaultVariant.display.stock %>"
+                                    class="form-control text-center bg-white border-secondary-subtle"
                                     readonly
                                 >
                                 <button class="btn btn-outline-secondary btn-sm px-2.5" type="button" id="qtyBtnPlus" onclick="changePdpQty(1)">
@@ -378,17 +412,17 @@
                         </div>
 
                         <div class="d-flex gap-2 flex-grow-1">
-                            <button 
-                                type="button" 
-                                id="pdpAddToCartBtn" 
+                            <button
+                                type="button"
+                                id="pdpAddToCartBtn"
                                 class="btn btn-outline-dark rounded-3 py-2 px-4 fw-semibold flex-grow-1 shadow-sm"
                                 <%= product.defaultVariant.display.stock > 0 ? '' : 'disabled' %>
                             >
                                 Add to Cart
                             </button>
-                            <button 
-                                type="button" 
-                                id="pdpBuyNowBtn" 
+                            <button
+                                type="button"
+                                id="pdpBuyNowBtn"
                                 class="btn btn-dark rounded-3 py-2 px-4 fw-semibold flex-grow-1 shadow-sm"
                                 <%= product.defaultVariant.display.stock > 0 ? '' : 'disabled' %>
                             >
@@ -398,7 +432,7 @@
                     </div>
 
                     <!-- Highlights bullet points block (displays only if attributes exist) -->
-                    <% 
+                    <%
                     const highlightsList = [];
                     if (product.defaultVariant.display.sku) {
                         highlightsList.push(`Storage configuration: ${product.defaultVariant.storage || 'Standard'}`);
@@ -434,12 +468,12 @@
                     <div class="card border-light-subtle p-3.5 mt-auto rounded-3">
                         <h6 class="fw-bold text-dark mb-3">Key Specifications</h6>
                         <div class="container-fluid p-0">
-                            
+
                             <div class="row spec-table-row">
                                 <div class="col-6 text-secondary small fw-medium">Brand</div>
                                 <div class="col-6 text-dark small fw-bold"><%= product.brand.name %></div>
                             </div>
-                            
+
                             <div class="row spec-table-row">
                                 <div class="col-6 text-secondary small fw-medium">Color</div>
                                 <div class="col-6 text-dark small fw-bold" id="specColor"><%= product.defaultVariant.color %></div>
@@ -471,7 +505,7 @@
         <!-- Reviews & Ratings Section -->
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mt-5 mb-5" id="reviews-ratings-container">
             <h3 class="fw-bold text-dark mb-4">Customer Reviews & Ratings</h3>
-            
+
             <div class="row g-4">
                 <!-- Rating Summary Column -->
                 <div class="col-lg-4">
@@ -490,10 +524,10 @@
                             <% } %>
                         </div>
                         <p class="text-muted mb-0" id="totalReviewsDisplay"><%= product.totalReviews || 0 %> Ratings & Reviews</p>
-                        
+
                         <!-- Rating Distribution Bars -->
                         <div class="w-100 mt-4" id="distributionBars">
-                            <% for(let stars = 5; stars >= 1; stars--) { 
+                            <% for(let stars = 5; stars >= 1; stars--) {
                                 const count = product.ratingDistribution ? (product.ratingDistribution[stars] || 0) : 0;
                                 const percentage = (product.totalReviews || 0) > 0 ? (count / product.totalReviews) * 100 : 0;
                             %>
@@ -509,20 +543,20 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Reviews List and Actions Column -->
                 <div class="col-lg-8">
                     <!-- User Review Actions Area (Write / Edit / View Own Review) -->
                     <div id="user-review-action-area" class="mb-4 p-4 border rounded-4 bg-white" style="display: none;">
                         <!-- Populate dynamically using script -->
                     </div>
-                    
+
                     <!-- Reviews List Container -->
                     <div id="reviews-list-container">
                         <div id="reviews-list" class="d-flex flex-column gap-3">
                             <!-- Loaded dynamically via AJAX -->
                         </div>
-                        
+
                         <!-- Pagination -->
                         <nav aria-label="Reviews pagination" class="mt-4" id="reviews-pagination" style="display: none;">
                             <ul class="pagination pagination-sm justify-content-center mb-0">
@@ -539,14 +573,16 @@
             <div class="border-top pt-5">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h3 class="fw-bold text-dark mb-0">Related Products</h3>
-                    <div class="text-muted small">Swipe or scroll horizontally &rarr;</div>
+                    <% if (relatedProducts.length > 4) { %>
+                        <div class="text-muted small">Swipe or scroll horizontally &rarr;</div>
+                    <% } %>
                 </div>
-                
-                <div class="pdp-related-scroll-container" id="pdpRelatedScroll">
+
+                <div class="<%= relatedProducts.length <= 4 ? 'row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4' : 'pdp-related-scroll-container' %>" <%= relatedProducts.length > 4 ? 'id="pdpRelatedScroll"' : '' %>>
                     <% relatedProducts.forEach(rp => { %>
-                        <div class="pdp-related-item-card">
-                            <div class="pdp-rp-card shadow-sm">
-                                
+                        <div class="<%= relatedProducts.length <= 4 ? 'col' : 'pdp-related-item-card' %>">
+                            <div class="pdp-rp-card shadow-sm h-100">
+
                                 <!-- Image box -->
                                 <div class="pdp-rp-img-box">
                                     <% if (rp.defaultVariant.display.discountPercentage > 0) { %>
@@ -555,9 +591,14 @@
                                         </span>
                                     <% } %>
 
-                                    <!-- Wishlist placeholder heart (UI only) -->
-                                    <button type="button" class="btn btn-light position-absolute top-3 end-3 rounded-circle d-flex align-items-center justify-content-center border shadow-sm" style="width: 32px; height: 32px; z-index: 2;" title="Add to Wishlist" onclick="alert('Wishlist mockup!')">
-                                        <i class="bi bi-heart text-danger" style="font-size: 0.9rem;"></i>
+                                    <!-- Wishlist button -->
+                                    <button type="button"
+                                        class="btn btn-light position-absolute top-3 end-3 rounded-circle d-flex align-items-center justify-content-center border shadow-sm wishlist-heart-btn"
+                                        style="width: 32px; height: 32px; z-index: 2;"
+                                        title="Wishlist"
+                                        data-product-id="<%= rp._id %>"
+                                        data-variant-id="<%= rp.defaultVariant._id %>">
+                                        <i class="bi <%= rp.isInWishlist ? 'bi-heart-fill text-danger' : 'bi-heart text-danger' %>" style="font-size: 0.9rem;"></i>
                                     </button>
 
                                     <!-- Image content -->
@@ -569,7 +610,7 @@
                                     <div>
                                         <div class="text-muted small fw-medium mb-1"><%= rp.brand?.name || '-' %></div>
                                         <h6 class="fw-bold text-dark pdp-rp-name-clamp mb-2" title="<%= rp.name %>"><%= rp.name %></h6>
-                                        
+
                                         <div class="mb-3">
                                             <% if (rp.defaultVariant.display.stockStatus === 'In Stock') { %>
                                                 <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-medium" style="font-size: 0.7rem;">In Stock</span>
@@ -593,7 +634,7 @@
                                                 <% } %>
                                             <% } %>
                                         </div>
-                                        
+
                                         <% if (rp.bestOffer && rp.unitOfferDiscount > 0) { %>
                                             <div class="mb-2">
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 fw-semibold" style="font-size: 0.65rem;">
@@ -647,7 +688,7 @@ const pdpVariants = JSON.parse(document.getElementById('productVariantsJson').te
 // Thumbnail switch function
 function switchPdpImage(imageUrl, thumbBox) {
     const mainImg = document.getElementById('pdpMainProductImg');
-    
+
     // Apply smooth fade out transition
     mainImg.style.opacity = '0';
     setTimeout(() => {
@@ -667,11 +708,11 @@ function changePdpQty(delta) {
     const min = parseInt(qtyInput.min) || 0;
     const max = parseInt(qtyInput.max) || 0;
     let currentVal = parseInt(qtyInput.value) || 0;
-    
+
     currentVal += delta;
     if (currentVal < min) currentVal = min;
     if (currentVal > max) currentVal = max;
-    
+
     qtyInput.value = currentVal;
     updatePdpQtyButtons();
 }
@@ -681,17 +722,17 @@ function updatePdpQtyButtons() {
     const min = parseInt(qtyInput.min) || 0;
     const max = parseInt(qtyInput.max) || 0;
     const currentVal = parseInt(qtyInput.value) || 0;
-    
+
     document.getElementById('qtyBtnMinus').disabled = (currentVal <= min);
     document.getElementById('qtyBtnPlus').disabled = (currentVal >= max || max === 0);
 }
 
 document.addEventListener("DOMContentLoaded", function() {
-    
+
     // Hover zoom on desktop & Touch focus on mobile viewport image container
     const mainContainer = document.getElementById('pdpMainImgContainer');
     const mainImg = document.getElementById('pdpMainProductImg');
-    
+
     if (mainContainer && mainImg) {
         mainContainer.addEventListener('mousemove', (e) => {
             const rect = mainContainer.getBoundingClientRect();
@@ -700,12 +741,12 @@ document.addEventListener("DOMContentLoaded", function() {
             mainImg.style.transformOrigin = `${x}% ${y}%`;
             mainImg.style.transform = 'scale(1.7)';
         });
-        
+
         mainContainer.addEventListener('mouseleave', () => {
             mainImg.style.transform = 'scale(1)';
             mainImg.style.transformOrigin = 'center center';
         });
-        
+
         mainContainer.addEventListener('click', () => {
             const zoomModal = new bootstrap.Modal(document.getElementById('pdpImageZoomModal'));
             document.getElementById('pdpModalZoomImg').src = mainImg.src;
@@ -719,7 +760,7 @@ document.addEventListener("DOMContentLoaded", function() {
         btn.addEventListener('click', function() {
             variantBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-            
+
             const variantIndex = parseInt(this.dataset.index);
             const variant = pdpVariants[variantIndex];
             if (!variant) return;
@@ -838,7 +879,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (highlightsContainer) {
                 const list = highlightsContainer.querySelector('.highlight-list');
                 list.innerHTML = '';
-                
+
                 const lists = [
                     `Storage configuration: ${variant.storage || 'Standard'}`
                 ];
@@ -873,7 +914,7 @@ document.addEventListener("DOMContentLoaded", function() {
         addCartBtn.addEventListener('click', function() {
             const qty = parseInt(document.getElementById('quantity').value) || 1;
             const activeVariantBtn = document.querySelector('.pdp-variant-opt-btn.active');
-            
+
             // Map selected variant id from active selector button indices
             let selectedVariantId = '<%= product.defaultVariant._id %>';
             if (activeVariantBtn) {
@@ -1072,6 +1113,122 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    // Share Product Action
+    function shareProduct() {
+        const shareData = {
+            title: <%- JSON.stringify(product.name) %>,
+            text: 'Check out ' + <%- JSON.stringify(product.name) %> + ' on Electryve!',
+            url: window.location.href
+        };
+        if (navigator.share) {
+            navigator.share(shareData).catch(() => {});
+        } else if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                if (window.showSuccess) {
+                    window.showSuccess("Product link copied to clipboard!");
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Link Copied',
+                        text: 'Product link copied to clipboard!',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            }).catch(() => {
+                prompt("Copy this link:", window.location.href);
+            });
+        } else {
+            prompt("Copy this link:", window.location.href);
+        }
+    }
+
+    // Delegated Wishlist Toggle for Related Products
+    document.addEventListener("click", function(e) {
+        const btn = e.target.closest(".wishlist-heart-btn");
+        if (!btn) return;
+        e.preventDefault();
+
+        const pId = btn.dataset.productId;
+        const vId = btn.dataset.variantId;
+        const icon = btn.querySelector("i");
+        if (!pId || !vId) return;
+
+        const inWishlist = icon && icon.classList.contains("bi-heart-fill");
+        const url = inWishlist ? "/wishlist/remove" : "/wishlist/add";
+
+        btn.disabled = true;
+
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ productId: pId, variantId: vId })
+        })
+        .then(res => {
+            if (res.status === 401) {
+                Swal.fire({
+                    title: 'Log In Required',
+                    text: 'You need to log in to manage your wishlist.',
+                    icon: 'info',
+                    showCancelButton: true,
+                    confirmButtonText: 'Log In',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#111827'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = "/auth/login";
+                    }
+                });
+                return;
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (!data) return;
+            if (data.success) {
+                if (data.inWishlist) {
+                    icon.className = "bi bi-heart-fill text-danger";
+                } else {
+                    icon.className = "bi bi-heart text-danger";
+                }
+                if (window.showSuccess) {
+                    window.showSuccess(data.message);
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: data.message,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+                if (typeof refreshNavbarWishlistCount === "function") {
+                    refreshNavbarWishlistCount();
+                }
+            } else {
+                if (window.showError) {
+                    window.showError(data.message);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message,
+                        confirmButtonColor: '#111827'
+                    });
+                }
+            }
+        })
+        .catch(err => {
+            console.error("Related product wishlist toggle error:", err);
+            window.location.href = "/auth/login";
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
+    });
+
     // Reviews & Ratings Module
     const productId = "<%= product._id %>";
     const isUserLoggedIn = <%= user ? 'true' : 'false' %>;
@@ -1113,10 +1270,10 @@ document.addEventListener("DOMContentLoaded", function() {
         let html = "";
         reviews.forEach(review => {
             const userName = review.user?.fullName || "Anonymous";
-            const userAvatar = review.user?.avatar 
-                ? `/uploads/${review.user.avatar}` 
+            const userAvatar = review.user?.avatar
+                ? `/uploads/${review.user.avatar}`
                 : "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/person-circle.svg";
-            
+
             const dateStr = new Date(review.createdAt).toLocaleDateString("en-IN", {
                 day: "numeric",
                 month: "short",
@@ -1225,7 +1382,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function renderMyReviewView(review) {
         const actionArea = document.getElementById("user-review-action-area");
-        
+
         let starsHtml = "";
         for (let i = 1; i <= 5; i++) {
             if (review.rating >= i) {
@@ -1234,7 +1391,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 starsHtml += `<i class="bi bi-star text-muted"></i>`;
             }
         }
-        
+
         const escapedText = escapeHtml(review.reviewText);
 
         actionArea.innerHTML = `
@@ -1258,13 +1415,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function renderWriteReviewForm(editingReview = null) {
         const actionArea = document.getElementById("user-review-action-area");
-        
+
         const heading = editingReview ? "Edit Your Review" : "Write a Review";
         const btnText = editingReview ? "Update Review" : "Submit Review";
         const currentRating = editingReview ? editingReview.rating : 0;
         const currentText = editingReview ? editingReview.reviewText : "";
-        const cancelBtn = editingReview 
-            ? `<button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadUserReviewArea()">Cancel</button>` 
+        const cancelBtn = editingReview
+            ? `<button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadUserReviewArea()">Cancel</button>`
             : "";
 
         actionArea.innerHTML = `
@@ -1341,7 +1498,7 @@ document.addEventListener("DOMContentLoaded", function() {
         // Initialize Character Counter
         const textarea = actionArea.querySelector("#reviewTextInput");
         const charSpan = actionArea.querySelector("#charCount");
-        
+
         if (textarea) {
             charSpan.textContent = textarea.value.length;
             textarea.addEventListener("input", () => {
@@ -1353,7 +1510,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const form = actionArea.querySelector("#review-submit-form");
         form.addEventListener("submit", (e) => {
             e.preventDefault();
-            
+
             const rating = ratingInput.value;
             const reviewText = textarea.value;
 
@@ -1368,10 +1525,10 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function submitReview(rating, reviewText, editReviewId = null) {
-        const url = editReviewId 
-            ? `/product/${productId}/reviews/${editReviewId}` 
+        const url = editReviewId
+            ? `/product/${productId}/reviews/${editReviewId}`
             : `/product/${productId}/reviews`;
-        
+
         const method = editReviewId ? "PATCH" : "POST";
         const submitBtn = document.getElementById("reviewSubmitBtn");
         if (submitBtn) submitBtn.disabled = true;
@@ -1386,18 +1543,18 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(res => res.json())
         .then(data => {
             if (submitBtn) submitBtn.disabled = false;
-            
+
             if (data.success) {
                 if (window.showSuccess) {
                     window.showSuccess(data.message);
                 } else {
                     Swal.fire({ title: "Success", text: data.message, icon: "success", confirmButtonColor: "#111827" });
                 }
-                
+
                 // Refresh Areas
                 loadUserReviewArea();
                 loadReviews(1);
-                
+
                 // Recalculate and update summary display immediately
                 if (data.summary) {
                     updateRatingSummary(data.summary);
@@ -1455,11 +1612,11 @@ document.addEventListener("DOMContentLoaded", function() {
                         } else {
                             Swal.fire({ title: "Deleted", text: data.message, icon: "success", confirmButtonColor: "#111827" });
                         }
-                        
+
                         // Refresh Areas
                         loadUserReviewArea();
                         loadReviews(1);
-                        
+
                         // Recalculate and update summary display immediately
                         if (data.summary) {
                             updateRatingSummary(data.summary);
@@ -1488,18 +1645,18 @@ document.addEventListener("DOMContentLoaded", function() {
         const avg = summary.averageRating || 0;
         const total = summary.totalReviews || 0;
         const dist = summary.ratingDistribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        
+
         // Update Header Display
         const headerAvg = document.getElementById("pdpHeaderAvgRating");
         if (headerAvg) headerAvg.textContent = `${avg} / 5`;
         const headerTotal = document.getElementById("pdpHeaderTotalReviews");
         if (headerTotal) headerTotal.textContent = `${total} Reviews`;
-        
+
         const headerStars = document.getElementById("pdpHeaderStars");
         if (headerStars) {
             headerStars.innerHTML = getStarsHtml(avg);
         }
-        
+
         // Update Card Display
         const cardAvg = document.getElementById("avgRatingDisplay");
         if (cardAvg) cardAvg.textContent = avg;
@@ -1509,7 +1666,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (cardStars) {
             cardStars.innerHTML = getStarsHtml(avg);
         }
-        
+
         // Update Distribution progress bars
         const distContainer = document.getElementById("distributionBars");
         if (distContainer) {

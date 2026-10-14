@@ -12,7 +12,7 @@ import { getBestOfferForItem, getOffersForCatalog, getOfferTargetsForCatalog  } 
 
 const ITEMS_PER_PAGE = 10;
 
-/* 
+/*
    Helpers
 */
 
@@ -121,7 +121,7 @@ const validateDuplicateVariants = (variants) => {
 
 };
 
-/* 
+/*
    Product List
 */
 
@@ -180,7 +180,7 @@ const getProducts = async ({
 
 };
 
-/* 
+/*
    Create Product
  */
 
@@ -356,7 +356,7 @@ const variantData = variants.map((variant, index) => ({
                 console.error("Rollback failed for new image:", deleteError.message);
             }
         }
-        
+
         if (error.code === 11000) {
             const errors = {};
             if (error.keyValue) {
@@ -394,7 +394,7 @@ const variantData = variants.map((variant, index) => ({
                 errors
             };
         }
-        
+
         throw error;
     }
 
@@ -591,7 +591,7 @@ const updateProduct = async ({
         for (let j = 0; j < imageUrls.length; j++) {
             const oldUrl = imageUrls[j];
             const targetUrl = body[`replaceTarget_${i}_${j}`];
-            
+
             if (targetUrl && (oldUrl === targetUrl || decodeURIComponent(oldUrl) === decodeURIComponent(targetUrl))) {
                 const replacementFile = (files || []).find(
                     file => file.fieldname === `replaceImage_${i}_${j}`
@@ -699,7 +699,7 @@ const updateProduct = async ({
                 console.error("Rollback failed for new image:", deleteError.message);
             }
         }
-        
+
         if (error.code === 11000) {
             const errors = {};
             if (error.keyValue) {
@@ -737,10 +737,10 @@ const updateProduct = async ({
                 errors
             };
         }
-        
+
         throw error;
     }
-    
+
     const uniqueImagesToDelete = [...new Set(imagesToDelete)];
     for (const image of uniqueImagesToDelete) {
         // Ensure image is not still referenced by any variant of the current product
@@ -781,7 +781,7 @@ const updateProduct = async ({
 
 };
 
-/* 
+/*
    Toggle Product Status
 */
 
@@ -814,7 +814,7 @@ const toggleProductStatus = async (id) => {
 
 };
 
-/* 
+/*
    Delete Product
 */
 
@@ -990,6 +990,9 @@ const getShopProducts = async (query, userId) => {
             const finalPrice = effectivePrice;
             if (regPrice > 0 && finalPrice < regPrice) {
                 discountPercentage = Math.round(((regPrice - finalPrice) / regPrice) * 100);
+                if (discountPercentage >= 100 && finalPrice > 0) {
+                    discountPercentage = 99;
+                }
             }
 
             // Compute stock status
@@ -1031,7 +1034,7 @@ const getShopProducts = async (query, userId) => {
     };
 };
 
-const getProductDetails = async (id) => {
+const getProductDetails = async (id, userId = null) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return null;
     }
@@ -1057,6 +1060,18 @@ const getProductDetails = async (id) => {
 
     const fallbackSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23f3f4f6"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-family="sans-serif" font-size="16">No Image Available</text></svg>`;
 
+    let wishlistVariantIds = [];
+    if (userId) {
+        try {
+            const userWishlist = await Wishlist.findOne({ user: userId });
+            if (userWishlist) {
+                wishlistVariantIds = userWishlist.items.map(it => String(it.variantId));
+            }
+        } catch (wErr) {
+            console.error("Error fetching wishlist in getProductDetails:", wErr);
+        }
+    }
+
     const now = new Date();
     const productOffers = await Offer.find({
         isDeleted: false,
@@ -1070,7 +1085,7 @@ const getProductDetails = async (id) => {
     }).lean();
 
     const rawVariants = Array.isArray(product.variants) ? product.variants : [];
-    
+
     const activeVariants = rawVariants
         .filter(v => v && v.isListed)
         .map(v => {
@@ -1081,6 +1096,9 @@ const getProductDetails = async (id) => {
             let discountPercentage = 0;
             if (regPrice > 0 && salePrice < regPrice) {
                 discountPercentage = Math.round(((regPrice - salePrice) / regPrice) * 100);
+                if (discountPercentage >= 100 && salePrice > 0) {
+                    discountPercentage = 99;
+                }
             }
             const stockStatus = v.stock <= 0 ? "Out of Stock" : (v.stock <= 5 ? "Low Stock" : "In Stock");
 
@@ -1157,7 +1175,7 @@ const getProductDetails = async (id) => {
 
         const rpDefaultVariant = rpActiveVariants[0];
         const rpImages = Array.isArray(rpDefaultVariant.images) ? rpDefaultVariant.images : [];
-        
+
         if (!rpDefaultVariant.salePrice || rpDefaultVariant.salePrice <= 0) {
             return null;
         }
@@ -1168,6 +1186,9 @@ const getProductDetails = async (id) => {
         let discountPercentage = 0;
         if (regPrice > 0 && salePrice < regPrice) {
             discountPercentage = Math.round(((regPrice - salePrice) / regPrice) * 100);
+            if (discountPercentage >= 100 && salePrice > 0) {
+                discountPercentage = 99;
+            }
         }
         const stockStatus = rpDefaultVariant.stock <= 0 ? "Out of Stock" : (rpDefaultVariant.stock <= 5 ? "Low Stock" : "In Stock");
 
@@ -1190,8 +1211,13 @@ const getProductDetails = async (id) => {
         const rpUnitOfferDiscount = rpBestOffer ? rpBestOffer.unitDiscount : 0;
         const rpEffectivePrice = Math.max(0, salePrice - rpUnitOfferDiscount);
 
+        const rpIsInWishlist = (rpDefaultVariant && rpDefaultVariant._id)
+            ? wishlistVariantIds.includes(String(rpDefaultVariant._id))
+            : false;
+
         return {
             ...rp,
+            isInWishlist: rpIsInWishlist,
             bestOffer: rpBestOffer,
             unitOfferDiscount: rpUnitOfferDiscount,
             effectivePrice: rpEffectivePrice,
@@ -1216,9 +1242,14 @@ const getProductDetails = async (id) => {
 
     const reviewSummary = await getProductReviewsSummary(id);
 
+    const isProductInWishlist = (defaultVariant && defaultVariant._id)
+        ? wishlistVariantIds.includes(String(defaultVariant._id))
+        : false;
+
     return {
         product: {
             ...product,
+            isInWishlist: isProductInWishlist,
             defaultVariant,
             bestOffer: defaultVariant.bestOffer,
             unitOfferDiscount: defaultVariant.unitOfferDiscount,

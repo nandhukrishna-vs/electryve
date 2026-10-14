@@ -71,10 +71,16 @@ const cancelOrder = async (req, res, next) => {
 
     const result = await orderService.cancelOrder(id, reason);
     if (!result.success) {
-      return res.status(400).json(result);
+      return res.status(400).json({
+        ...result,
+        message: result.adminMessage || result.message
+      });
     }
 
-    res.json(result);
+    res.json({
+      ...result,
+      message: result.adminMessage || result.message
+    });
   } catch (error) {
     console.error("Admin Cancel Order Error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to cancel order." });
@@ -88,10 +94,16 @@ const cancelOrderItem = async (req, res, next) => {
 
     const result = await orderService.cancelOrderItem(id, itemId, reason);
     if (!result.success) {
-      return res.status(400).json(result);
+      return res.status(400).json({
+        ...result,
+        message: result.adminMessage || result.message
+      });
     }
 
-    res.json(result);
+    res.json({
+      ...result,
+      message: result.adminMessage || result.message
+    });
   } catch (error) {
     console.error("Admin Cancel Order Item Error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to cancel item." });
@@ -104,10 +116,16 @@ const approveReturnRequest = async (req, res, next) => {
     const result = await orderService.approveReturnRequest(id);
 
     if (!result.success) {
-      return res.status(400).json(result);
+      return res.status(400).json({
+        ...result,
+        message: result.adminMessage || result.message
+      });
     }
 
-    res.json(result);
+    res.json({
+      ...result,
+      message: result.adminMessage || result.message
+    });
   } catch (error) {
     console.error("Admin Approve Return Request Error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to approve return request." });
@@ -145,10 +163,16 @@ const approveReturnItemRequest = async (req, res, next) => {
     const result = await orderService.approveReturnItemRequest(id, itemId);
 
     if (!result.success) {
-      return res.status(400).json(result);
+      return res.status(400).json({
+        ...result,
+        message: result.adminMessage || result.message
+      });
     }
 
-    res.json(result);
+    res.json({
+      ...result,
+      message: result.adminMessage || result.message
+    });
   } catch (error) {
     console.error("Admin Approve Return Item Request Error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to approve return request." });
