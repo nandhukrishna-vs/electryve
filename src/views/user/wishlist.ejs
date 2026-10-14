@@ -43,7 +43,7 @@
         border-radius: 6px;
         padding: 3px 6px;
     }
-    
+
     @media (max-width: 991px) {
         .wishlist-item-card {
             grid-template-columns: 100px minmax(0, 1fr) auto;
@@ -98,7 +98,7 @@
         <% if (wishlistItems && wishlistItems.length > 0) { %>
             <div class="row g-4" id="wishlistGrid">
                 <% wishlistItems.forEach(item => { %>
-                    <% 
+                    <%
                       const p = item.product;
                       const v = item.variant;
                       const isOutOfStock = v && v.stock <= 0;
@@ -144,14 +144,26 @@
                             <!-- Price -->
                             <div class="wishlist-price-area text-start text-md-end w-100">
                                 <% if (item.isAvailable && v) { %>
-                                    <% if (v.salePrice && v.salePrice < v.regularPrice) { %>
+                                    <%
+                                      const regPrice = v.regularPrice || 0;
+                                      const salePrice = v.salePrice || regPrice;
+                                      let discountPercentage = typeof v.discountPercentage === 'number' ? v.discountPercentage : 0;
+                                      if (!discountPercentage && regPrice > 0 && salePrice < regPrice) {
+                                          const rawPercent = ((regPrice - salePrice) / regPrice) * 100;
+                                          discountPercentage = Math.round(rawPercent);
+                                          if (discountPercentage >= 100 && salePrice > 0) {
+                                              discountPercentage = 99;
+                                          }
+                                      }
+                                    %>
+                                    <% if (discountPercentage > 0 && salePrice < regPrice) { %>
                                         <div class="d-flex align-items-center gap-2 justify-content-md-end flex-wrap">
-                                            <span class="fs-5 fw-bold text-dark">₹<%= v.salePrice.toLocaleString() %></span>
-                                            <span class="badge-discount-percent"><%= Math.round(((v.regularPrice - v.salePrice)/v.regularPrice)*100) %>% OFF</span>
+                                            <span class="fs-5 fw-bold text-dark">₹<%= salePrice.toLocaleString('en-IN') %></span>
+                                            <span class="badge-discount-percent"><%= discountPercentage %>% OFF</span>
                                         </div>
-                                        <div class="text-decoration-line-through text-muted small">₹<%= v.regularPrice.toLocaleString() %></div>
+                                        <div class="text-decoration-line-through text-muted small">₹<%= regPrice.toLocaleString('en-IN') %></div>
                                     <% } else { %>
-                                        <span class="fs-5 fw-bold text-dark">₹<%= v.regularPrice.toLocaleString() %></span>
+                                        <span class="fs-5 fw-bold text-dark">₹<%= (salePrice || regPrice).toLocaleString('en-IN') %></span>
                                     <% } %>
                                 <% } %>
                             </div>
@@ -159,14 +171,14 @@
                             <!-- Actions -->
                             <div class="wishlist-actions-area d-flex align-items-center gap-2 w-100 justify-content-md-end">
                                 <button type="button" class="btn btn-outline-danger rounded-3 px-3 py-2 btn-remove-wishlist"
-                                        data-product-id="<%= item.productId %>" 
+                                        data-product-id="<%= item.productId %>"
                                         data-variant-id="<%= item.variantId %>"
                                         title="Remove Item">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <button type="button" class="btn btn-dark rounded-3 px-4 py-2 text-nowrap btn-move-to-cart"
                                         style="max-width: 160px;"
-                                        data-product-id="<%= item.productId %>" 
+                                        data-product-id="<%= item.productId %>"
                                         data-variant-id="<%= item.variantId %>"
                                         <%= (!item.isAvailable || isOutOfStock) ? 'disabled' : '' %>>
                                     <i class="bi bi-cart-plus me-1"></i> Add to Cart
@@ -284,7 +296,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (window.showSuccess) {
                     window.showSuccess("Item added to cart and removed from wishlist!");
                 }
-                
+
                 if (typeof refreshNavbarCartCount === "function") {
                     refreshNavbarCartCount();
                 }

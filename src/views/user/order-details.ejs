@@ -25,7 +25,7 @@
         max-height: 90%;
         object-fit: contain;
     }
-    
+
     .order-status-badge {
         font-size: 0.72rem;
         letter-spacing: 0.3px;
@@ -505,7 +505,7 @@ async function promptCancelOrder(orderId) {
     try {
         Swal.fire({
             title: "Cancelling Order...",
-            text: "Processing cancellation and restoring stock, please wait.",
+            text: "Processing cancellation, please wait...",
             allowOutsideClick: false,
             didOpen: () => {
                 Swal.showLoading();
@@ -525,7 +525,7 @@ async function promptCancelOrder(orderId) {
         if (data.success) {
             await Swal.fire({
                 icon: "success",
-                title: "Order Cancelled",
+                title: data.title || "Order Cancelled Successfully",
                 text: data.message || "Order cancelled successfully.",
                 timer: 1800,
                 showConfirmButton: false
@@ -575,7 +575,7 @@ async function promptCancelItem(orderId, itemId, productName) {
     try {
         Swal.fire({
             title: "Cancelling Item...",
-            text: "Processing cancellation and restoring stock, please wait.",
+            text: "Processing cancellation, please wait...",
             allowOutsideClick: false,
             didOpen: () => {
                 Swal.showLoading();
@@ -595,7 +595,7 @@ async function promptCancelItem(orderId, itemId, productName) {
         if (data.success) {
             await Swal.fire({
                 icon: "success",
-                title: "Item Cancelled",
+                title: data.title || "Item Cancelled Successfully",
                 text: data.message || "Item cancelled successfully.",
                 timer: 1800,
                 showConfirmButton: false
