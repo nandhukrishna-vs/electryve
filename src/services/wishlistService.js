@@ -52,27 +52,37 @@ const getWishlist = async (userId) => {
       }
     }
 
-    return {
-      productId: product?._id || item.product,
-      variantId: item.variantId,
-      addedAt: item.addedAt,
-      product: product ? {
-        name: product.name,
-        category: product.category?.name,
-        brand: product.brand?.name
-      } : null,
-      variant: variant ? {
-        color: variant.color,
-        storage: variant.storage,
-        sku: variant.sku,
-        regularPrice: variant.regularPrice,
-        salePrice: variant.salePrice,
-        stock: variant.stock,
-        images: variant.images
-      } : null,
-      isAvailable,
-      unavailabilityReason
-    };
+      let discountPercentage = 0;
+      if (variant && variant.regularPrice > 0 && variant.salePrice < variant.regularPrice) {
+        const rawPercent = ((variant.regularPrice - variant.salePrice) / variant.regularPrice) * 100;
+        discountPercentage = Math.round(rawPercent);
+        if (discountPercentage >= 100 && variant.salePrice > 0) {
+          discountPercentage = 99;
+        }
+      }
+
+      return {
+        productId: product?._id || item.product,
+        variantId: item.variantId,
+        addedAt: item.addedAt,
+        product: product ? {
+          name: product.name,
+          category: product.category?.name,
+          brand: product.brand?.name
+        } : null,
+        variant: variant ? {
+          color: variant.color,
+          storage: variant.storage,
+          sku: variant.sku,
+          regularPrice: variant.regularPrice,
+          salePrice: variant.salePrice,
+          discountPercentage,
+          stock: variant.stock,
+          images: variant.images
+        } : null,
+        isAvailable,
+        unavailabilityReason
+      };
   });
 
   return processedItems;

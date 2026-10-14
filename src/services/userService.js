@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import User from "../models/User.js";
 import Address from "../models/Address.js";
@@ -113,22 +114,28 @@ const updateAddress = async ({
   params,
   session
 }) => {
+  const addressId = params?.id;
 
-  const addressId = params.id;
+  if (!mongoose.Types.ObjectId.isValid(addressId)) {
+    return errorResponse(
+      "Address not found",
+      "/addresses"
+    );
+  }
 
   const {
-  fullName,
-  addressType,
-  phone,
-  addressLine1,
-  addressLine2,
-  landmark,
-  city,
-  state,
-  pinCode,
-  country,
-  isDefault
-} = body;
+    fullName = "",
+    addressType = "HOME",
+    phone = "",
+    addressLine1 = "",
+    addressLine2,
+    landmark,
+    city = "",
+    state = "",
+    pinCode = "",
+    country,
+    isDefault
+  } = body || {};
 
   const address = await Address.findOne({
     _id: addressId,
@@ -158,14 +165,14 @@ const updateAddress = async ({
 
   }
 
-  address.fullName = fullName.trim();
+  address.fullName = (fullName || "").trim();
   address.addressType = addressType;
-  address.phone = phone.trim();
-  address.addressLine1 = addressLine1.trim();
+  address.phone = (phone || "").trim();
+  address.addressLine1 = (addressLine1 || "").trim();
   address.addressLine2 = addressLine2?.trim() || "";
   address.landmark = landmark?.trim() || "";
-  address.city = city.trim();
-  address.state = state.trim();
+  address.city = (city || "").trim();
+  address.state = (state || "").trim();
   address.pinCode = pinCode;
   address.country = country?.trim() || "India";
   address.isDefault = isDefault === "on";
@@ -183,6 +190,12 @@ const deleteAddress = async ({
   params,
   session
 }) => {
+  if (!mongoose.Types.ObjectId.isValid(params?.id)) {
+    return errorResponse(
+      "Address not found",
+      "/addresses"
+    );
+  }
 
   const address = await Address.findOne({
     _id: params.id,
