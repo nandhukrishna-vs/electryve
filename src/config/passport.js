@@ -19,49 +19,27 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
-      passReqToCallback: true
-    },
+const googleOAuthEnabled = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+);
 
-    async (req, accessToken, refreshToken, profile, done) => {
-      try {
-        let user = await User.findOne({
-          googleId: profile.id
-        });
+if (googleOAuthEnabled) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: "/auth/google/callback",
+        passReqToCallback: true
+      },
 
-        if (user) {
-          if (user.status !== "ACTIVE") {
-            return done(null, false, {
-              message: "Your account is blocked."
-            });
-          }
-
-          return done(null, user);
-        }
-
-        const email = profile.emails[0]?.value;
-
-        if (email) {
-          user = await User.findOne({
-            email: email.toLowerCase()
+      async (req, accessToken, refreshToken, profile, done) => {
+        try {
+          let user = await User.findOne({
+            googleId: profile.id
           });
 
           if (user) {
-            user.googleId = profile.id;
-            user.authProvider = "GOOGLE";
-            user.isEmailVerified = true;
-
-            if (!user.avatar) {
-              user.avatar = profile.photos[0]?.value || "";
-            }
-
-            await user.save();
-
             if (user.status !== "ACTIVE") {
               return done(null, false, {
                 message: "Your account is blocked."
@@ -71,43 +49,73 @@ passport.use(
             return done(null, user);
           }
 
-          const referralCode = await referralService.generateUniqueReferralCode();
+          const email = profile.emails[0]?.value;
 
-          const newUser = await User.create({
-            fullName: profile.displayName,
-            email: email.toLowerCase(),
-            authProvider: "GOOGLE",
-            googleId: profile.id,
-            isEmailVerified: true,
-            avatar: profile.photos[0]?.value || "",
-            role: "USER",
-            status: "ACTIVE",
-            referralCode
-          });
+          if (email) {
+            user = await User.findOne({
+              email: email.toLowerCase()
+            });
 
-          if (req.session?.referralCode) {
-            try {
-              await referralService.createReferralForUser(
-                newUser._id,
-                req.session.referralCode,
-                req.session
-              );
-            } catch (refErr) {
-              console.error("Error creating referral for Google user:", refErr);
+            if (user) {
+              user.googleId = profile.id;
+              user.authProvider = "GOOGLE";
+              user.isEmailVerified = true;
+
+              if (!user.avatar) {
+                user.avatar = profile.photos[0]?.value || "";
+              }
+
+              await user.save();
+
+              if (user.status !== "ACTIVE") {
+                return done(null, false, {
+                  message: "Your account is blocked."
+                });
+              }
+
+              return done(null, user);
             }
+
+            const referralCode = await referralService.generateUniqueReferralCode();
+
+            const newUser = await User.create({
+              fullName: profile.displayName,
+              email: email.toLowerCase(),
+              authProvider: "GOOGLE",
+              googleId: profile.id,
+              isEmailVerified: true,
+              avatar: profile.photos[0]?.value || "",
+              role: "USER",
+              status: "ACTIVE",
+              referralCode
+            });
+
+            if (req.session?.referralCode) {
+              try {
+                await referralService.createReferralForUser(
+                  newUser._id,
+                  req.session.referralCode,
+                  req.session
+                );
+              } catch (refErr) {
+                console.error("Error creating referral for Google user:", refErr);
+              }
+            }
+
+            return done(null, newUser);
           }
 
-          return done(null, newUser);
+          return done(null, false, {
+            message: "Google account email not available."
+          });
+        } catch (error) {
+          return done(error, null);
         }
-
-        return done(null, false, {
-          message: "Google account email not available."
-        });
-      } catch (error) {
-        return done(error, null);
       }
-    }
-  )
-);
+    )
+  );
+} else {
+  console.warn("Google OAuth disabled: credentials are not configured.");
+}
 
 export default passport;

@@ -55,9 +55,11 @@
       </button>
     </form>
 
-    <a href="/auth/google" class="google-btn">
-      Continue with Google
-    </a>
+    <% if (googleOAuthEnabled) { %>
+      <a href="/auth/google" class="google-btn">
+        Continue with Google
+      </a>
+    <% } %>
 
     <p class="switch-auth">
       Don’t have an account?
