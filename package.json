@@ -7,7 +7,7 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "format:check": "prettier --check \"app.js\" \"src/config/db.js\" \"src/config/session.js\" \"src/controllers/referralController.js\" \"src/controllers/reportController.js\" \"src/services/reportService.js\" \"src/services/referralService.js\" \"src/services/wishlistService.js\"",
-    "format": "prettier --write \"app.js\" \"src/config/db.js\" \"src/config/session.js\" \"src/controllers/referralController.js\" \"src/controllers/reportController.js\" \"src/services/reportService.js\" \"src/services/referralService.js\" \"src/services/wishlistService.js\"",
+    "format": "prettier --write app.js src/config/db.js src/config/session.js src/controllers/referralController.js src/controllers/reportController.js src/services/reportService.js src/services/referralService.js src/services/wishlistService.js",
     "test": "node tests/run_all_tests.js"
   },
   "keywords": [],
@@ -40,5 +40,8 @@
   "devDependencies": {
     "nodemon": "^3.1.14",
     "prettier": "^3.9.3"
+  },
+  "engines": {
+    "node": ">=24.0.0 <25"
   }
 }
