@@ -4,3 +4,5 @@ coverage/
 public/uploads/
 .vscode/
 .DS_Store
+.env.*
+!.env.example
