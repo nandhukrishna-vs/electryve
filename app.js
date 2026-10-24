@@ -25,19 +25,17 @@ import brandRoutes from "./src/routes/brandRoutes.js";
 import productRoutes from "./src/routes/productRoutes.js";
 import paymentRoutes from "./src/routes/paymentRoutes.js";
 
-import {
-  routeNotFound,
-  globalErrorHandler
-} from "./src/middlewares/errorHandler.js";
-
+import { routeNotFound, globalErrorHandler } from "./src/middlewares/errorHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Database Connection
-connectDB();
+// Trust reverse proxy (e.g. Render, Heroku, AWS, Nginx) in production
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 // Route-specific raw body parser for Razorpay webhook (captures exact raw Buffer)
 app.use("/payment/webhook/razorpay", express.raw({ type: "application/json" }));
@@ -51,10 +49,7 @@ app.use(nocache());
 
 // Static Files
 app.use(express.static(path.join(__dirname, "public")));
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "uploads"))
-);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Method Override (PUT, DELETE support)
 app.use(methodOverride("_method"));
@@ -100,6 +95,20 @@ app.use(globalErrorHandler);
 // Server Start
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+    return server;
+  } catch (error) {
+    console.error(`Failed to start server: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+export { app, startServer };
+export default app;

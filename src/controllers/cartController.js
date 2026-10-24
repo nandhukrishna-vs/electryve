@@ -46,7 +46,7 @@ const addToCart = async (req, res, next) => {
         if (!req.session || !req.session.user) {
             return res.status(401).json({ success: false, message: "Please log in first to add items to your cart." });
         }
-        
+
         const userId = req.session.user.id;
         const { productId, variantId, quantity } = req.body;
 
@@ -82,7 +82,7 @@ const updateQuantity = async (req, res, next) => {
         }
 
         const result = await cartService.updateQuantity(userId, productId, variantId, qty, { referralCode: req.session?.referralCode });
-        
+
         if (!result.success) {
             return res.status(400).json(result);
         }

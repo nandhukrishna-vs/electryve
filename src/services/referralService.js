@@ -12,6 +12,56 @@ const REFERRAL_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // 32 characters (
 const CODE_LENGTH = 8;
 
 /**
+ * Resolves the application's public base URL for customer-facing links (referrals, etc.).
+ * In production:
+ *   - Strictly requires a valid HTTPS URL (configured via PUBLIC_BASE_URL or BASE_URL).
+ *   - Throws a descriptive configuration error if missing, invalid, or non-HTTPS.
+ *   - Completely removes any request Host-header fallback to prevent host-header poisoning.
+ * In development / test:
+ *   - Uses PUBLIC_BASE_URL / BASE_URL if valid, or falls back safely to 'http://localhost:3000'.
+ */
+export const getPublicBaseUrl = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+  const rawUrl = (process.env.PUBLIC_BASE_URL || process.env.BASE_URL || process.env.APP_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (isProduction) {
+    if (!rawUrl) {
+      throw new Error(
+        "[SECURITY CONFIG ERROR] A valid HTTPS PUBLIC_BASE_URL environment variable is required in production."
+      );
+    }
+    let parsed;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      throw new Error(
+        `[SECURITY CONFIG ERROR] Invalid PUBLIC_BASE_URL in production: "${rawUrl}". Must be a valid HTTPS URL.`
+      );
+    }
+    if (parsed.protocol !== "https:") {
+      throw new Error(
+        `[SECURITY CONFIG ERROR] PUBLIC_BASE_URL must use HTTPS protocol in production (got: "${parsed.protocol}").`
+      );
+    }
+    return parsed.origin;
+  }
+
+  // Development / test environment
+  if (rawUrl) {
+    try {
+      const parsed = new URL(rawUrl);
+      return parsed.origin;
+    } catch {
+      return rawUrl;
+    }
+  }
+
+  return "http://localhost:3000";
+};
+
+/**
  * Generates an 8-character uppercase alphanumeric string avoiding ambiguous characters.
  */
 export const generateReferralCodeString = () => {
@@ -67,11 +117,7 @@ export const ensureReferralCode = async (userId) => {
       const updated = await User.findOneAndUpdate(
         {
           _id: userId,
-          $or: [
-            { referralCode: null },
-            { referralCode: "" },
-            { referralCode: { $exists: false } }
-          ]
+          $or: [{ referralCode: null }, { referralCode: "" }, { referralCode: { $exists: false } }]
         },
         { $set: { referralCode: code } },
         { returnDocument: "after" }
@@ -138,7 +184,11 @@ export const updateReferralProgram = async (updates = {}) => {
   program.maxSuccessfulReferralsPerUser = value.maxSuccessfulReferralsPerUser ?? null;
 
   await program.save();
-  return { success: true, message: "Referral program configuration updated successfully.", program };
+  return {
+    success: true,
+    message: "Referral program configuration updated successfully.",
+    program
+  };
 };
 
 /**
@@ -153,7 +203,11 @@ export const validateReferralCode = async (rawCode, currentUserId = null) => {
 
   const program = await getReferralProgram();
   if (!program || !program.isActive) {
-    return { isValid: false, success: false, message: "The referral program is currently disabled." };
+    return {
+      isValid: false,
+      success: false,
+      message: "The referral program is currently disabled."
+    };
   }
 
   const referrer = await User.findOne({
@@ -162,11 +216,19 @@ export const validateReferralCode = async (rawCode, currentUserId = null) => {
   });
 
   if (!referrer) {
-    return { isValid: false, success: false, message: "Invalid referral code. Please check and try again." };
+    return {
+      isValid: false,
+      success: false,
+      message: "Invalid referral code. Please check and try again."
+    };
   }
 
   if (referrer.status === "BLOCKED" || referrer.isBlocked) {
-    return { isValid: false, success: false, message: "Referrer account is not eligible for referral rewards." };
+    return {
+      isValid: false,
+      success: false,
+      message: "Referrer account is not eligible for referral rewards."
+    };
   }
 
   if (currentUserId && referrer._id.toString() === currentUserId.toString()) {
@@ -220,9 +282,12 @@ export const createReferralForUser = async (userId, rawReferralCode, session = n
   }
 
   // Submitted code takes precedence over session code
-  const effectiveCode = (rawReferralCode && typeof rawReferralCode === "string" && rawReferralCode.trim())
-    ? rawReferralCode.trim().toUpperCase()
-    : (session?.referralCode ? String(session.referralCode).trim().toUpperCase() : null);
+  const effectiveCode =
+    rawReferralCode && typeof rawReferralCode === "string" && rawReferralCode.trim()
+      ? rawReferralCode.trim().toUpperCase()
+      : session?.referralCode
+        ? String(session.referralCode).trim().toUpperCase()
+        : null;
 
   if (!effectiveCode) {
     return null;
@@ -274,10 +339,7 @@ export const createReferralForUser = async (userId, rawReferralCode, session = n
   }
 
   // 4. Atomically set user.referredBy (immutable)
-  await User.updateOne(
-    { _id: user._id, referredBy: null },
-    { $set: { referredBy: referrer._id } }
-  );
+  await User.updateOne({ _id: user._id, referredBy: null }, { $set: { referredBy: referrer._id } });
 
   // 5. Clean up referral session
   if (session && session.referralCode) {
@@ -307,16 +369,18 @@ export const getUserReferralStats = async (userId) => {
   referrals.forEach((r) => {
     if (r.status === "COMPLETED") {
       completedReferrals++;
-      totalEarned += (r.referrerRewardAmountSnapshot || 0);
-    } else if (["PENDING", "ORDER_QUALIFIED", "REWARD_PROCESSING", "PARTIALLY_REWARDED"].includes(r.status)) {
+      totalEarned += r.referrerRewardAmountSnapshot || 0;
+    } else if (
+      ["PENDING", "ORDER_QUALIFIED", "REWARD_PROCESSING", "PARTIALLY_REWARDED"].includes(r.status)
+    ) {
       pendingReferrals++;
     }
   });
 
   totalEarned = Math.round(totalEarned * 100) / 100;
 
-  const appUrl = (process.env.APP_URL || "").replace(/\/$/, "");
-  const referralLink = appUrl ? `${appUrl}/signup?ref=${code}` : `/signup?ref=${code}`;
+  const baseUrl = getPublicBaseUrl();
+  const referralLink = `${baseUrl}/signup?ref=${encodeURIComponent(code)}`;
 
   return {
     referralCode: code,
@@ -394,12 +458,17 @@ export const findQualifyingReferral = async (orderId) => {
 
   // 1. Order must be DELIVERED
   if (order.orderStatus !== "DELIVERED") {
-    return { isQualifying: false, reason: `Order status is "${order.orderStatus}", requires "DELIVERED".` };
+    return {
+      isQualifying: false,
+      reason: `Order status is "${order.orderStatus}", requires "DELIVERED".`
+    };
   }
 
   // 2. Order must be realized/paid
-  const isPaid = (["RAZORPAY", "WALLET"].includes(order.paymentMethod) && ["COMPLETED", "PAID"].includes(order.paymentStatus)) ||
-                (order.paymentMethod === "COD" && order.paymentStatus === "COMPLETED");
+  const isPaid =
+    (["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+      ["COMPLETED", "PAID"].includes(order.paymentStatus)) ||
+    (order.paymentMethod === "COD" && order.paymentStatus === "COMPLETED");
   if (!isPaid) {
     return { isQualifying: false, reason: "Order payment is not completed." };
   }
@@ -434,7 +503,10 @@ export const findQualifyingReferral = async (orderId) => {
   });
 
   if (earlierQualifyingOrder) {
-    return { isQualifying: false, reason: "An earlier qualifying order already exists for this user." };
+    return {
+      isQualifying: false,
+      reason: "An earlier qualifying order already exists for this user."
+    };
   }
 
   return {
@@ -515,8 +587,10 @@ export const processReferralRewards = async (referralId) => {
   }
 
   // 3. Status Resolution
-  const referrerDone = !referral.referrerRewardAmountSnapshot || !!referral.referrerRewardTransactionId;
-  const userDone = !referral.referredUserRewardAmountSnapshot || !!referral.referredUserRewardTransactionId;
+  const referrerDone =
+    !referral.referrerRewardAmountSnapshot || !!referral.referrerRewardTransactionId;
+  const userDone =
+    !referral.referredUserRewardAmountSnapshot || !!referral.referredUserRewardTransactionId;
 
   if (referrerDone && userDone) {
     referral.status = "COMPLETED";
@@ -560,7 +634,11 @@ export const handleOrderDelivered = async (orderId) => {
  */
 export const handleOrderReturnOrCancel = async (
   orderId,
-  { reason = "Order return or cancellation", isItemReturn = false, remainingOrderAmount = null } = {}
+  {
+    reason = "Order return or cancellation",
+    isItemReturn = false,
+    remainingOrderAmount = null
+  } = {}
 ) => {
   try {
     const referral = await Referral.findOne({ qualifyingOrder: orderId });
@@ -598,7 +676,10 @@ export const handleOrderReturnOrCancel = async (
 /**
  * Reverses referral rewards safely without allowing wallet balances to go negative.
  */
-export const reverseReferralRewards = async (referralId, reason = "Qualifying order returned/cancelled") => {
+export const reverseReferralRewards = async (
+  referralId,
+  reason = "Qualifying order returned/cancelled"
+) => {
   const referral = await Referral.findById(referralId);
   if (!referral) return { success: false, message: "Referral not found." };
 
@@ -626,7 +707,9 @@ export const reverseReferralRewards = async (referralId, reason = "Qualifying or
 
       if (!debitRes.success) {
         recoveryRequired = true;
-        recoveryNotes.push(`Referrer wallet insufficient balance for ₹${referral.referrerRewardAmountSnapshot} reversal.`);
+        recoveryNotes.push(
+          `Referrer wallet insufficient balance for ₹${referral.referrerRewardAmountSnapshot} reversal.`
+        );
       }
     }
   }
@@ -648,7 +731,9 @@ export const reverseReferralRewards = async (referralId, reason = "Qualifying or
 
       if (!debitRes.success) {
         recoveryRequired = true;
-        recoveryNotes.push(`Referred user wallet insufficient balance for ₹${referral.referredUserRewardAmountSnapshot} reversal.`);
+        recoveryNotes.push(
+          `Referred user wallet insufficient balance for ₹${referral.referredUserRewardAmountSnapshot} reversal.`
+        );
       }
     }
   }
@@ -710,22 +795,25 @@ export const getAdminReferrals = async ({
     const s = search.trim();
     // Search user IDs matching name or email
     const matchingUsers = await User.find({
-      $or: [
-        { fullName: { $regex: s, $options: "i" } },
-        { email: { $regex: s, $options: "i" } }
-      ]
-    }).select("_id").lean();
+      $or: [{ fullName: { $regex: s, $options: "i" } }, { email: { $regex: s, $options: "i" } }]
+    })
+      .select("_id")
+      .lean();
     const userIds = matchingUsers.map((u) => u._id);
 
     // Search orders matching orderNumber
     const matchingOrders = await Order.find({
       orderNumber: { $regex: s, $options: "i" }
-    }).select("_id").lean();
+    })
+      .select("_id")
+      .lean();
     const orderIds = matchingOrders.map((o) => o._id);
 
     matchFilter.$or = [
       { referralCode: { $regex: s, $options: "i" } },
-      ...(userIds.length > 0 ? [{ referrer: { $in: userIds } }, { referredUser: { $in: userIds } }] : []),
+      ...(userIds.length > 0
+        ? [{ referrer: { $in: userIds } }, { referredUser: { $in: userIds } }]
+        : []),
       ...(orderIds.length > 0 ? [{ qualifyingOrder: { $in: orderIds } }] : [])
     ];
   }
@@ -779,7 +867,13 @@ export const getAdminReferralStats = async () => {
           $sum: {
             $cond: [
               { $in: ["$status", ["COMPLETED", "PARTIALLY_REWARDED"]] },
-              { $cond: [{ $ne: ["$referrerRewardTransactionId", null] }, "$referrerRewardAmountSnapshot", 0] },
+              {
+                $cond: [
+                  { $ne: ["$referrerRewardTransactionId", null] },
+                  "$referrerRewardAmountSnapshot",
+                  0
+                ]
+              },
               0
             ]
           }
@@ -788,7 +882,13 @@ export const getAdminReferralStats = async () => {
           $sum: {
             $cond: [
               { $in: ["$status", ["COMPLETED", "PARTIALLY_REWARDED"]] },
-              { $cond: [{ $ne: ["$referredUserRewardTransactionId", null] }, "$referredUserRewardAmountSnapshot", 0] },
+              {
+                $cond: [
+                  { $ne: ["$referredUserRewardTransactionId", null] },
+                  "$referredUserRewardAmountSnapshot",
+                  0
+                ]
+              },
               0
             ]
           }

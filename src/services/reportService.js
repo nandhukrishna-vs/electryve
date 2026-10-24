@@ -7,8 +7,36 @@ import { LOW_STOCK_THRESHOLD } from "./inventoryService.js";
 const TIMEZONE_IST = "+05:30";
 
 /**
+ * Dedicated validation error class for sales report parameter & date validation.
+ * Allows controller layers to distinguish 400 Client Errors from 500 Server Errors
+ * without relying on brittle substring searches on error.message.
+ */
+export class ReportValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ReportValidationError";
+    this.isValidationError = true;
+    this.statusCode = 400;
+  }
+}
+
+/**
+ * Asserts that a parameter is a scalar string (not an Array, Object, or other type)
+ * when provided, preventing TypeErrors and rejecting parameter pollution / injection.
+ */
+export function assertScalarString(value, fieldName) {
+  if (value !== undefined && value !== null) {
+    if (typeof value !== "string" || Array.isArray(value)) {
+      throw new ReportValidationError(
+        `Invalid ${fieldName} parameter. Expected a single string value.`
+      );
+    }
+  }
+}
+
+/**
  * Normalizes date boundaries to Indian Standard Time (IST, UTC+5:30)
- * 
+ *
  * Supports presets:
  * - today (or 1_day): 00:00:00.000 IST to 23:59:59.999 IST
  * - yesterday: 00:00:00.000 IST to 23:59:59.999 IST
@@ -17,23 +45,37 @@ const TIMEZONE_IST = "+05:30";
  * - last_month: 1st of previous month to last day of previous month
  * - this_year: Jan 1st to Dec 31st of current year
  * - custom: Exact custom start and end dates validated server-side
- * 
+ *
  * @param {Object} options
  * @param {string} [options.preset="this_month"]
  * @param {string} [options.startDate] - YYYY-MM-DD for custom range
  * @param {string} [options.endDate] - YYYY-MM-DD for custom range
  * @returns {Object} { startDate: Date, endDate: Date, preset: string, label: string }
  */
-export const normalizeDateRange = ({ preset = "this_month", startDate = null, endDate = null } = {}) => {
-  // Extract current calendar date in Asia/Kolkata (IST)
-  const now = new Date();
+export const getTodayIST = () => {
   const istFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" });
-  const todayStr = istFormatter.format(now); // "YYYY-MM-DD"
+  return istFormatter.format(new Date());
+};
+
+export const normalizeDateRange = ({
+  preset = "this_month",
+  startDate = null,
+  endDate = null
+} = {}) => {
+  assertScalarString(preset, "preset");
+  assertScalarString(startDate, "startDate");
+  assertScalarString(endDate, "endDate");
+
+  // Extract current calendar date in Asia/Kolkata (IST)
+  const todayStr = getTodayIST(); // "YYYY-MM-DD"
+  const now = new Date();
   const [currentYear, currentMonth, currentDay] = todayStr.split("-").map(Number);
 
   let startIsoStr = "";
   let endIsoStr = "";
-  let appliedPreset = preset ? preset.toLowerCase().trim() : "this_month";
+  let appliedPreset =
+    preset && typeof preset === "string" ? preset.toLowerCase().trim() : "this_month";
+  if (!appliedPreset) appliedPreset = "this_month";
   if (appliedPreset === "1_day" || appliedPreset === "day") appliedPreset = "today";
   if (appliedPreset === "1_week" || appliedPreset === "week") appliedPreset = "this_week";
   if (appliedPreset === "1_month" || appliedPreset === "month") appliedPreset = "this_month";
@@ -65,7 +107,9 @@ export const normalizeDateRange = ({ preset = "this_month", startDate = null, en
       const nowUtc = new Date(Date.UTC(currentYear, currentMonth - 1, currentDay));
       const dayOfWeek = nowUtc.getUTCDay();
       const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0 for Monday, 6 for Sunday
-      const mondayDate = new Date(Date.UTC(currentYear, currentMonth - 1, currentDay - diffToMonday));
+      const mondayDate = new Date(
+        Date.UTC(currentYear, currentMonth - 1, currentDay - diffToMonday)
+      );
       const monStr = `${mondayDate.getUTCFullYear()}-${pad(mondayDate.getUTCMonth() + 1)}-${pad(mondayDate.getUTCDate())}`;
 
       startIsoStr = `${monStr}T00:00:00.000+05:30`;
@@ -103,14 +147,47 @@ export const normalizeDateRange = ({ preset = "this_month", startDate = null, en
       break;
     }
     case "custom": {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!startDate || !endDate || !dateRegex.test(startDate.trim()) || !dateRegex.test(endDate.trim())) {
-        throw new Error("Invalid custom date range. Please supply valid startDate and endDate in YYYY-MM-DD format.");
+      // Guard against non-string, null/undefined, or repeated query parameters (arrays)
+      if (
+        typeof startDate !== "string" ||
+        typeof endDate !== "string" ||
+        Array.isArray(startDate) ||
+        Array.isArray(endDate)
+      ) {
+        throw new ReportValidationError(
+          "Invalid custom date range. Please supply valid startDate and endDate in YYYY-MM-DD format."
+        );
       }
+
       const s = startDate.trim();
       const e = endDate.trim();
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(s) || !dateRegex.test(e)) {
+        throw new ReportValidationError(
+          "Invalid custom date range. Please supply valid startDate and endDate in YYYY-MM-DD format."
+        );
+      }
+
+      // Check valid calendar dates (year, month 1-12, days in month)
+      const isValidDateStr = (str) => {
+        const [y, m, d] = str.split("-").map(Number);
+        if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        return dt.getUTCFullYear() === y && dt.getUTCMonth() + 1 === m && dt.getUTCDate() === d;
+      };
+
+      if (!isValidDateStr(s) || !isValidDateStr(e)) {
+        throw new ReportValidationError("Invalid calendar date specified in custom date range.");
+      }
+
       if (s > e) {
-        throw new Error("Start date cannot be after end date.");
+        throw new ReportValidationError("Start date cannot be after end date.");
+      }
+
+      if (s > todayStr || e > todayStr) {
+        throw new ReportValidationError(
+          "Future dates are not permitted. Please select dates up to today."
+        );
       }
       startIsoStr = `${s}T00:00:00.000+05:30`;
       endIsoStr = `${e}T23:59:59.999+05:30`;
@@ -159,6 +236,10 @@ export const normalizeDateRange = ({ preset = "this_month", startDate = null, en
 export const buildQualifyingOrderMatch = async (startDate, endDate, options = {}) => {
   const { paymentMethod, orderStatus, search } = options;
 
+  assertScalarString(paymentMethod, "paymentMethod");
+  assertScalarString(orderStatus, "orderStatus");
+  assertScalarString(search, "search");
+
   const matchFilter = {
     createdAt: { $gte: startDate, $lte: endDate }
   };
@@ -175,16 +256,13 @@ export const buildQualifyingOrderMatch = async (startDate, endDate, options = {}
       },
       {
         paymentMethod: "COD",
-        $or: [
-          { orderStatus: { $ne: "CANCELLED" } },
-          { paymentStatus: "COMPLETED" }
-        ]
+        $or: [{ orderStatus: { $ne: "CANCELLED" } }, { paymentStatus: "COMPLETED" }]
       }
     ]
   };
 
   if (paymentMethod && paymentMethod !== "ALL") {
-    const pm = paymentMethod.toUpperCase();
+    const pm = paymentMethod.trim().toUpperCase();
     if (["RAZORPAY", "WALLET"].includes(pm)) {
       paymentCondition = {
         paymentMethod: pm,
@@ -193,17 +271,14 @@ export const buildQualifyingOrderMatch = async (startDate, endDate, options = {}
     } else if (pm === "COD") {
       paymentCondition = {
         paymentMethod: "COD",
-        $or: [
-          { orderStatus: { $ne: "CANCELLED" } },
-          { paymentStatus: "COMPLETED" }
-        ]
+        $or: [{ orderStatus: { $ne: "CANCELLED" } }, { paymentStatus: "COMPLETED" }]
       };
     }
   }
   andConditions.push(paymentCondition);
 
   if (orderStatus && orderStatus !== "ALL") {
-    andConditions.push({ orderStatus: orderStatus.toUpperCase() });
+    andConditions.push({ orderStatus: orderStatus.trim().toUpperCase() });
   }
 
   if (search && search.trim()) {
@@ -214,7 +289,9 @@ export const buildQualifyingOrderMatch = async (startDate, endDate, options = {}
         { email: { $regex: s, $options: "i" } },
         { phone: { $regex: s, $options: "i" } }
       ]
-    }).select("_id").lean();
+    })
+      .select("_id")
+      .lean();
     const matchedUserIds = matchedUsers.map((u) => u._id);
 
     andConditions.push({
@@ -250,7 +327,11 @@ export const buildQualifyingOrderMatch = async (startDate, endDate, options = {}
  * - Payment Breakdown: Finalized order counts, amounts, percentages by paymentMethod.
  * - Top 10 Products: Ranked by units sold using historical OrderItem snapshots.
  */
-export const getDashboardAnalytics = async ({ preset = "this_month", startDate = null, endDate = null } = {}) => {
+export const getDashboardAnalytics = async ({
+  preset = "this_month",
+  startDate = null,
+  endDate = null
+} = {}) => {
   const dateRange = normalizeDateRange({ preset, startDate, endDate });
   const { startDate: start, endDate: end } = dateRange;
 
@@ -429,6 +510,21 @@ export const getDashboardAnalytics = async ({ preset = "this_month", startDate =
     };
   });
 
+  // Ensure total percentages do not exceed 100% due to rounding
+  if (totalOrders > 0) {
+    const sumPct = Math.round(paymentBreakdown.reduce((sum, p) => sum + p.percentage, 0) * 10) / 10;
+    if (sumPct > 100) {
+      const diff = Math.round((sumPct - 100) * 10) / 10;
+      const maxItem = paymentBreakdown.reduce(
+        (max, p) => (p.percentage > max.percentage ? p : max),
+        paymentBreakdown[0]
+      );
+      if (maxItem && maxItem.percentage >= diff) {
+        maxItem.percentage = Math.round((maxItem.percentage - diff) * 10) / 10;
+      }
+    }
+  }
+
   // 5. Chart 3 — Top 10 Products by Units Sold (Horizontal Bar Chart)
   // Authoritative: derived from historical OrderItem snapshots
   const topProducts = await Order.aggregate([
@@ -579,8 +675,16 @@ export const getDashboardAnalytics = async ({ preset = "this_month", startDate =
     refundAmount: r.refundAmount,
     refundMethod: r.refundMethod || "WALLET",
     refundDate: r.refundedAt
-      ? new Date(r.refundedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-      : new Date(r.updatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+      ? new Date(r.refundedAt).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        })
+      : new Date(r.updatedAt).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        }),
     status: r.refundStatus
   }));
 
@@ -720,6 +824,7 @@ export const getSalesReportGrouped = async ({
   search = "",
   groupBy = null
 } = {}) => {
+  assertScalarString(groupBy, "groupBy");
   const dateRange = normalizeDateRange({ preset, startDate, endDate });
   const { startDate: start, endDate: end } = dateRange;
 
@@ -730,7 +835,12 @@ export const getSalesReportGrouped = async ({
   });
 
   const diffDays = Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-  let resolvedGroupBy = groupBy ? groupBy.toLowerCase().trim() : (diffDays <= 62 ? "day" : "month");
+  let resolvedGroupBy =
+    groupBy && typeof groupBy === "string"
+      ? groupBy.toLowerCase().trim()
+      : diffDays <= 62
+        ? "day"
+        : "month";
   if (!["day", "week", "month", "year"].includes(resolvedGroupBy)) {
     resolvedGroupBy = diffDays <= 62 ? "day" : "month";
   }
@@ -856,6 +966,20 @@ export const getSalesReportDetails = async ({
   sortBy = "createdAt",
   sortOrder = "desc"
 } = {}) => {
+  assertScalarString(sortBy, "sortBy");
+  assertScalarString(sortOrder, "sortOrder");
+  if (page !== undefined && page !== null && typeof page !== "string" && typeof page !== "number") {
+    throw new ReportValidationError("Invalid page parameter. Expected a number.");
+  }
+  if (
+    limit !== undefined &&
+    limit !== null &&
+    typeof limit !== "string" &&
+    typeof limit !== "number"
+  ) {
+    throw new ReportValidationError("Invalid limit parameter. Expected a number.");
+  }
+
   const dateRange = normalizeDateRange({ preset, startDate, endDate });
   const { startDate: start, endDate: end } = dateRange;
 
@@ -870,8 +994,12 @@ export const getSalesReportDetails = async ({
   const skip = (currentPage - 1) * pageLimit;
 
   const validSortFields = ["createdAt", "finalAmount", "orderNumber"];
-  const resolvedSortBy = validSortFields.includes(sortBy) ? sortBy : "createdAt";
-  const sortDirection = sortOrder === "asc" ? 1 : -1;
+  const resolvedSortBy =
+    typeof sortBy === "string" && validSortFields.includes(sortBy.trim())
+      ? sortBy.trim()
+      : "createdAt";
+  const resolvedSortOrder = typeof sortOrder === "string" ? sortOrder.toLowerCase().trim() : "desc";
+  const sortDirection = resolvedSortOrder === "asc" ? 1 : -1;
 
   const [totalOrders, ordersRaw] = await Promise.all([
     Order.countDocuments(matchFilter),
@@ -885,8 +1013,10 @@ export const getSalesReportDetails = async ({
   ]);
 
   const orders = ordersRaw.map((order) => {
-    const isRefundCompleted = ["COMPLETED", "REFUNDED", "PARTIALLY_REFUNDED"].includes(order.refundStatus);
-    const refundDeduction = isRefundCompleted ? (order.refundAmount || 0) : 0;
+    const isRefundCompleted = ["COMPLETED", "REFUNDED", "PARTIALLY_REFUNDED"].includes(
+      order.refundStatus
+    );
+    const refundDeduction = isRefundCompleted ? order.refundAmount || 0 : 0;
     const netAmount = Math.max(0, Math.round((order.finalAmount - refundDeduction) * 100) / 100);
 
     const netUnits = (order.items || []).reduce((acc, item) => {
@@ -916,7 +1046,8 @@ export const getSalesReportDetails = async ({
       subtotal: order.subtotal,
       shippingFee: order.shippingFee || 0,
       grossSales: order.finalAmount,
-      totalDiscounts: Math.round(((order.couponDiscount || 0) + (order.totalOfferDiscount || 0)) * 100) / 100,
+      totalDiscounts:
+        Math.round(((order.couponDiscount || 0) + (order.totalOfferDiscount || 0)) * 100) / 100,
       couponSavings: order.couponDiscount || 0,
       offerSavings: order.totalOfferDiscount || 0,
       couponCode: order.couponSnapshot?.code || order.coupon?.code || null,
@@ -974,8 +1105,25 @@ export const getAllSalesReportOrders = async ({
 } = {}) => {
   const [summary, grouped, details] = await Promise.all([
     getSalesReportSummary({ preset, startDate, endDate, paymentMethod, orderStatus, search }),
-    getSalesReportGrouped({ preset, startDate, endDate, paymentMethod, orderStatus, search, groupBy }),
-    getSalesReportDetails({ preset, startDate, endDate, paymentMethod, orderStatus, search, page: 1, limit: 5000 })
+    getSalesReportGrouped({
+      preset,
+      startDate,
+      endDate,
+      paymentMethod,
+      orderStatus,
+      search,
+      groupBy
+    }),
+    getSalesReportDetails({
+      preset,
+      startDate,
+      endDate,
+      paymentMethod,
+      orderStatus,
+      search,
+      page: 1,
+      limit: 5000
+    })
   ]);
 
   return {

@@ -33,9 +33,8 @@ export const loadReferAndEarn = async (req, res, next) => {
       ReferralProgram.getProgram()
     ]);
 
-    const protocol = req.protocol || "http";
-    const host = req.get("host") || "localhost:3000";
-    const referralLink = `${protocol}://${host}/signup?ref=${user.referralCode}`;
+    const baseUrl = referralService.getPublicBaseUrl();
+    const referralLink = `${baseUrl}/signup?ref=${encodeURIComponent(user.referralCode)}`;
 
     res.render("user/refer-and-earn", {
       layout: "layouts/user-layout",
@@ -68,7 +67,9 @@ export const validateReferralCodeAjax = async (req, res) => {
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("[Referral Controller] Error validating code:", error);
-    return res.status(500).json({ success: false, message: "Server error validating referral code." });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error validating referral code." });
   }
 };
 

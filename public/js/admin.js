@@ -45,7 +45,6 @@ toggleForms.forEach(form => {
     try {
 
         const response = await fetch(form.action, {
-          
 
             method: "POST",
 

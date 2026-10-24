@@ -54,15 +54,15 @@ const createReview = async (userId, productId, rating, reviewText) => {
         .populate("category")
         .populate("brand");
 
-    if (!product || 
-        !product.category || product.category.isDeleted || !product.category.isListed || 
+    if (!product ||
+        !product.category || product.category.isDeleted || !product.category.isListed ||
         !product.brand || product.brand.isDeleted || !product.brand.isListed) {
         throw new Error("Product is not available for review");
     }
 
     // Check if user already has a review for this product
     const existingReview = await Review.findOne({ user: userId, product: productId });
-    
+
     if (existingReview) {
         if (existingReview.isDeleted) {
             // Restore and update soft-deleted review

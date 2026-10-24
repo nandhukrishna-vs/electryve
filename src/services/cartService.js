@@ -44,9 +44,9 @@ const validateCartItem = async (productId, variantId, options = {}) => {
     if (!variant && options.variantSnapshot) {
         const parts = options.variantSnapshot.split("/").map(s => s.trim().toLowerCase());
         if (parts.length === 2) {
-            const matched = rawVariants.find(v => 
-                v && v.isListed && 
-                v.color?.trim().toLowerCase() === parts[0] && 
+            const matched = rawVariants.find(v =>
+                v && v.isListed &&
+                v.color?.trim().toLowerCase() === parts[0] &&
                 v.storage?.trim().toLowerCase() === parts[1]
             );
             if (matched) {
@@ -99,7 +99,7 @@ const getCart = async (userId, options = {}) => {
     // Validate and process each item
     for (let item of cart.items) {
         const check = await validateCartItem(item.product, item.variantId, { variantSnapshot: item.variantSnapshot });
-        
+
         if (!check.isValid) {
             hasUnavailableItems = true;
             processedItems.push({
@@ -308,12 +308,12 @@ const addToCart = async (userId, productId, variantId, quantity = 1) => {
 
         if (existingItem) {
             const newQty = existingItem.quantity + parsedQty;
-            
+
             // Stock limits checks
             if (newQty > variant.stock) {
                 return { success: false, message: `Cannot add more. Only ${variant.stock} items are available in stock.` };
             }
-            
+
             // Cart boundary checks
             if (newQty > MAX_CART_QUANTITY) {
                 return { success: false, message: `You can only add a maximum of ${MAX_CART_QUANTITY} units of this item to your cart.` };
@@ -328,7 +328,7 @@ const addToCart = async (userId, productId, variantId, quantity = 1) => {
             if (parsedQty > MAX_CART_QUANTITY) {
                 return { success: false, message: `You can only add a maximum of ${MAX_CART_QUANTITY} units of this item to your cart.` };
             }
-            
+
             cart.items.push({
                 product: productId,
                 variantId: variantId,

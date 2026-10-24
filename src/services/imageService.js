@@ -38,7 +38,7 @@ const uploadImage = async (file, folder) => {
     if (!ALLOWED_FOLDERS.includes(folder)) {
         throw new Error("Invalid upload folder");
         }
-  
+
   const extension = path
   .extname(file.originalname)
   .toLowerCase();

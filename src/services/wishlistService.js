@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
@@ -6,17 +7,27 @@ import Brand from "../models/Brand.js";
 const getWishlist = async (userId) => {
   const wishlist = await Wishlist.findOne({ user: userId }).populate({
     path: "items.product",
-    populate: [
-      { path: "category" },
-      { path: "brand" }
-    ]
+    populate: [{ path: "category" }, { path: "brand" }]
   });
 
   if (!wishlist) {
     return [];
   }
 
-  const processedItems = wishlist.items.map((item) => {
+  // Deduplicate items in case historical duplicates exist in database
+  const seenKeys = new Set();
+  const uniqueItems = [];
+  for (const item of wishlist.items || []) {
+    const pId = String(item.product?._id || item.product);
+    const vId = String(item.variantId);
+    const key = `${pId}_${vId}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueItems.push(item);
+    }
+  }
+
+  const processedItems = uniqueItems.map((item) => {
     const product = item.product;
     let isAvailable = true;
     let unavailabilityReason = "";
@@ -28,7 +39,10 @@ const getWishlist = async (userId) => {
     }
 
     // 2. Check Category is active/listed
-    if (isAvailable && (!product.category || product.category.isDeleted || !product.category.isListed)) {
+    if (
+      isAvailable &&
+      (!product.category || product.category.isDeleted || !product.category.isListed)
+    ) {
       isAvailable = false;
       unavailabilityReason = "This product is no longer available.";
     }
@@ -42,9 +56,7 @@ const getWishlist = async (userId) => {
     // 4. Find Selected Variant
     let variant = null;
     if (isAvailable && product.variants) {
-      variant = product.variants.find(
-        (v) => String(v._id) === String(item.variantId)
-      );
+      variant = product.variants.find((v) => String(v._id) === String(item.variantId));
 
       if (!variant || !variant.isListed) {
         isAvailable = false;
@@ -52,47 +64,53 @@ const getWishlist = async (userId) => {
       }
     }
 
-      let discountPercentage = 0;
-      if (variant && variant.regularPrice > 0 && variant.salePrice < variant.regularPrice) {
-        const rawPercent = ((variant.regularPrice - variant.salePrice) / variant.regularPrice) * 100;
-        discountPercentage = Math.round(rawPercent);
-        if (discountPercentage >= 100 && variant.salePrice > 0) {
-          discountPercentage = 99;
-        }
+    let discountPercentage = 0;
+    if (variant && variant.regularPrice > 0 && variant.salePrice < variant.regularPrice) {
+      const rawPercent = ((variant.regularPrice - variant.salePrice) / variant.regularPrice) * 100;
+      discountPercentage = Math.round(rawPercent);
+      if (discountPercentage >= 100 && variant.salePrice > 0) {
+        discountPercentage = 99;
       }
+    }
 
-      return {
-        productId: product?._id || item.product,
-        variantId: item.variantId,
-        addedAt: item.addedAt,
-        product: product ? {
-          name: product.name,
-          category: product.category?.name,
-          brand: product.brand?.name
-        } : null,
-        variant: variant ? {
-          color: variant.color,
-          storage: variant.storage,
-          sku: variant.sku,
-          regularPrice: variant.regularPrice,
-          salePrice: variant.salePrice,
-          discountPercentage,
-          stock: variant.stock,
-          images: variant.images
-        } : null,
-        isAvailable,
-        unavailabilityReason
-      };
+    return {
+      productId: product?._id || item.product,
+      variantId: item.variantId,
+      addedAt: item.addedAt,
+      product: product
+        ? {
+            name: product.name,
+            category: product.category?.name,
+            brand: product.brand?.name
+          }
+        : null,
+      variant: variant
+        ? {
+            color: variant.color,
+            storage: variant.storage,
+            sku: variant.sku,
+            regularPrice: variant.regularPrice,
+            salePrice: variant.salePrice,
+            discountPercentage,
+            stock: variant.stock,
+            images: variant.images
+          }
+        : null,
+      isAvailable,
+      unavailabilityReason
+    };
   });
 
   return processedItems;
 };
 
 const addToWishlist = async (userId, productId, variantId) => {
+  if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(variantId)) {
+    return { success: false, message: "Invalid product or variant ID format." };
+  }
+
   // Validate Product exists and is active/listed
-  const product = await Product.findById(productId)
-    .populate("category")
-    .populate("brand");
+  const product = await Product.findById(productId).populate("category").populate("brand");
 
   if (!product || product.isDeleted || !product.isListed) {
     return { success: false, message: "This product is no longer available." };
@@ -109,75 +127,114 @@ const addToWishlist = async (userId, productId, variantId) => {
   }
 
   // Check Variant
-  const variant = product.variants.find(
-    (v) => String(v._id) === String(variantId)
-  );
+  const variant = product.variants.find((v) => String(v._id) === String(variantId));
 
   if (!variant || !variant.isListed) {
     return { success: false, message: "This product is no longer available." };
   }
 
-  // Retrieve or create Wishlist
-  let wishlist = await Wishlist.findOne({ user: userId });
-  if (!wishlist) {
-    wishlist = new Wishlist({ user: userId, items: [] });
+  // Ensure Wishlist document exists for the user (absorb E11000 if parallel requests race on first-time insert)
+  try {
+    await Wishlist.updateOne(
+      { user: userId },
+      { $setOnInsert: { user: userId, items: [] } },
+      { upsert: true }
+    );
+  } catch (err) {
+    if (err.code !== 11000) {
+      throw err;
+    }
   }
 
-  // Check duplicate
-  const alreadyExists = wishlist.items.some(
-    (item) =>
-      String(item.product) === String(productId) &&
-      String(item.variantId) === String(variantId)
-  );
+  // Check if item already exists in user's wishlist
+  const existing = await Wishlist.findOne({
+    user: userId,
+    items: {
+      $elemMatch: {
+        product: productId,
+        variantId: variantId
+      }
+    }
+  });
 
-  if (alreadyExists) {
+  if (existing) {
     return {
       success: true,
       message: "Product is already in your wishlist.",
-      count: wishlist.items.length,
-      inWishlist: true
+      count: existing.items.length,
+      inWishlist: true,
+      alreadyExists: true
     };
   }
 
-  wishlist.items.push({
-    product: productId,
-    variantId: variantId,
-    addedAt: new Date()
-  });
+  // Atomically push item only if not matching elemMatch (concurrency-safe against race conditions)
+  const updatedWishlist = await Wishlist.findOneAndUpdate(
+    {
+      user: userId,
+      items: {
+        $not: {
+          $elemMatch: {
+            product: productId,
+            variantId: variantId
+          }
+        }
+      }
+    },
+    {
+      $push: {
+        items: {
+          product: productId,
+          variantId: variantId,
+          addedAt: new Date()
+        }
+      }
+    },
+    { returnDocument: "after" }
+  );
 
-  await wishlist.save();
+  if (!updatedWishlist) {
+    // A concurrent request added the item in between
+    const current = await Wishlist.findOne({ user: userId });
+    return {
+      success: true,
+      message: "Product is already in your wishlist.",
+      count: current ? current.items.length : 0,
+      inWishlist: true,
+      alreadyExists: true
+    };
+  }
 
   return {
     success: true,
     message: "Added to wishlist.",
-    count: wishlist.items.length,
-    inWishlist: true
+    count: updatedWishlist.items.length,
+    inWishlist: true,
+    alreadyExists: false
   };
 };
 
 const removeFromWishlist = async (userId, productId, variantId) => {
-  const wishlist = await Wishlist.findOne({ user: userId });
-  if (!wishlist) {
-    return { success: true, message: "Removed from wishlist.", count: 0, inWishlist: false };
+  if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(variantId)) {
+    return { success: false, message: "Invalid product or variant ID format." };
   }
 
-  const originalLength = wishlist.items.length;
-  wishlist.items = wishlist.items.filter(
-    (item) =>
-      !(
-        String(item.product) === String(productId) &&
-        String(item.variantId) === String(variantId)
-      )
+  const updatedWishlist = await Wishlist.findOneAndUpdate(
+    { user: userId },
+    {
+      $pull: {
+        items: {
+          product: productId,
+          variantId: variantId
+        }
+      }
+    },
+    { returnDocument: "after" }
   );
-
-  if (wishlist.items.length !== originalLength) {
-    await wishlist.save();
-  }
 
   return {
     success: true,
     message: "Removed from wishlist.",
-    count: wishlist.items.length,
+    count: updatedWishlist ? updatedWishlist.items.length : 0,
     inWishlist: false
   };
 };
@@ -193,8 +250,7 @@ const isInWishlist = async (userId, productId, variantId) => {
 
   return wishlist.items.some(
     (item) =>
-      String(item.product) === String(productId) &&
-      String(item.variantId) === String(variantId)
+      String(item.product) === String(productId) && String(item.variantId) === String(variantId)
   );
 };
 

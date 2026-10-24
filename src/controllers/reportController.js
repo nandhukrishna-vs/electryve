@@ -1,6 +1,23 @@
 import * as reportService from "../services/reportService.js";
+import { ReportValidationError } from "../services/reportService.js";
 import { generateSalesReportPdf } from "../utils/salesReportPdf.js";
 import { generateSalesReportExcel } from "../utils/salesReportExcel.js";
+
+/**
+ * Distinguishes genuine date/range validation failures from unexpected server/database errors.
+ * Replaces fragile substring checks with explicit validation error types.
+ */
+export function isDateValidationError(error) {
+  if (!error) return false;
+  if (
+    error instanceof ReportValidationError ||
+    error.isValidationError === true ||
+    error.name === "ReportValidationError"
+  ) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Controller for Admin Sales Report page, AJAX API, and exports.
@@ -14,19 +31,46 @@ export const loadSalesReport = async (req, res) => {
     const paymentMethod = req.query.paymentMethod || "ALL";
     const orderStatus = req.query.orderStatus || "ALL";
     const search = req.query.search || "";
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const page = req.query.page !== undefined ? req.query.page : 1;
+    const limit = req.query.limit !== undefined ? req.query.limit : 10;
     const groupBy = req.query.groupBy || null;
 
     const [summary, grouped, details] = await Promise.all([
-      reportService.getSalesReportSummary({ preset, startDate, endDate, paymentMethod, orderStatus, search }),
-      reportService.getSalesReportGrouped({ preset, startDate, endDate, paymentMethod, orderStatus, search, groupBy }),
-      reportService.getSalesReportDetails({ preset, startDate, endDate, paymentMethod, orderStatus, search, page, limit })
+      reportService.getSalesReportSummary({
+        preset,
+        startDate,
+        endDate,
+        paymentMethod,
+        orderStatus,
+        search
+      }),
+      reportService.getSalesReportGrouped({
+        preset,
+        startDate,
+        endDate,
+        paymentMethod,
+        orderStatus,
+        search,
+        groupBy
+      }),
+      reportService.getSalesReportDetails({
+        preset,
+        startDate,
+        endDate,
+        paymentMethod,
+        orderStatus,
+        search,
+        page,
+        limit
+      })
     ]);
+
+    const todayStr = reportService.getTodayIST();
 
     res.render("admin/sales-report", {
       layout: "layouts/admin-layout",
       title: "Sales Report",
+      todayStr,
       summary,
       grouped,
       details,
@@ -44,18 +88,49 @@ export const loadSalesReport = async (req, res) => {
     });
   } catch (error) {
     console.error("Load Sales Report Error:", error);
-    res.render("admin/sales-report", {
+    const todayStr = reportService.getTodayIST();
+    const isVal = isDateValidationError(error);
+    return res.status(isVal ? 400 : 500).render("admin/sales-report", {
       layout: "layouts/admin-layout",
       title: "Sales Report",
-      error: error.message || "Failed to load sales report",
+      todayStr,
+      error: isVal
+        ? error.message
+        : "An unexpected error occurred while loading the sales report. Please try again.",
       summary: {
         period: { preset: "this_month", label: "This Month", startDate: "", endDate: "" },
         filters: { paymentMethod: "ALL", orderStatus: "ALL", search: "" },
-        kpis: { netSales: 0, grossSales: 0, totalOrders: 0, unitsSold: 0, completedRefunds: 0, totalDiscounts: 0, couponSavings: 0, offerSavings: 0 }
+        kpis: {
+          netSales: 0,
+          grossSales: 0,
+          totalOrders: 0,
+          unitsSold: 0,
+          completedRefunds: 0,
+          totalDiscounts: 0,
+          couponSavings: 0,
+          offerSavings: 0
+        }
       },
       grouped: { groupBy: "day", rows: [] },
-      details: { orders: [], pagination: { page: 1, limit: 10, totalOrders: 0, totalPages: 1, hasNextPage: false, hasPrevPage: false } },
-      query: { preset: "this_month", paymentMethod: "ALL", orderStatus: "ALL", search: "", page: 1, limit: 10 }
+      details: {
+        orders: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          totalOrders: 0,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false
+        }
+      },
+      query: {
+        preset: "this_month",
+        paymentMethod: "ALL",
+        orderStatus: "ALL",
+        search: "",
+        page: 1,
+        limit: 10
+      }
     });
   }
 };
@@ -68,16 +143,42 @@ export const getSalesReportData = async (req, res) => {
     const paymentMethod = req.query.paymentMethod || "ALL";
     const orderStatus = req.query.orderStatus || "ALL";
     const search = req.query.search || "";
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const page = req.query.page !== undefined ? req.query.page : 1;
+    const limit = req.query.limit !== undefined ? req.query.limit : 10;
     const groupBy = req.query.groupBy || null;
     const sortBy = req.query.sortBy || "createdAt";
     const sortOrder = req.query.sortOrder || "desc";
 
     const [summary, grouped, details] = await Promise.all([
-      reportService.getSalesReportSummary({ preset, startDate, endDate, paymentMethod, orderStatus, search }),
-      reportService.getSalesReportGrouped({ preset, startDate, endDate, paymentMethod, orderStatus, search, groupBy }),
-      reportService.getSalesReportDetails({ preset, startDate, endDate, paymentMethod, orderStatus, search, page, limit, sortBy, sortOrder })
+      reportService.getSalesReportSummary({
+        preset,
+        startDate,
+        endDate,
+        paymentMethod,
+        orderStatus,
+        search
+      }),
+      reportService.getSalesReportGrouped({
+        preset,
+        startDate,
+        endDate,
+        paymentMethod,
+        orderStatus,
+        search,
+        groupBy
+      }),
+      reportService.getSalesReportDetails({
+        preset,
+        startDate,
+        endDate,
+        paymentMethod,
+        orderStatus,
+        search,
+        page,
+        limit,
+        sortBy,
+        sortOrder
+      })
     ]);
 
     return res.json({
@@ -88,9 +189,10 @@ export const getSalesReportData = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Sales Report Data Error:", error);
-    return res.status(400).json({
+    const isVal = isDateValidationError(error);
+    return res.status(isVal ? 400 : 500).json({
       success: false,
-      message: error.message || "Failed to fetch sales report data"
+      message: isVal ? error.message : "Failed to fetch sales report data"
     });
   }
 };
@@ -127,9 +229,10 @@ export const exportSalesReportPdf = async (req, res) => {
     return res.send(pdfBuffer);
   } catch (error) {
     console.error("Export Sales Report PDF Error:", error);
-    return res.status(500).json({
+    const isVal = isDateValidationError(error);
+    return res.status(isVal ? 400 : 500).json({
       success: false,
-      message: error.message || "Failed to generate PDF report"
+      message: isVal ? error.message : "Failed to generate PDF report"
     });
   }
 };
@@ -169,9 +272,10 @@ export const exportSalesReportExcel = async (req, res) => {
     return res.send(excelBuffer);
   } catch (error) {
     console.error("Export Sales Report Excel Error:", error);
-    return res.status(500).json({
+    const isVal = isDateValidationError(error);
+    return res.status(isVal ? 400 : 500).json({
       success: false,
-      message: error.message || "Failed to generate Excel report"
+      message: isVal ? error.message : "Failed to generate Excel report"
     });
   }
 };

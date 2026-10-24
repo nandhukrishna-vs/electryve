@@ -1113,8 +1113,11 @@ const getProductDetails = async (id, userId = null) => {
             const unitOfferDiscount = bestOffer ? bestOffer.unitDiscount : 0;
             const effectiveSalePrice = Math.max(0, salePrice - unitOfferDiscount);
 
+            const isVariantInWishlist = (v && v._id) ? wishlistVariantIds.includes(String(v._id)) : false;
+
             return {
                 ...v,
+                isInWishlist: isVariantInWishlist,
                 bestOffer,
                 unitOfferDiscount,
                 effectiveSalePrice,
@@ -1129,7 +1132,8 @@ const getProductDetails = async (id, userId = null) => {
                     stock: v.stock,
                     bestOffer,
                     unitOfferDiscount,
-                    effectiveSalePrice
+                    effectiveSalePrice,
+                    isInWishlist: isVariantInWishlist
                 }
             };
         });

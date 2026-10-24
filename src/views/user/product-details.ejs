@@ -212,8 +212,8 @@
                                 <i class="bi bi-share"></i> Share
                             </button>
                             <!-- Wishlist -->
-                            <button type="button" id="pdpWishlistBtn" class="btn btn-sm btn-outline-danger rounded-pill px-2.5" title="Wishlist">
-                                <i class="bi bi-heart" id="pdpWishlistIcon"></i> <span id="pdpWishlistText">Wishlist</span>
+                            <button type="button" id="pdpWishlistBtn" class="btn btn-sm <%= product.isInWishlist ? 'btn-danger' : 'btn-outline-danger' %> rounded-pill px-2.5" title="Wishlist" aria-label="<%= product.isInWishlist ? 'Remove from wishlist' : 'Add to wishlist' %>" aria-pressed="<%= product.isInWishlist ? 'true' : 'false' %>">
+                                <i class="bi <%= product.isInWishlist ? 'bi-heart-fill' : 'bi-heart' %>" id="pdpWishlistIcon"></i> <span id="pdpWishlistText"><%= product.isInWishlist ? 'In Wishlist' : 'Wishlist' %></span>
                             </button>
                         </div>
                     </div>
@@ -922,6 +922,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 selectedVariantId = pdpVariants[idx]._id;
             }
 
+            const originalBtnHtml = addCartBtn.innerHTML;
+            addCartBtn.disabled = true;
+            addCartBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Adding...';
+
             fetch('/cart/add', {
                 method: 'POST',
                 headers: {
@@ -935,6 +939,8 @@ document.addEventListener("DOMContentLoaded", function() {
             })
             .then(res => {
                 if (res.status === 401) {
+                    addCartBtn.disabled = false;
+                    addCartBtn.innerHTML = originalBtnHtml;
                     Swal.fire({
                         title: 'Log In Required',
                         text: 'You need to log in to add items to your cart.',
@@ -992,33 +998,168 @@ document.addEventListener("DOMContentLoaded", function() {
                         confirmButtonColor: '#111827'
                     });
                 }
+            })
+            .finally(() => {
+                addCartBtn.disabled = false;
+                addCartBtn.innerHTML = originalBtnHtml;
+            });
+        });
+    }
+
+    // PDP Buy Now Action
+    const buyNowBtn = document.getElementById('pdpBuyNowBtn');
+    if (buyNowBtn) {
+        buyNowBtn.addEventListener('click', function() {
+            const qty = parseInt(document.getElementById('quantity').value) || 1;
+            const activeVariantBtn = document.querySelector('.pdp-variant-opt-btn.active');
+
+            let selectedVariantId = '<%= product.defaultVariant._id %>';
+            if (activeVariantBtn) {
+                const idx = parseInt(activeVariantBtn.dataset.index);
+                selectedVariantId = pdpVariants[idx]._id;
+            }
+
+            const originalBtnHtml = buyNowBtn.innerHTML;
+            buyNowBtn.disabled = true;
+            buyNowBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...';
+
+            fetch('/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    productId: '<%= product._id %>',
+                    variantId: selectedVariantId,
+                    quantity: qty
+                })
+            })
+            .then(res => {
+                if (res.status === 401) {
+                    Swal.fire({
+                        title: 'Log In Required',
+                        text: 'You need to log in to proceed to checkout.',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Log In',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#111827'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "/auth/login";
+                        } else {
+                            buyNowBtn.disabled = false;
+                            buyNowBtn.innerHTML = originalBtnHtml;
+                        }
+                    });
+                    return;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    window.location.href = '/checkout';
+                } else if (data) {
+                    buyNowBtn.disabled = false;
+                    buyNowBtn.innerHTML = originalBtnHtml;
+                    if (window.showError) {
+                        window.showError(data.message || "Failed to proceed to checkout.");
+                    } else {
+                        Swal.fire({
+                            title: 'Oops...',
+                            text: data.message || "Failed to proceed to checkout.",
+                            icon: 'error',
+                            confirmButtonColor: '#111827'
+                        });
+                    }
+                }
+            })
+            .catch(err => {
+                buyNowBtn.disabled = false;
+                buyNowBtn.innerHTML = originalBtnHtml;
+                console.error('Error in Buy Now:', err);
+                if (window.showError) {
+                    window.showError("An error occurred while preparing your checkout.");
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'An error occurred while preparing your checkout.',
+                        icon: 'error',
+                        confirmButtonColor: '#111827'
+                    });
+                }
             });
         });
     }
 
     // Wishlist Logic
-    function checkPdpWishlistStatus(variantId) {
+    function updateWishlistButtonUI(inWishlist) {
         const pdpWishlistIcon = document.getElementById('pdpWishlistIcon');
         const pdpWishlistText = document.getElementById('pdpWishlistText');
         const pdpWishlistBtn = document.getElementById('pdpWishlistBtn');
         if (!pdpWishlistBtn || !pdpWishlistIcon) return;
 
-        fetch(`/wishlist/status?productId=<%= product._id %>&variantId=${variantId}`)
+        if (inWishlist) {
+            pdpWishlistIcon.className = "bi bi-heart-fill";
+            if (pdpWishlistText) pdpWishlistText.textContent = "In Wishlist";
+            pdpWishlistBtn.classList.remove("btn-outline-danger");
+            pdpWishlistBtn.classList.add("btn-danger");
+            pdpWishlistBtn.setAttribute("aria-label", "Remove from wishlist");
+            pdpWishlistBtn.setAttribute("aria-pressed", "true");
+        } else {
+            pdpWishlistIcon.className = "bi bi-heart";
+            if (pdpWishlistText) pdpWishlistText.textContent = "Wishlist";
+            pdpWishlistBtn.classList.remove("btn-danger");
+            pdpWishlistBtn.classList.add("btn-outline-danger");
+            pdpWishlistBtn.setAttribute("aria-label", "Add to wishlist");
+            pdpWishlistBtn.setAttribute("aria-pressed", "false");
+        }
+    }
+
+    let pdpWishlistAbortController = null;
+
+    function checkPdpWishlistStatus(variantId) {
+        if (pdpWishlistAbortController) {
+            pdpWishlistAbortController.abort();
+        }
+        pdpWishlistAbortController = new AbortController();
+        const signal = pdpWishlistAbortController.signal;
+
+        const activeVariantBtn = document.querySelector('.pdp-variant-opt-btn.active');
+        if (activeVariantBtn) {
+            const idx = parseInt(activeVariantBtn.dataset.index);
+            if (pdpVariants[idx] && typeof pdpVariants[idx].isInWishlist === 'boolean') {
+                updateWishlistButtonUI(pdpVariants[idx].isInWishlist);
+            }
+        }
+
+        fetch(`/wishlist/status?productId=<%= product._id %>&variantId=${variantId}`, { signal })
             .then(res => res.json())
             .then(data => {
-                if (data.success && data.inWishlist) {
-                    pdpWishlistIcon.className = "bi bi-heart-fill";
-                    pdpWishlistText.textContent = "In Wishlist";
-                    pdpWishlistBtn.classList.remove("btn-outline-danger");
-                    pdpWishlistBtn.classList.add("btn-danger");
-                } else {
-                    pdpWishlistIcon.className = "bi bi-heart";
-                    pdpWishlistText.textContent = "Wishlist";
-                    pdpWishlistBtn.classList.remove("btn-danger");
-                    pdpWishlistBtn.classList.add("btn-outline-danger");
+                if (data && data.success && typeof data.inWishlist === "boolean") {
+                    const targetVar = pdpVariants.find(v => String(v._id) === String(variantId));
+                    if (targetVar) {
+                        targetVar.isInWishlist = data.inWishlist;
+                    }
+
+                    const curBtn = document.querySelector('.pdp-variant-opt-btn.active');
+                    let currentSelectedId = '<%= product.defaultVariant._id %>';
+                    if (curBtn) {
+                        const curIdx = parseInt(curBtn.dataset.index);
+                        if (pdpVariants[curIdx]) {
+                            currentSelectedId = pdpVariants[curIdx]._id;
+                        }
+                    }
+                    if (String(currentSelectedId) === String(variantId)) {
+                        updateWishlistButtonUI(data.inWishlist);
+                    }
                 }
             })
-            .catch(err => console.error("Error checking wishlist status:", err));
+            .catch(err => {
+                if (err.name !== 'AbortError') {
+                    console.error("Error checking wishlist status:", err);
+                }
+            });
     }
 
     // Initialize wishlist state for default variant on load
@@ -1036,15 +1177,18 @@ document.addEventListener("DOMContentLoaded", function() {
     if (pdpWishlistBtn) {
         pdpWishlistBtn.addEventListener('click', function() {
             const activeVariantBtn = document.querySelector('.pdp-variant-opt-btn.active');
+            let selectedVariantIndex = 0;
             let selectedVariantId = '<%= product.defaultVariant._id %>';
             if (activeVariantBtn) {
-                const idx = parseInt(activeVariantBtn.dataset.index);
-                selectedVariantId = pdpVariants[idx]._id;
+                selectedVariantIndex = parseInt(activeVariantBtn.dataset.index);
+                selectedVariantId = pdpVariants[selectedVariantIndex]._id;
             }
 
             const icon = document.getElementById('pdpWishlistIcon');
             const inWishlist = icon && icon.classList.contains("bi-heart-fill");
             const url = inWishlist ? "/wishlist/remove" : "/wishlist/add";
+
+            pdpWishlistBtn.disabled = true;
 
             fetch(url, {
                 method: "POST",
@@ -1058,6 +1202,7 @@ document.addEventListener("DOMContentLoaded", function() {
             })
             .then(res => {
                 if (res.status === 401 || res.redirected) {
+                    pdpWishlistBtn.disabled = false;
                     Swal.fire({
                         title: 'Log In Required',
                         text: 'You need to log in to add items to your wishlist.',
@@ -1078,6 +1223,12 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(data => {
                 if (!data) return;
                 if (data.success) {
+                    if (typeof data.inWishlist === "boolean") {
+                        updateWishlistButtonUI(data.inWishlist);
+                        if (pdpVariants[selectedVariantIndex]) {
+                            pdpVariants[selectedVariantIndex].isInWishlist = data.inWishlist;
+                        }
+                    }
                     if (window.showSuccess) {
                         window.showSuccess(data.message);
                     } else {
@@ -1089,7 +1240,6 @@ document.addEventListener("DOMContentLoaded", function() {
                             showConfirmButton: false
                         });
                     }
-                    checkPdpWishlistStatus(selectedVariantId);
                     if (typeof refreshNavbarWishlistCount === "function") {
                         refreshNavbarWishlistCount();
                     }
@@ -1108,7 +1258,19 @@ document.addEventListener("DOMContentLoaded", function() {
             })
             .catch(err => {
                 console.error("PDP Wishlist toggle error:", err);
-                window.location.href = "/auth/login";
+                if (window.showError) {
+                    window.showError("An error occurred while updating your wishlist.");
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'An error occurred while updating your wishlist.',
+                        confirmButtonColor: '#111827'
+                    });
+                }
+            })
+            .finally(() => {
+                pdpWishlistBtn.disabled = false;
             });
         });
     }
@@ -1222,7 +1384,16 @@ document.addEventListener("DOMContentLoaded", function() {
         })
         .catch(err => {
             console.error("Related product wishlist toggle error:", err);
-            window.location.href = "/auth/login";
+            if (window.showError) {
+                window.showError("An error occurred while updating your wishlist.");
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while updating your wishlist.',
+                    confirmButtonColor: '#111827'
+                });
+            }
         })
         .finally(() => {
             btn.disabled = false;

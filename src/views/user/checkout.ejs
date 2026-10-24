@@ -56,7 +56,7 @@
         padding-bottom: 0;
         margin-bottom: 0;
     }
-    
+
     .invalid-feedback {
         font-size: 0.78rem;
         font-weight: 500;
@@ -127,7 +127,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="border-top pt-2 mt-2 d-flex justify-content-between align-items-center">
                                         <span class="text-secondary small" style="font-size: 0.75rem;"><i class="bi bi-telephone-fill"></i> <%= addr.phone %></span>
                                         <div class="d-flex gap-2">
@@ -231,7 +231,7 @@
                     <!-- Coupon Application Section -->
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-secondary mb-1.5">Apply Coupon</label>
-                        
+
                         <!-- Trigger Card (shown when no coupon applied) -->
                         <div id="couponTriggerWrapper" style="<%= (typeof appliedCoupon !== 'undefined' && appliedCoupon) ? 'display: none !important;' : '' %>">
                             <div class="card border rounded-3 p-3 bg-light d-flex flex-row align-items-center justify-content-between mb-2 shadow-sm">
@@ -1336,7 +1336,11 @@ function removeCoupon() {
     });
 }
 
+let isOrderSubmitting = false;
+
 function placeOrder() {
+    if (isOrderSubmitting) return;
+
     const radio = document.querySelector("input[name='checkoutAddressRadio']:checked");
     if (!radio) {
         Swal.fire({
@@ -1350,7 +1354,11 @@ function placeOrder() {
     const addressId = radio.value;
     const checkoutAttemptId = document.getElementById("checkoutAttemptId")?.value || "";
     const btn = document.getElementById("btnPlaceCODOrder");
-    if (btn) btn.disabled = true;
+    isOrderSubmitting = true;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Placing Order...';
+    }
 
     fetch("/checkout/place-order", {
         method: "POST",
@@ -1372,7 +1380,11 @@ function placeOrder() {
                 window.location.href = `/checkout/success?orderNumber=${data.orderNumber}`;
             });
         } else {
-            btn.disabled = false;
+            isOrderSubmitting = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Place Order (Cash on Delivery)";
+            }
             Swal.fire({
                 icon: 'error',
                 title: 'Order Failed',
@@ -1381,7 +1393,11 @@ function placeOrder() {
         }
     })
     .catch(err => {
-        btn.disabled = false;
+        isOrderSubmitting = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Place Order (Cash on Delivery)";
+        }
         console.error("Place Order Error:", err);
         Swal.fire({
             icon: 'error',
@@ -1444,6 +1460,7 @@ function handlePaymentMethodChange(method) {
 }
 
 function handleOrderAction() {
+    if (isOrderSubmitting) return;
     if (selectedPaymentMethod === "RAZORPAY") {
         initiateRazorpayPayment();
     } else if (selectedPaymentMethod === "WALLET") {
@@ -1454,6 +1471,8 @@ function handleOrderAction() {
 }
 
 function placeWalletOrder() {
+    if (isOrderSubmitting) return;
+
     const radio = document.querySelector("input[name='checkoutAddressRadio']:checked");
     if (!radio) {
         Swal.fire({
@@ -1467,6 +1486,7 @@ function placeWalletOrder() {
     const addressId = radio.value;
     const checkoutAttemptId = document.getElementById("checkoutAttemptId")?.value || "";
     const btn = document.getElementById("btnPlaceCODOrder");
+    isOrderSubmitting = true;
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing Wallet Payment...';
@@ -1492,6 +1512,7 @@ function placeWalletOrder() {
                 window.location.href = `/checkout/success?orderNumber=${data.orderNumber}`;
             });
         } else {
+            isOrderSubmitting = false;
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = "Pay with Wallet";
@@ -1504,6 +1525,7 @@ function placeWalletOrder() {
         }
     })
     .catch(err => {
+        isOrderSubmitting = false;
         if (btn) {
             btn.disabled = false;
             btn.textContent = "Pay with Wallet";
@@ -1518,6 +1540,8 @@ function placeWalletOrder() {
 }
 
 function initiateRazorpayPayment() {
+    if (isOrderSubmitting) return;
+
     const radio = document.querySelector("input[name='checkoutAddressRadio']:checked");
     if (!radio) {
         Swal.fire({
@@ -1531,6 +1555,7 @@ function initiateRazorpayPayment() {
     const addressId = radio.value;
     const checkoutAttemptId = document.getElementById("checkoutAttemptId")?.value || "";
     const btn = document.getElementById("btnPlaceCODOrder");
+    isOrderSubmitting = true;
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Initiating Payment...';
@@ -1546,6 +1571,7 @@ function initiateRazorpayPayment() {
     .then(res => res.json())
     .then(data => {
         if (!data.success) {
+            isOrderSubmitting = false;
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = "Pay Securely";
@@ -1607,6 +1633,7 @@ function initiateRazorpayPayment() {
                     } else if (verifyData.status === "FULFILLMENT_BLOCKED") {
                         window.location.href = `/payment/failure?orderId=${encodeURIComponent(response.razorpay_order_id)}&attemptId=${encodeURIComponent(checkoutAttemptId)}`;
                     } else {
+                        isOrderSubmitting = false;
                         if (btn) {
                             btn.disabled = false;
                             btn.textContent = "Pay Securely";
@@ -1619,6 +1646,7 @@ function initiateRazorpayPayment() {
                     }
                 })
                 .catch(err => {
+                    isOrderSubmitting = false;
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = "Pay Securely";
@@ -1633,6 +1661,7 @@ function initiateRazorpayPayment() {
             },
             modal: {
                 ondismiss: function () {
+                    isOrderSubmitting = false;
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = "Pay Securely";
@@ -1651,6 +1680,7 @@ function initiateRazorpayPayment() {
 
         const rzp = new window.Razorpay(options);
         rzp.on("payment.failed", function (failResponse) {
+            isOrderSubmitting = false;
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = "Pay Securely";
@@ -1669,6 +1699,7 @@ function initiateRazorpayPayment() {
         rzp.open();
     })
     .catch(err => {
+        isOrderSubmitting = false;
         if (btn) {
             btn.disabled = false;
             btn.textContent = "Pay Securely";

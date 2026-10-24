@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+package-lock.json
+.env*
+scratch/
+tests/
+.git/
+coverage/
+
+# Intentional Exclusions:
+# 1. Binary uploads and user-generated media files
+public/uploads/
+
+# 2. EJS templates: Prettier's HTML parser corrupts embedded scriptlets (<% ... %>) and attribute conditionals
+*.ejs
+
+# 3. CSS stylesheets: public/css/*.css contains legacy stylesheets. Excluded to prevent reformatting
+#    unrelated styling rules (rgba spacing, shorthand properties) and avoid unnecessary diff churn.
+public/css/
+
+# 4. Client-side browser JavaScript: Excluded to prevent reformatting legacy frontend scripts
+public/js/

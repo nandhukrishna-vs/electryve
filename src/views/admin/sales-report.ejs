@@ -22,19 +22,19 @@
         <span>Refresh</span>
       </button>
 
-      <a href="/admin/sales-report/pdf?preset=<%= query.preset %>&startDate=<%= query.startDate || '' %>&endDate=<%= query.endDate || '' %>&paymentMethod=<%= query.paymentMethod || 'ALL' %>&orderStatus=<%= query.orderStatus || 'ALL' %>&search=<%= encodeURIComponent(query.search || '') %>" 
-         class="btn btn-danger btn-sm shadow-sm px-3 py-2" 
-         id="btn-export-pdf" 
-         target="_blank" 
+      <a href="/admin/sales-report/pdf?preset=<%= query.preset %>&startDate=<%= query.startDate || '' %>&endDate=<%= query.endDate || '' %>&paymentMethod=<%= query.paymentMethod || 'ALL' %>&orderStatus=<%= query.orderStatus || 'ALL' %>&search=<%= encodeURIComponent(query.search || '') %>"
+         class="btn btn-danger btn-sm shadow-sm px-3 py-2"
+         id="btn-export-pdf"
+         target="_blank"
          title="Download PDF Sales Report">
         <i class="bi bi-file-earmark-pdf me-1"></i>
         <span>Export PDF</span>
       </a>
 
-      <a href="/admin/sales-report/excel?preset=<%= query.preset %>&startDate=<%= query.startDate || '' %>&endDate=<%= query.endDate || '' %>&paymentMethod=<%= query.paymentMethod || 'ALL' %>&orderStatus=<%= query.orderStatus || 'ALL' %>&search=<%= encodeURIComponent(query.search || '') %>" 
-         class="btn btn-success btn-sm shadow-sm px-3 py-2" 
-         id="btn-export-excel" 
-         target="_blank" 
+      <a href="/admin/sales-report/excel?preset=<%= query.preset %>&startDate=<%= query.startDate || '' %>&endDate=<%= query.endDate || '' %>&paymentMethod=<%= query.paymentMethod || 'ALL' %>&orderStatus=<%= query.orderStatus || 'ALL' %>&search=<%= encodeURIComponent(query.search || '') %>"
+         class="btn btn-success btn-sm shadow-sm px-3 py-2"
+         id="btn-export-excel"
+         target="_blank"
          title="Download Excel Sales Report">
         <i class="bi bi-file-earmark-excel me-1"></i>
         <span>Export Excel</span>
@@ -63,12 +63,12 @@
         <div id="custom-range-container" class="<%= query.preset === 'custom' ? 'd-flex' : 'd-none' %> align-items-center gap-2 flex-wrap">
           <div class="input-group input-group-sm" style="max-width: 160px;">
             <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
-            <input type="date" id="custom-start-date" class="form-control" value="<%= query.startDate || '' %>" title="Start Date" />
+            <input type="date" id="custom-start-date" class="form-control" value="<%= query.startDate || '' %>" max="<%= typeof todayStr !== 'undefined' ? todayStr : '' %>" title="Start Date" />
           </div>
           <span class="text-muted small">to</span>
           <div class="input-group input-group-sm" style="max-width: 160px;">
             <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
-            <input type="date" id="custom-end-date" class="form-control" value="<%= query.endDate || '' %>" title="End Date" />
+            <input type="date" id="custom-end-date" class="form-control" value="<%= query.endDate || '' %>" max="<%= typeof todayStr !== 'undefined' ? todayStr : '' %>" title="End Date" />
           </div>
           <button type="button" class="btn btn-sm btn-primary px-3" id="btn-apply-custom">
             <i class="bi bi-check-lg me-1"></i>Apply
@@ -529,6 +529,35 @@
   const exportPdfBtn = document.getElementById("btn-export-pdf");
   const exportExcelBtn = document.getElementById("btn-export-excel");
 
+  // IST Date bounds setup
+  const getTodayIST = () => {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+  };
+  const todayIST = getTodayIST();
+  if (customStartDateInput) customStartDateInput.max = todayIST;
+  if (customEndDateInput) customEndDateInput.max = todayIST;
+
+  // Auto-correct any initial saved/requested custom range that contains future dates
+  if (currentPreset === "custom" && (currentStartDate > todayIST || currentEndDate > todayIST)) {
+    if (window.Swal) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Future Dates Corrected',
+        text: 'The requested custom range contained future dates and has been reset to This Month.'
+      });
+    }
+    currentPreset = "this_month";
+    currentStartDate = "";
+    currentEndDate = "";
+    if (customStartDateInput) customStartDateInput.value = "";
+    if (customEndDateInput) customEndDateInput.value = "";
+    if (customRangeContainer) customRangeContainer.classList.add("d-none");
+    presetButtons.forEach(b => {
+      if (b.getAttribute("data-preset") === "this_month") b.classList.add("active");
+      else b.classList.remove("active");
+    });
+  }
+
   // KPI elements
   const kpiNetSales = document.getElementById("kpi-net-sales");
   const kpiGrossSales = document.getElementById("kpi-gross-sales");
@@ -618,6 +647,7 @@
     const token = ++requestSequenceToken;
     if (loadingBar) loadingBar.classList.remove("d-none");
     if (spinnerIcon) spinnerIcon.classList.add("spin-animation");
+    if (applyCustomBtn) applyCustomBtn.disabled = true;
 
     try {
       const params = new URLSearchParams({
@@ -662,6 +692,7 @@
       if (token === requestSequenceToken) {
         if (loadingBar) loadingBar.classList.add("d-none");
         if (spinnerIcon) spinnerIcon.classList.remove("spin-animation");
+        if (applyCustomBtn) applyCustomBtn.disabled = false;
       }
     }
   };
@@ -859,10 +890,29 @@
 
   if (applyCustomBtn) {
     applyCustomBtn.addEventListener("click", () => {
-      const s = customStartDateInput?.value;
-      const e = customEndDateInput?.value;
+      const s = customStartDateInput?.value?.trim();
+      const e = customEndDateInput?.value?.trim();
       if (!s || !e) {
         if (window.Swal) Swal.fire({ icon: 'warning', title: 'Dates Required', text: 'Please select both start and end dates.' });
+        return;
+      }
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(s) || !dateRegex.test(e)) {
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Invalid Date Format', text: 'Please enter valid dates in YYYY-MM-DD format.' });
+        return;
+      }
+      const isValidDate = (str) => {
+        const [y, m, d] = str.split("-").map(Number);
+        if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        return dt.getUTCFullYear() === y && (dt.getUTCMonth() + 1) === m && dt.getUTCDate() === d;
+      };
+      if (!isValidDate(s) || !isValidDate(e)) {
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Invalid Calendar Date', text: 'Please provide valid calendar dates.' });
+        return;
+      }
+      if (s > todayIST || e > todayIST) {
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Future Dates Not Allowed', text: 'Start and end dates cannot be in the future. Please select dates up to today.' });
         return;
       }
       if (s > e) {

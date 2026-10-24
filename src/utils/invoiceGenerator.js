@@ -4,7 +4,7 @@ import { formatOrderStatus } from "./orderStatusFormatter.js";
 /**
  * Generates and streams a professional PDF invoice for an order.
  * Uses trusted historical snapshot data stored in the Order document.
- * 
+ *
  * @param {Object} order - Populated Mongoose order document
  * @param {Object} res - Express response object
  */
