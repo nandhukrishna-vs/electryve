@@ -1204,6 +1204,9 @@ const requestReturn = async (orderId, userId, reason) => {
   if (!order) {
     return { success: false, message: "Order not found." };
   }
+   
+  
+
 
   if (order.orderStatus !== "DELIVERED") {
     return {
@@ -1266,6 +1269,11 @@ const requestReturnItem = async (orderId, userId, itemId, reason) => {
   if (!item) {
     return { success: false, message: "Item not found in this order." };
   }
+  if(order.item.length>=5){
+    return {success :false,message: "Item is quantity is more than 5"}
+  }
+
+  if(order.offer)
 
   const isItemDelivered = item.itemStatus === "DELIVERED" || (order.orderStatus === "DELIVERED" && item.itemStatus === "ACTIVE");
   if (!isItemDelivered) {
